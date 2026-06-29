@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
+import { useDynamicParam } from "@/lib/use-dynamic-param";
 import Link from "next/link";
 import { EMPTY_QUESTION, Question, QuestionType } from "@/types/quiz";
 
@@ -25,7 +26,7 @@ function newQuestion(order: number): Omit<Question, "id"> {
 }
 
 export default function QuizEditorPage() {
-  const { id } = useParams<{ id: string }>();
+  const id = useDynamicParam(2, "id");
   const router = useRouter();
 
   const [title, setTitle] = useState("");

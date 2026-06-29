@@ -11,9 +11,12 @@
     "dev:frontend": "npm run dev -w frontend",
     "dev:backend": "npm run dev -w backend",
     "build": "npm run build -w backend && npm run build -w frontend",
+    "build:static": "NEXT_STATIC_EXPORT=1 npm run build -w frontend",
+    "deploy:frontend": "bash deploy-s3.sh",
     "start": "concurrently \"npm run start -w backend\" \"npm run start -w frontend\"",
     "lint": "npm run lint -w frontend",
-    "seed:admin": "npm run seed:admin -w backend"
+    "seed:admin": "npm run seed:admin -w backend",
+    "deploy:backend": "bash scripts/deploy-backend-ec2.sh"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

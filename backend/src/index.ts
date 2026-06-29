@@ -12,9 +12,21 @@ import inviteRouter from "@/routes/invite";
 const app = express();
 const PORT = Number(process.env.PORT ?? 4000);
 
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  process.env.NEXT_PUBLIC_APP_URL,
+  "http://localhost:3000",
+].filter(Boolean) as string[];
+
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL ?? "http://localhost:3000",
+    origin(origin, callback) {
+      if (!origin || allowedOrigins.some((o) => origin === o || origin === o.replace("://", "://www."))) {
+        callback(null, true);
+        return;
+      }
+      callback(null, false);
+    },
     credentials: true,
   }),
 );

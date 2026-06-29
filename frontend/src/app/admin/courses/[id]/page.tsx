@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
+import { useDynamicParam } from "@/lib/use-dynamic-param";
 import { AdminShell, useAdminSession } from "@/components/layout/AdminShell";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Tabs } from "@/components/ui/Tabs";
@@ -154,7 +155,7 @@ function QuestionEditor({
 }
 
 export default function CourseEditorPage() {
-  const { id } = useParams<{ id: string }>();
+  const id = useDynamicParam(2, "id");
   const router = useRouter();
   const admin = useAdminSession();
 

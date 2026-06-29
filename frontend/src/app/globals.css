@@ -112,12 +112,92 @@ body {
   to { opacity: 1; transform: translateY(0); }
 }
 
+@keyframes celebrate-rise {
+  0% {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes wrong-rise {
+  0% {
+    opacity: 0;
+    transform: translateY(100%) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes feedback-exit {
+  0% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+
+@keyframes celebrate-pop {
+  0% { transform: scale(0.6); }
+  50% { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+
+@keyframes shake-wrong {
+  0%, 100% { transform: translateX(0); }
+  12% { transform: translateX(-10px); }
+  24% { transform: translateX(10px); }
+  36% { transform: translateX(-8px); }
+  48% { transform: translateX(8px); }
+  60% { transform: translateX(-4px); }
+  72% { transform: translateX(4px); }
+}
+
+@keyframes option-correct-pop {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.03); box-shadow: 0 0 0 4px rgba(4, 120, 87, 0.2); }
+  100% { transform: scale(1); }
+}
+
+@keyframes option-wrong-flash {
+  0%, 100% { background-color: var(--danger-muted); }
+  50% { background-color: #fecaca; }
+}
+
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
 
 .animate-fade-in {
   animation: fade-in 0.3s ease-out forwards;
+}
+
+.answer-feedback-rise {
+  animation: celebrate-rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.answer-feedback-wrong-rise {
+  animation: wrong-rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.answer-feedback-exit {
+  animation: feedback-exit 0.35s ease-in forwards;
+}
+
+.animate-celebrate-pop {
+  animation: celebrate-pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.quiz-card-shake {
+  animation: shake-wrong 0.55s cubic-bezier(0.36, 0.07, 0.19, 0.97);
 }
 
 .spinner {
@@ -153,11 +233,13 @@ body {
 .option-btn.correct {
   border-color: var(--success);
   background: var(--success-muted);
+  animation: option-correct-pop 0.5s ease-out;
 }
 
 .option-btn.wrong {
   border-color: var(--danger);
   background: var(--danger-muted);
+  animation: option-wrong-flash 0.45s ease-out;
 }
 
 .media-frame {

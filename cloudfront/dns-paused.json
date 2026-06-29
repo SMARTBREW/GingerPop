@@ -1,0 +1,44 @@
+{
+  "Comment": "Saved for resume — re-add when re-opening gingerpop.in",
+  "hostedZoneId": "Z08210812SMXCKLNPGURE",
+  "cloudFrontDistributionId": "E10IS5J65HID2H",
+  "cloudFrontDomain": "d2tztotlp2q6g7.cloudfront.net",
+  "records": [
+    {
+      "Name": "gingerpop.in",
+      "Type": "A",
+      "AliasTarget": {
+        "HostedZoneId": "Z2FDTNDATAQYW2",
+        "DNSName": "d2tztotlp2q6g7.cloudfront.net.",
+        "EvaluateTargetHealth": false
+      }
+    },
+    {
+      "Name": "gingerpop.in",
+      "Type": "AAAA",
+      "AliasTarget": {
+        "HostedZoneId": "Z2FDTNDATAQYW2",
+        "DNSName": "d2tztotlp2q6g7.cloudfront.net.",
+        "EvaluateTargetHealth": false
+      }
+    },
+    {
+      "Name": "www.gingerpop.in",
+      "Type": "A",
+      "AliasTarget": {
+        "HostedZoneId": "Z2FDTNDATAQYW2",
+        "DNSName": "d2tztotlp2q6g7.cloudfront.net.",
+        "EvaluateTargetHealth": false
+      }
+    },
+    {
+      "Name": "www.gingerpop.in",
+      "Type": "AAAA",
+      "AliasTarget": {
+        "HostedZoneId": "Z2FDTNDATAQYW2",
+        "DNSName": "d2tztotlp2q6g7.cloudfront.net.",
+        "EvaluateTargetHealth": false
+      }
+    }
+  ]
+}

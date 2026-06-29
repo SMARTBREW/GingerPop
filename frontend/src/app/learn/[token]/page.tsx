@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useDynamicParam } from "@/lib/use-dynamic-param";
 import { CourseLearner } from "@/components/CourseLearner";
 import { PlayQuestion } from "@/types/quiz";
 import { PublicLesson } from "@/types/course";
@@ -9,7 +9,7 @@ import { Spinner } from "@/components/ui/Spinner";
 import { Card } from "@/components/ui/Card";
 
 export default function LearnPage() {
-  const { token } = useParams<{ token: string }>();
+  const token = useDynamicParam(1, "token");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [data, setData] = useState<{

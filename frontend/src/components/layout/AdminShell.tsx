@@ -81,6 +81,9 @@ export function AdminShell({ children, flush }: AdminShellProps) {
         }
         setAdmin(data.admin);
         setLoading(false);
+      })
+      .catch(() => {
+        router.push("/admin/login");
       });
   }, [router]);
 
@@ -234,7 +237,7 @@ export function AdminShell({ children, flush }: AdminShellProps) {
 export function useAdminSession() {
   const [admin, setAdmin] = useState<AdminUser | null>(null);
   useEffect(() => {
-    fetch("/api/auth/me")
+    fetch("/api/auth/me", { credentials: "include" })
       .then((r) => r.json())
       .then((d) => setAdmin(d.admin ?? null));
   }, []);

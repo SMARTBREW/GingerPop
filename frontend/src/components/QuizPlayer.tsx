@@ -4,12 +4,19 @@ import { useCallback, useState } from "react";
 import Link from "next/link";
 import { QuestionCard } from "@/components/QuestionCard";
 import { QuizTimer } from "@/components/QuizTimer";
+import { AnswerFeedback } from "@/components/AnswerFeedback";
 import { AnswerResult, DEFAULT_TIME_LIMIT, getMaxScore, PlayQuestion } from "@/types/quiz";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 
-const ADVANCE_DELAY_MS = 1500;
+const ADVANCE_DELAY_MS = 3500;
+
+function triggerWrongHaptic() {
+  if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+    navigator.vibrate([60, 40, 60]);
+  }
+}
 
 interface QuizPlayerProps {
   questions: PlayQuestion[];
@@ -81,6 +88,8 @@ export function QuizPlayer({
   const [gameOver, setGameOver] = useState(completed);
   const [timedOut, setTimedOut] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [answerFeedback, setAnswerFeedback] = useState<"correct" | "wrong" | null>(null);
+  const [feedbackExiting, setFeedbackExiting] = useState(false);
 
   const question = playable[currentIndex];
   const timeLimit = question?.timeLimit ?? DEFAULT_TIME_LIMIT;
@@ -102,8 +111,19 @@ export function QuizPlayer({
       setIsAnswered(false);
       setRevealedCorrectIndex(null);
       setTimedOut(false);
+      setAnswerFeedback(null);
+      setFeedbackExiting(false);
     },
     [currentIndex, playable.length, finishQuiz, score],
+  );
+
+  const scheduleNext = useCallback(
+    (nextScore?: number, done?: boolean) => {
+      const holdMs = ADVANCE_DELAY_MS - 350;
+      setTimeout(() => setFeedbackExiting(true), holdMs);
+      setTimeout(() => goToNext(nextScore, done), ADVANCE_DELAY_MS);
+    },
+    [goToNext],
   );
 
   const submitAnswer = useCallback(
@@ -120,7 +140,19 @@ export function QuizPlayer({
           const result = await onSubmitAnswer(question.id, option);
           setRevealedCorrectIndex(result.correctIndex);
           setScore(result.score);
-          setTimeout(() => goToNext(result.score, result.completed), ADVANCE_DELAY_MS);
+          const isCorrect =
+            !fromTimeout &&
+            option !== null &&
+            result.correctIndex !== null &&
+            option === result.correctIndex;
+          if (isCorrect) {
+            setAnswerFeedback("correct");
+          } else {
+            setAnswerFeedback("wrong");
+            triggerWrongHaptic();
+          }
+          setFeedbackExiting(false);
+          scheduleNext(result.score, result.completed);
         } catch {
           setIsAnswered(false);
           setTimedOut(false);
@@ -138,21 +170,23 @@ export function QuizPlayer({
         const newScore = correct ? score + question.points : score;
         if (correct) setScore(newScore);
         setRevealedCorrectIndex(question.correctIndex);
+        if (correct) {
+          setAnswerFeedback("correct");
+        } else {
+          setAnswerFeedback("wrong");
+          triggerWrongHaptic();
+        }
+        setFeedbackExiting(false);
         const isLast = currentIndex >= playable.length - 1;
-        setTimeout(() => goToNext(newScore, isLast), ADVANCE_DELAY_MS);
+        scheduleNext(newScore, isLast);
       }
     },
-    [isAnswered, submitting, question, isRemote, onSubmitAnswer, goToNext, currentIndex, playable.length, score],
+    [isAnswered, submitting, question, isRemote, onSubmitAnswer, scheduleNext, currentIndex, playable.length, score],
   );
 
   const handleSelect = (index: number) => {
     if (isAnswered || submitting) return;
-    setSelectedOption(index);
-  };
-
-  const handleSubmit = () => {
-    if (selectedOption === null || isAnswered) return;
-    submitAnswer(selectedOption);
+    submitAnswer(index);
   };
 
   const handleTimeout = useCallback(() => {
@@ -217,12 +251,19 @@ export function QuizPlayer({
 
   return (
     <main className="min-h-screen bg-[var(--background)] px-4 py-8">
+      <AnswerFeedback
+        type={answerFeedback ?? "correct"}
+        points={question.points}
+        visible={answerFeedback !== null}
+        exiting={feedbackExiting}
+      />
+
       <div className="mx-auto max-w-3xl">
         {quizTitle && (
           <h1 className="mb-6 text-xl font-semibold tracking-tight text-gray-900">{quizTitle}</h1>
         )}
 
-        <Card>
+        <Card className={answerFeedback === "wrong" ? "quiz-card-shake" : undefined}>
           <header className="mb-8 flex items-center justify-between border-b border-gray-100 pb-6">
             <div>
               <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Score</p>
@@ -256,25 +297,13 @@ export function QuizPlayer({
           />
 
           <div className="mt-8 flex flex-col items-center gap-3 border-t border-gray-100 pt-6">
-            {!isAnswered && (
-              <Button
-                onClick={handleSubmit}
-                disabled={selectedOption === null || submitting}
-                className="min-w-[160px]"
-              >
-                {submitting ? "Submitting..." : "Submit answer"}
-              </Button>
-            )}
-            {isAnswered && (
+            {isAnswered && !answerFeedback && (
               <p className="text-sm font-medium text-gray-600">
-                {timedOut
-                  ? "Time expired."
-                  : revealedCorrectIndex !== null
-                    ? selectedOption === revealedCorrectIndex
-                      ? `Correct — +${question.points} points`
-                      : "Incorrect."
-                    : "Answer recorded."}
+                {timedOut ? "Time expired." : "Answer recorded."}
               </p>
+            )}
+            {!isAnswered && (
+              <p className="text-sm text-gray-500">Tap an option to submit your answer</p>
             )}
           </div>
         </Card>

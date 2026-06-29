@@ -62,7 +62,19 @@ const InvitationSchema = new Schema<IInvitation>(
   { timestamps: { createdAt: true, updatedAt: false } },
 );
 
-InvitationSchema.index({ courseId: 1, email: 1 }, { unique: true, sparse: true });
-InvitationSchema.index({ quizId: 1, email: 1 }, { unique: true, sparse: true });
+InvitationSchema.index(
+  { courseId: 1, email: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { courseId: { $exists: true, $type: "objectId" } },
+  },
+);
+InvitationSchema.index(
+  { quizId: 1, email: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { quizId: { $exists: true, $type: "objectId" } },
+  },
+);
 
 export const Invitation = models.Invitation || model<IInvitation>("Invitation", InvitationSchema);
