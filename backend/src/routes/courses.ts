@@ -1,0 +1,475 @@
+import { Router, Request, Response } from "express";
+import mongoose from "mongoose";
+import crypto from "crypto";
+import { connectDB } from "@/lib/mongodb";
+import { canManageCourse, requireAdmin, sendAuthError } from "@/lib/permissions";
+import { jsonError, jsonOk, unauthorized, getAppUrl } from "@/lib/api";
+import { validateCourseStructure, canSendInvites } from "@/lib/course-rules";
+import { buildLessonIdMap, isValidObjectId, resolveLessonObjectId } from "@/lib/course-id-map";
+import { sendCourseInviteEmail } from "@/lib/email";
+import { inviteExpiresAt } from "@/lib/invitation-expiry";
+import { Course, ICourseQuizQuestion, ILesson } from "@/models/Course";
+import { Invitation } from "@/models/Invitation";
+import { Admin } from "@/models/Admin";
+
+const router = Router();
+
+function serializeQuestion(q: ICourseQuizQuestion) {
+  return {
+    id: q._id.toString(),
+    type: q.type,
+    question: q.question,
+    options: q.options,
+    correctIndex: q.correctIndex,
+    points: q.points,
+    timeLimit: q.timeLimit,
+    mediaUrl: q.mediaUrl,
+    mediaCaption: q.mediaCaption,
+    order: q.order,
+    lessonId: q.lessonId?.toString(),
+  };
+}
+
+router.get("/", async (req: Request, res: Response) => {
+  const auth = await requireAdmin(req);
+  if ("error" in auth) return sendAuthError(res, auth);
+
+  await connectDB();
+
+  const filter =
+    auth.admin.role === "super_admin" ? {} : { adminId: auth.admin.id };
+
+  const courses = await Course.find(filter).sort({ updatedAt: -1 });
+
+  return jsonOk(res, {
+    courses: courses.map((c) => ({
+      id: c._id.toString(),
+      title: c.title,
+      description: c.description,
+      published: c.published,
+      lessonCount: c.lessons.length,
+      quizCount: c.quizQuestions.length,
+      updatedAt: c.updatedAt,
+      createdAt: c.createdAt,
+    })),
+  });
+});
+
+router.post("/", async (req: Request, res: Response) => {
+  const auth = await requireAdmin(req);
+  if ("error" in auth) return sendAuthError(res, auth);
+
+  try {
+    const { title, description } = req.body;
+    if (!title?.trim()) return jsonError(res, "Title is required");
+
+    await connectDB();
+    const course = await Course.create({
+      title: title.trim(),
+      description: description?.trim(),
+      adminId: auth.admin.id,
+      lessons: [],
+      quizQuestions: [],
+      published: false,
+    });
+
+    return jsonOk(res, { course: { id: course._id.toString(), title: course.title } }, 201);
+  } catch (err) {
+    console.error("Create course error:", err);
+    return jsonError(res, "Failed to create course", 500);
+  }
+});
+
+router.get("/:id", async (req: Request, res: Response) => {
+  const auth = await requireAdmin(req);
+  if ("error" in auth) return sendAuthError(res, auth);
+
+  const { id } = req.params;
+  await connectDB();
+
+  const course = await Course.findById(id);
+  if (!course) return jsonError(res, "Course not found", 404);
+  if (!canManageCourse(auth.admin, course.adminId.toString())) return unauthorized(res);
+
+  const invitations = await Invitation.find({ courseId: id }).sort({ createdAt: -1 });
+  const adminIds = [...new Set(invitations.map((inv) => inv.adminId.toString()))];
+  const admins = await Admin.find({ _id: { $in: adminIds } });
+  const adminNameById = new Map(admins.map((a) => [a._id.toString(), a.name]));
+
+  return jsonOk(res, {
+    course: {
+      id: course._id.toString(),
+      title: course.title,
+      description: course.description,
+      published: course.published,
+      lessons: course.lessons
+        .sort((a: ILesson, b: ILesson) => a.order - b.order)
+        .map((l: ILesson) => ({
+          id: l._id.toString(),
+          type: l.type,
+          title: l.title,
+          content: l.content,
+          mediaUrl: l.mediaUrl,
+          mediaCaption: l.mediaCaption,
+          order: l.order,
+        })),
+      quizQuestions: course.quizQuestions
+        .sort((a: ICourseQuizQuestion, b: ICourseQuizQuestion) => a.order - b.order)
+        .map(serializeQuestion),
+    },
+    invitations: invitations.map((inv) => ({
+      id: inv._id.toString(),
+      email: inv.email,
+      phase: inv.phase,
+      score: inv.score,
+      maxScore: inv.maxScore,
+      lessonsCompleted: inv.completedLessonIds.length,
+      sentAt: inv.sentAt,
+      expiresAt: inv.expiresAt,
+      completedAt: inv.completedAt,
+      invitedByName: adminNameById.get(inv.adminId.toString()) ?? null,
+    })),
+  });
+});
+
+router.put("/:id", async (req: Request, res: Response) => {
+  const auth = await requireAdmin(req);
+  if ("error" in auth) return sendAuthError(res, auth);
+
+  const { id } = req.params;
+
+  try {
+    const body = req.body;
+    await connectDB();
+
+    const course = await Course.findById(id);
+    if (!course) return jsonError(res, "Course not found", 404);
+    if (!canManageCourse(auth.admin, course.adminId.toString())) return unauthorized(res);
+
+    const nextLessons =
+      body.lessons !== undefined
+        ? body.lessons.map(
+            (
+              l: {
+                id?: string;
+                type: string;
+                title: string;
+                content?: string;
+                mediaUrl?: string;
+                mediaCaption?: string;
+                order: number;
+              },
+              idx: number,
+            ) => ({
+              id: l.id ?? `idx-${idx}`,
+              type: l.type,
+              title: l.title,
+              content: l.content,
+              mediaUrl: l.mediaUrl,
+              mediaCaption: l.mediaCaption,
+              order: l.order ?? idx,
+            }),
+          )
+        : course.lessons.map((l: ILesson) => ({
+            id: l._id.toString(),
+            title: l.title,
+            type: l.type,
+            content: l.content,
+            mediaUrl: l.mediaUrl,
+            mediaCaption: l.mediaCaption,
+            order: l.order,
+          }));
+
+    const nextQuestions =
+      body.quizQuestions !== undefined
+        ? body.quizQuestions.map(
+            (
+              q: {
+                id?: string;
+                lessonId?: string;
+                type: string;
+                question: string;
+                options: string[];
+                correctIndex: number;
+                points: number;
+                timeLimit: number;
+                mediaUrl?: string;
+                mediaCaption?: string;
+                order: number;
+              },
+              idx: number,
+            ) => ({
+              id: q.id,
+              lessonId: q.lessonId,
+              type: q.type,
+              question: q.question,
+              options: q.options,
+              correctIndex: q.correctIndex,
+              points: q.points ?? 10,
+              timeLimit: q.timeLimit ?? 30,
+              mediaUrl: q.mediaUrl,
+              mediaCaption: q.mediaCaption,
+              order: q.order ?? idx,
+            }),
+          )
+        : course.quizQuestions.map((q: ICourseQuizQuestion) => ({
+            id: q._id.toString(),
+            lessonId: q.lessonId?.toString(),
+            type: q.type,
+            question: q.question,
+            options: q.options,
+            correctIndex: q.correctIndex,
+            points: q.points,
+            timeLimit: q.timeLimit,
+            mediaUrl: q.mediaUrl,
+            mediaCaption: q.mediaCaption,
+            order: q.order,
+          }));
+
+    const publishing = body.published === true && !course.published;
+    const willPublish = body.published !== undefined ? Boolean(body.published) : course.published;
+
+    if (willPublish || publishing) {
+      const check = validateCourseStructure(
+        nextLessons.map((l: { id: string; title: string }) => ({ id: l.id, title: l.title })),
+        nextQuestions.map((q: { lessonId?: string }) => ({ lessonId: q.lessonId })),
+      );
+      if (!check.valid) return jsonError(res, check.error ?? "Invalid course structure", 400);
+    }
+
+    if (body.title !== undefined) course.title = body.title.trim();
+    if (body.description !== undefined) course.description = body.description?.trim();
+    if (body.published !== undefined) course.published = Boolean(body.published);
+
+    if (body.lessons !== undefined) {
+      const lessonIdMap = buildLessonIdMap(body.lessons);
+      course.lessons = body.lessons.map(
+        (
+          l: {
+            id?: string;
+            type: string;
+            title: string;
+            content?: string;
+            mediaUrl?: string;
+            mediaCaption?: string;
+            order: number;
+          },
+          idx: number,
+        ) => {
+          const _id =
+            l.id && isValidObjectId(l.id)
+              ? new mongoose.Types.ObjectId(l.id)
+              : lessonIdMap.get(`idx-${idx}`)!;
+          return {
+            _id,
+            type: l.type,
+            title: l.title,
+            content: l.content,
+            mediaUrl: l.mediaUrl,
+            mediaCaption: l.mediaCaption,
+            order: l.order ?? idx,
+          };
+        },
+      );
+
+      if (body.quizQuestions !== undefined) {
+        course.quizQuestions = body.quizQuestions.map(
+          (
+            q: {
+              id?: string;
+              lessonId?: string;
+              type: string;
+              question: string;
+              options: string[];
+              correctIndex: number;
+              points: number;
+              timeLimit: number;
+              mediaUrl?: string;
+              mediaCaption?: string;
+              order: number;
+            },
+            idx: number,
+          ) => {
+            const lessonObjectId = resolveLessonObjectId(q.lessonId, lessonIdMap);
+            return {
+              ...(q.id && isValidObjectId(q.id)
+                ? { _id: new mongoose.Types.ObjectId(q.id) }
+                : {}),
+              type: q.type,
+              question: q.question,
+              options: q.options,
+              correctIndex: q.correctIndex,
+              points: q.points ?? 10,
+              timeLimit: q.timeLimit ?? 30,
+              mediaUrl: q.mediaUrl,
+              mediaCaption: q.mediaCaption,
+              order: q.order ?? idx,
+              ...(lessonObjectId ? { lessonId: lessonObjectId } : {}),
+            };
+          },
+        );
+      }
+    } else if (body.quizQuestions !== undefined) {
+      const lessonIdMap = buildLessonIdMap(
+        course.lessons.map((l: ILesson) => ({ id: l._id.toString() })),
+      );
+      course.quizQuestions = body.quizQuestions.map(
+        (
+          q: {
+            id?: string;
+            lessonId?: string;
+            type: string;
+            question: string;
+            options: string[];
+            correctIndex: number;
+            points: number;
+            timeLimit: number;
+            mediaUrl?: string;
+            mediaCaption?: string;
+            order: number;
+          },
+          idx: number,
+        ) => {
+          const lessonObjectId = resolveLessonObjectId(q.lessonId, lessonIdMap);
+          return {
+            ...(q.id && isValidObjectId(q.id) ? { _id: new mongoose.Types.ObjectId(q.id) } : {}),
+            type: q.type,
+            question: q.question,
+            options: q.options,
+            correctIndex: q.correctIndex,
+            points: q.points ?? 10,
+            timeLimit: q.timeLimit ?? 30,
+            mediaUrl: q.mediaUrl,
+            mediaCaption: q.mediaCaption,
+            order: q.order ?? idx,
+            ...(lessonObjectId ? { lessonId: lessonObjectId } : {}),
+          };
+        },
+      );
+    }
+
+    await course.save();
+    return jsonOk(res, { success: true });
+  } catch (err) {
+    console.error("Update course error:", err);
+    return jsonError(res, "Failed to update course", 500);
+  }
+});
+
+router.delete("/:id", async (req: Request, res: Response) => {
+  const auth = await requireAdmin(req);
+  if ("error" in auth) return sendAuthError(res, auth);
+
+  const { id } = req.params;
+  await connectDB();
+
+  const course = await Course.findById(id);
+  if (!course) return jsonError(res, "Course not found", 404);
+  if (!canManageCourse(auth.admin, course.adminId.toString())) return unauthorized(res);
+
+  await Course.deleteOne({ _id: id });
+  await Invitation.deleteMany({ courseId: id });
+  return jsonOk(res, { success: true });
+});
+
+router.post("/:id/invitations", async (req: Request, res: Response) => {
+  const auth = await requireAdmin(req);
+  if ("error" in auth) return sendAuthError(res, auth);
+
+  const { id } = req.params;
+
+  try {
+    const { emails } = req.body;
+    if (!Array.isArray(emails) || emails.length === 0) {
+      return jsonError(res, "At least one email is required");
+    }
+
+    const emailList = [
+      ...new Set(
+        emails
+          .map((e: string) => e.toLowerCase().trim())
+          .filter((e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)),
+      ),
+    ];
+
+    if (emailList.length === 0) return jsonError(res, "No valid emails provided");
+
+    await connectDB();
+
+    const course = await Course.findById(id);
+    if (!course) return jsonError(res, "Course not found", 404);
+    if (!canManageCourse(auth.admin, course.adminId.toString())) return unauthorized(res);
+
+    const inviteCheck = canSendInvites(
+      course.lessons.map((l: ILesson) => ({ id: l._id.toString(), title: l.title })),
+      course.quizQuestions.map((q: ICourseQuizQuestion) => ({
+        lessonId: q.lessonId?.toString(),
+      })),
+      course.published,
+    );
+    if (!inviteCheck.valid) return jsonError(res, inviteCheck.error ?? "Cannot send invites", 400);
+
+    const admin = await Admin.findById(auth.admin.id);
+    if (!admin) return unauthorized(res);
+
+    const maxScore = course.quizQuestions.reduce(
+      (sum: number, q: ICourseQuizQuestion) => sum + q.points,
+      0,
+    );
+    const isQuizOnly = course.lessons.length === 0;
+    const results: { email: string; sent: boolean; inviteLink: string }[] = [];
+
+    for (const email of emailList) {
+      let invitation = await Invitation.findOne({ courseId: id, email });
+
+      if (!invitation) {
+        const now = new Date();
+        invitation = await Invitation.create({
+          courseId: id,
+          adminId: auth.admin.id,
+          email,
+          token: crypto.randomBytes(32).toString("hex"),
+          maxScore,
+          phase: isQuizOnly ? "quiz" : "learning",
+          sentAt: now,
+          expiresAt: inviteExpiresAt(now),
+        });
+      } else if (invitation.phase === "completed") {
+        results.push({
+          email,
+          sent: false,
+          inviteLink: `${getAppUrl()}/learn/${invitation.token}`,
+        });
+        continue;
+      } else {
+        invitation.maxScore = maxScore;
+        invitation.token = crypto.randomBytes(32).toString("hex");
+        if (isQuizOnly) invitation.phase = "quiz";
+        const now = new Date();
+        invitation.sentAt = now;
+        invitation.expiresAt = inviteExpiresAt(now);
+        await invitation.save();
+      }
+
+      const inviteLink = `${getAppUrl()}/learn/${invitation.token}`;
+      const mailResult = await sendCourseInviteEmail({
+        to: email,
+        courseTitle: course.title,
+        inviteLink,
+        adminName: admin.name,
+        adminEmail: admin.email,
+        isQuizOnly,
+        expiresAt: invitation.expiresAt,
+      });
+
+      results.push({ email, sent: mailResult.sent, inviteLink });
+    }
+
+    return jsonOk(res, { results });
+  } catch (err) {
+    console.error("Invite error:", err);
+    return jsonError(res, "Failed to send invitations", 500);
+  }
+});
+
+export default router;
