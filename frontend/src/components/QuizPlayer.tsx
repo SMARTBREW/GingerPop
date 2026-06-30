@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import Link from "next/link";
 import { QuestionCard } from "@/components/QuestionCard";
 import { QuizTimer } from "@/components/QuizTimer";
@@ -25,6 +25,7 @@ interface QuizPlayerProps {
     questionId: string,
     selectedIndex: number | null,
   ) => Promise<AnswerResult>;
+  onQuizFinished?: () => void;
   skipQuestionIds?: string[];
   initialScore?: number;
   completed?: boolean;
@@ -69,6 +70,7 @@ export function QuizPlayer({
   questions,
   quizTitle,
   onSubmitAnswer,
+  onQuizFinished,
   skipQuestionIds = [],
   initialScore = 0,
   completed = false,
@@ -77,7 +79,10 @@ export function QuizPlayer({
   showHomeLink = true,
   playAgainHref,
 }: QuizPlayerProps) {
-  const playable = questions.filter((q) => !skipQuestionIds.includes(q.id));
+  // Only skip questions already answered before this session (resume). Do not
+  // shrink the list mid-quiz when the parent records each new answer.
+  const skippedOnLoadRef = useRef(new Set(skipQuestionIds));
+  const playable = questions.filter((q) => !skippedOnLoadRef.current.has(q.id));
   const maxScore = finalMaxScore ?? getMaxScore(questions);
 
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -96,10 +101,14 @@ export function QuizPlayer({
   const timeLimit = timerEnabled ? (question?.timeLimit ?? DEFAULT_TIME_LIMIT) : 0;
   const isRemote = Boolean(onSubmitAnswer);
 
-  const finishQuiz = useCallback((final: number) => {
-    setScore(final);
-    setGameOver(true);
-  }, []);
+  const finishQuiz = useCallback(
+    (final: number) => {
+      setScore(final);
+      setGameOver(true);
+      onQuizFinished?.();
+    },
+    [onQuizFinished],
+  );
 
   const goToNext = useCallback(
     (nextScore?: number, done?: boolean) => {
@@ -302,15 +311,15 @@ export function QuizPlayer({
             <div className="text-right">
               <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Progress</p>
               <p className="text-2xl font-semibold tabular-nums text-gray-900">
-                {currentIndex + 1}/{playable.length}
+                {skippedOnLoadRef.current.size + currentIndex + 1}/{questions.length}
               </p>
             </div>
           </header>
 
           <QuestionCard
             question={question}
-            questionNumber={currentIndex + 1}
-            totalQuestions={playable.length}
+            questionNumber={skippedOnLoadRef.current.size + currentIndex + 1}
+            totalQuestions={questions.length}
             selectedOption={selectedOption}
             isAnswered={isAnswered}
             correctIndex={revealedCorrectIndex}

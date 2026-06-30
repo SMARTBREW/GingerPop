@@ -250,7 +250,7 @@ router.put("/:id", async (req: Request, res: Response) => {
 
     if (body.lessons !== undefined) {
       const lessonIdMap = buildLessonIdMap(body.lessons);
-      course.lessons = body.lessons.map(
+      const mappedLessons = body.lessons.map(
         (
           l: {
             id?: string;
@@ -278,10 +278,11 @@ router.put("/:id", async (req: Request, res: Response) => {
           };
         },
       );
+      course.lessons.splice(0, course.lessons.length, ...mappedLessons);
 
       if (body.quizQuestions !== undefined) {
         const isQuizOnlySave = body.lessons.length === 0;
-        course.quizQuestions = body.quizQuestions.map(
+        const mappedQuestions = body.quizQuestions.map(
           (
             q: {
               id?: string;
@@ -320,13 +321,14 @@ router.put("/:id", async (req: Request, res: Response) => {
             };
           },
         );
+        course.quizQuestions.splice(0, course.quizQuestions.length, ...mappedQuestions);
       }
     } else if (body.quizQuestions !== undefined) {
       const lessonIdMap = buildLessonIdMap(
         course.lessons.map((l: ILesson) => ({ id: l._id.toString() })),
       );
       const isQuizOnlySave = course.lessons.length === 0;
-      course.quizQuestions = body.quizQuestions.map(
+      const mappedQuestions = body.quizQuestions.map(
         (
           q: {
             id?: string;
@@ -363,12 +365,20 @@ router.put("/:id", async (req: Request, res: Response) => {
           };
         },
       );
+      course.quizQuestions.splice(0, course.quizQuestions.length, ...mappedQuestions);
     }
 
     const nextMediaUrls = collectCourseMediaUrls(course);
     const removedMediaUrls = previousMediaUrls.filter((url) => !nextMediaUrls.includes(url));
     if (removedMediaUrls.length > 0) {
       await deleteCloudinaryUrls(removedMediaUrls);
+    }
+
+    if (body.lessons !== undefined) {
+      course.markModified("lessons");
+    }
+    if (body.quizQuestions !== undefined) {
+      course.markModified("quizQuestions");
     }
 
     await course.save();

@@ -37,24 +37,23 @@ export function QuestionCard({
 
       <QuestionMedia question={question} />
 
-      <div className="mb-5">
+      <div className="question-panel mb-6">
         <RichTextContent
           html={question.question}
-          className="text-xl font-semibold leading-relaxed text-slate-900 sm:text-2xl md:text-3xl"
+          className="question-prose"
           as="div"
         />
       </div>
 
       {richTextHasContent(question.examples) && (
-        <div className="mb-8 rounded-lg border border-amber-200 bg-amber-50/80 px-4 py-4 sm:px-5">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-amber-900">
-            Examples
-          </p>
-          <RichTextContent
-            html={question.examples!}
-            className="text-base leading-relaxed text-slate-800 sm:text-lg"
-            as="div"
-          />
+        <div className="examples-panel mb-8">
+          <div className="examples-panel-header">
+            <span className="examples-panel-dot" aria-hidden />
+            <p className="examples-panel-label">Examples</p>
+          </div>
+          <div className="examples-panel-body">
+            <RichTextContent html={question.examples!} className="examples-prose" as="div" />
+          </div>
         </div>
       )}
 
@@ -80,7 +79,7 @@ export function QuestionCard({
                 {OPTION_LABELS[idx]}
               </span>
               <span className="flex-1 text-base text-slate-700">
-                <RichTextContent html={option} as="span" />
+                <RichTextContent html={option} className="option-prose" as="span" />
               </span>
             </button>
           );

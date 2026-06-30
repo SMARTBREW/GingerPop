@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { LessonViewer } from "@/components/LessonViewer";
 import { QuizPlayer } from "@/components/QuizPlayer";
 import { LearnerHeader } from "@/components/layout/LearnerHeader";
@@ -12,6 +12,10 @@ import { Badge } from "@/components/ui/Badge";
 import { RichTextContent } from "@/components/editor/RichTextContent";
 
 type LearnerMode = "lesson" | "lesson_quiz" | "quiz_only" | "completed";
+
+type PendingAfterQuiz =
+  | { type: "course_complete" }
+  | { type: "lesson_done"; nextLessonIdx: number };
 
 interface CourseLearnerProps {
   token: string;
@@ -70,6 +74,23 @@ export function CourseLearner({
     return firstIncomplete >= 0 ? firstIncomplete : 0;
   });
   const [marking, setMarking] = useState(false);
+  const pendingAfterQuizRef = useRef<PendingAfterQuiz | null>(null);
+
+  const handleQuizFinished = useCallback(() => {
+    const pending = pendingAfterQuizRef.current;
+    pendingAfterQuizRef.current = null;
+    if (!pending) return;
+
+    if (pending.type === "course_complete") {
+      setMode("completed");
+      return;
+    }
+
+    setMode("lesson");
+    setActiveLessonQuizId(null);
+    setLessonQuizQuestions([]);
+    if (pending.nextLessonIdx >= 0) setCurrentLessonIdx(pending.nextLessonIdx);
+  }, []);
 
   const currentLesson = lessons[currentLessonIdx];
   const progress = lessons.length > 0 ? (completedIds.length / lessons.length) * 100 : 0;
@@ -118,19 +139,16 @@ export function CourseLearner({
       if (data.completed) {
         const prematureQuizComplete =
           isQuizOnly && answeredIds.length + 1 < initialQuizQuestions.length;
-        if (!prematureQuizComplete) {
-          setMode("completed");
+        if (!prematureQuizComplete && !isQuizOnly) {
+          pendingAfterQuizRef.current = { type: "course_complete" };
         }
       } else if (!isQuizOnly) {
         if (data.completedLessonIds) setCompletedIds(data.completedLessonIds);
         if (activeLessonQuizId && data.completedLessonIds?.includes(activeLessonQuizId)) {
-          setMode("lesson");
-          setActiveLessonQuizId(null);
-          setLessonQuizQuestions([]);
           const nextIdx = lessons.findIndex(
             (l) => !data.completedLessonIds.includes(l.id),
           );
-          if (nextIdx >= 0) setCurrentLessonIdx(nextIdx);
+          pendingAfterQuizRef.current = { type: "lesson_done", nextLessonIdx: nextIdx };
         }
       }
 
@@ -177,7 +195,8 @@ export function CourseLearner({
           questions={initialQuizQuestions}
           quizTitle={`${courseTitle} — Assessment`}
           onSubmitAnswer={handleQuizAnswer}
-          skipQuestionIds={answeredIds}
+          onQuizFinished={handleQuizFinished}
+          skipQuestionIds={answeredQuestionIds}
           initialScore={score}
           completed={false}
           finalScore={score}
@@ -194,7 +213,8 @@ export function CourseLearner({
         questions={lessonQuizQuestions}
         quizTitle={lessonQuizTitle}
         onSubmitAnswer={handleQuizAnswer}
-        skipQuestionIds={answeredIds}
+        onQuizFinished={handleQuizFinished}
+        skipQuestionIds={answeredQuestionIds}
         initialScore={score}
         completed={false}
         finalScore={score}

@@ -254,16 +254,103 @@ export default function CourseEditorPage() {
     setQuizQuestions((prev) => prev.map((q) => (q.id === questionId ? updated : q)));
   };
 
-  const removeQuestion = (questionId: string) => {
+  const persistCourse = async (
+    nextLessons: LessonRow[],
+    nextQuestions: QuestionRow[],
+    options?: { publishedOverride?: boolean },
+  ) => {
+    const nextPublished = options?.publishedOverride ?? published;
+    const structureCheck = canPublishCourse(nextLessons, nextQuestions);
+    if (nextPublished && !structureCheck.valid) {
+      setMessage({ type: "error", text: structureCheck.error ?? "Invalid course structure." });
+      return false;
+    }
+
+    setSaving(true);
+    setMessage(null);
+    const res = await fetch(`/api/courses/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title,
+        description,
+        published: nextPublished,
+        lessons: nextLessons.map((l, idx) => ({
+          id: l.id,
+          type: l.type,
+          title: l.title,
+          content: l.content,
+          mediaUrl: l.mediaUrl,
+          mediaCaption: l.mediaCaption,
+          order: idx,
+        })),
+        quizQuestions: nextQuestions.map((q, idx) => ({
+          id: q.id.startsWith("new-") ? undefined : q.id,
+          lessonId: q.lessonId,
+          type: q.type,
+          question: q.question,
+          examples: q.examples,
+          options: q.options,
+          correctIndex: q.correctIndex,
+          points: q.points,
+          timeLimit: q.timeLimit,
+          mediaUrl: q.mediaUrl,
+          mediaCaption: q.mediaCaption,
+          order: idx,
+        })),
+      }),
+    });
+    const data = await res.json();
+    setSaving(false);
+
+    if (res.ok) {
+      await loadCourse();
+      return true;
+    }
+    setMessage({ type: "error", text: data.error ?? "Failed to save changes." });
+    return false;
+  };
+
+  const handleSave = async () => {
+    const ok = await persistCourse(lessons, quizQuestions);
+    if (ok) {
+      setMessage({ type: "success", text: "Changes saved successfully." });
+    }
+  };
+
+  const removeQuestion = async (questionId: string) => {
     const question = quizQuestions.find((q) => q.id === questionId);
     if (!question) return;
 
+    const nextQuestions = quizQuestions.filter((q) => q.id !== questionId);
+    const structureAfterDelete = canPublishCourse(lessons, nextQuestions);
+    const willUnpublish = published && !structureAfterDelete.valid;
+
     const confirmed = window.confirm(
-      "Delete this question? Any uploaded media will be removed from Cloudinary when you save.",
+      willUnpublish
+        ? "Delete this question? The course will be unpublished until the structure is valid again (add required assessments). Media on Cloudinary will be removed."
+        : "Delete this question? It will be removed immediately, including any media on Cloudinary.",
     );
     if (!confirmed) return;
 
-    setQuizQuestions((prev) => prev.filter((q) => q.id !== questionId));
+    setQuizQuestions(nextQuestions);
+
+    const ok = await persistCourse(lessons, nextQuestions, {
+      publishedOverride: willUnpublish ? false : undefined,
+    });
+    if (ok) {
+      if (willUnpublish) {
+        setPublished(false);
+        setMessage({
+          type: "success",
+          text: "Question deleted. Course unpublished — add a new question, then publish again.",
+        });
+      } else {
+        setMessage({ type: "success", text: "Question deleted." });
+      }
+    } else {
+      setQuizQuestions(quizQuestions);
+    }
   };
 
   const addQuestionForLesson = (lessonId: string) => {
@@ -320,57 +407,6 @@ export default function CourseEditorPage() {
 
     setLessons((prev) => prev.filter((l) => l.id !== lessonId));
     setQuizQuestions((prev) => prev.filter((q) => q.lessonId !== lessonId));
-  };
-
-  const handleSave = async () => {
-    if (published && !publishCheck.valid) {
-      setMessage({ type: "error", text: publishCheck.error ?? "Invalid course structure." });
-      return;
-    }
-
-    setSaving(true);
-    setMessage(null);
-    const res = await fetch(`/api/courses/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title,
-        description,
-        published,
-        lessons: lessons.map((l, idx) => ({
-          id: l.id,
-          type: l.type,
-          title: l.title,
-          content: l.content,
-          mediaUrl: l.mediaUrl,
-          mediaCaption: l.mediaCaption,
-          order: idx,
-        })),
-        quizQuestions: quizQuestions.map((q, idx) => ({
-          id: q.id.startsWith("new-") ? undefined : q.id,
-          lessonId: q.lessonId,
-          type: q.type,
-          question: q.question,
-          examples: q.examples,
-          options: q.options,
-          correctIndex: q.correctIndex,
-          points: q.points,
-          timeLimit: q.timeLimit,
-          mediaUrl: q.mediaUrl,
-          mediaCaption: q.mediaCaption,
-          order: idx,
-        })),
-      }),
-    });
-    const data = await res.json();
-    setSaving(false);
-
-    if (res.ok) {
-      setMessage({ type: "success", text: "Changes saved successfully." });
-      await loadCourse();
-    } else {
-      setMessage({ type: "error", text: data.error ?? "Failed to save changes." });
-    }
   };
 
   const handlePublishToggle = (checked: boolean) => {
