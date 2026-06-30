@@ -5,6 +5,7 @@ export interface PlayQuestion {
   id: string;
   type: QuestionType;
   question: string;
+  examples?: string;
   options: [string, string, string, string];
   points: number;
   timeLimit?: number;

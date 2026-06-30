@@ -256,6 +256,16 @@ body {
   white-space: pre-wrap;
 }
 
+.rich-text-content b,
+.rich-text-content strong {
+  font-weight: 700;
+}
+
+.rich-text-content p + p,
+.rich-text-content div + div {
+  margin-top: 0.75rem;
+}
+
 :focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 2px;

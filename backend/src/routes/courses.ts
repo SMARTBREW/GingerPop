@@ -11,6 +11,7 @@ import { inviteExpiresAt } from "@/lib/invitation-expiry";
 import { Course, ICourseQuizQuestion, ILesson } from "@/models/Course";
 import { Invitation } from "@/models/Invitation";
 import { Admin } from "@/models/Admin";
+import { collectCourseMediaUrls, deleteCloudinaryUrls } from "@/lib/cloudinary";
 
 const router = Router();
 
@@ -19,6 +20,7 @@ function serializeQuestion(q: ICourseQuizQuestion) {
     id: q._id.toString(),
     type: q.type,
     question: q.question,
+    examples: q.examples,
     options: q.options,
     correctIndex: q.correctIndex,
     points: q.points,
@@ -189,6 +191,7 @@ router.put("/:id", async (req: Request, res: Response) => {
                 lessonId?: string;
                 type: string;
                 question: string;
+                examples?: string;
                 options: string[];
                 correctIndex: number;
                 points: number;
@@ -203,10 +206,11 @@ router.put("/:id", async (req: Request, res: Response) => {
               lessonId: q.lessonId,
               type: q.type,
               question: q.question,
+              examples: q.examples,
               options: q.options,
               correctIndex: q.correctIndex,
               points: q.points ?? 10,
-              timeLimit: q.timeLimit ?? 30,
+              timeLimit: typeof q.timeLimit === "number" ? q.timeLimit : 30,
               mediaUrl: q.mediaUrl,
               mediaCaption: q.mediaCaption,
               order: q.order ?? idx,
@@ -217,6 +221,7 @@ router.put("/:id", async (req: Request, res: Response) => {
             lessonId: q.lessonId?.toString(),
             type: q.type,
             question: q.question,
+            examples: q.examples,
             options: q.options,
             correctIndex: q.correctIndex,
             points: q.points,
@@ -240,6 +245,8 @@ router.put("/:id", async (req: Request, res: Response) => {
     if (body.title !== undefined) course.title = body.title.trim();
     if (body.description !== undefined) course.description = body.description?.trim();
     if (body.published !== undefined) course.published = Boolean(body.published);
+
+    const previousMediaUrls = collectCourseMediaUrls(course);
 
     if (body.lessons !== undefined) {
       const lessonIdMap = buildLessonIdMap(body.lessons);
@@ -273,6 +280,7 @@ router.put("/:id", async (req: Request, res: Response) => {
       );
 
       if (body.quizQuestions !== undefined) {
+        const isQuizOnlySave = body.lessons.length === 0;
         course.quizQuestions = body.quizQuestions.map(
           (
             q: {
@@ -280,6 +288,7 @@ router.put("/:id", async (req: Request, res: Response) => {
               lessonId?: string;
               type: string;
               question: string;
+              examples?: string;
               options: string[];
               correctIndex: number;
               points: number;
@@ -290,17 +299,20 @@ router.put("/:id", async (req: Request, res: Response) => {
             },
             idx: number,
           ) => {
-            const lessonObjectId = resolveLessonObjectId(q.lessonId, lessonIdMap);
+            const lessonObjectId = isQuizOnlySave
+              ? null
+              : resolveLessonObjectId(q.lessonId, lessonIdMap);
             return {
               ...(q.id && isValidObjectId(q.id)
                 ? { _id: new mongoose.Types.ObjectId(q.id) }
                 : {}),
               type: q.type,
               question: q.question,
+              examples: q.examples,
               options: q.options,
               correctIndex: q.correctIndex,
               points: q.points ?? 10,
-              timeLimit: q.timeLimit ?? 30,
+              timeLimit: typeof q.timeLimit === "number" ? q.timeLimit : 30,
               mediaUrl: q.mediaUrl,
               mediaCaption: q.mediaCaption,
               order: q.order ?? idx,
@@ -313,6 +325,7 @@ router.put("/:id", async (req: Request, res: Response) => {
       const lessonIdMap = buildLessonIdMap(
         course.lessons.map((l: ILesson) => ({ id: l._id.toString() })),
       );
+      const isQuizOnlySave = course.lessons.length === 0;
       course.quizQuestions = body.quizQuestions.map(
         (
           q: {
@@ -320,6 +333,7 @@ router.put("/:id", async (req: Request, res: Response) => {
             lessonId?: string;
             type: string;
             question: string;
+            examples?: string;
             options: string[];
             correctIndex: number;
             points: number;
@@ -330,15 +344,18 @@ router.put("/:id", async (req: Request, res: Response) => {
           },
           idx: number,
         ) => {
-          const lessonObjectId = resolveLessonObjectId(q.lessonId, lessonIdMap);
+          const lessonObjectId = isQuizOnlySave
+            ? null
+            : resolveLessonObjectId(q.lessonId, lessonIdMap);
           return {
             ...(q.id && isValidObjectId(q.id) ? { _id: new mongoose.Types.ObjectId(q.id) } : {}),
             type: q.type,
             question: q.question,
+            examples: q.examples,
             options: q.options,
             correctIndex: q.correctIndex,
             points: q.points ?? 10,
-            timeLimit: q.timeLimit ?? 30,
+            timeLimit: typeof q.timeLimit === "number" ? q.timeLimit : 30,
             mediaUrl: q.mediaUrl,
             mediaCaption: q.mediaCaption,
             order: q.order ?? idx,
@@ -346,6 +363,12 @@ router.put("/:id", async (req: Request, res: Response) => {
           };
         },
       );
+    }
+
+    const nextMediaUrls = collectCourseMediaUrls(course);
+    const removedMediaUrls = previousMediaUrls.filter((url) => !nextMediaUrls.includes(url));
+    if (removedMediaUrls.length > 0) {
+      await deleteCloudinaryUrls(removedMediaUrls);
     }
 
     await course.save();
@@ -367,6 +390,7 @@ router.delete("/:id", async (req: Request, res: Response) => {
   if (!course) return jsonError(res, "Course not found", 404);
   if (!canManageCourse(auth.admin, course.adminId.toString())) return unauthorized(res);
 
+  await deleteCloudinaryUrls(collectCourseMediaUrls(course));
   await Course.deleteOne({ _id: id });
   await Invitation.deleteMany({ courseId: id });
   return jsonOk(res, { success: true });

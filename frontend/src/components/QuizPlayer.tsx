@@ -92,7 +92,8 @@ export function QuizPlayer({
   const [feedbackExiting, setFeedbackExiting] = useState(false);
 
   const question = playable[currentIndex];
-  const timeLimit = question?.timeLimit ?? DEFAULT_TIME_LIMIT;
+  const timerEnabled = (question?.timeLimit ?? DEFAULT_TIME_LIMIT) > 0;
+  const timeLimit = timerEnabled ? (question?.timeLimit ?? DEFAULT_TIME_LIMIT) : 0;
   const isRemote = Boolean(onSubmitAnswer);
 
   const finishQuiz = useCallback((final: number) => {
@@ -102,7 +103,18 @@ export function QuizPlayer({
 
   const goToNext = useCallback(
     (nextScore?: number, done?: boolean) => {
-      if (done || currentIndex >= playable.length - 1) {
+      const isLast = currentIndex >= playable.length - 1;
+      if (done && !isLast) {
+        setCurrentIndex((i) => i + 1);
+        setSelectedOption(null);
+        setIsAnswered(false);
+        setRevealedCorrectIndex(null);
+        setTimedOut(false);
+        setAnswerFeedback(null);
+        setFeedbackExiting(false);
+        return;
+      }
+      if (done || isLast) {
         finishQuiz(nextScore ?? score);
         return;
       }
@@ -270,13 +282,22 @@ export function QuizPlayer({
               <p className="text-2xl font-semibold tabular-nums text-gray-900">{score} pts</p>
             </div>
 
-            <QuizTimer
-              key={`${question.id}-${currentIndex}`}
-              seconds={timeLimit}
-              running={!isAnswered && !submitting}
-              onExpire={handleTimeout}
-              resetKey={currentIndex}
-            />
+            {timerEnabled ? (
+              <QuizTimer
+                key={`${question.id}-${currentIndex}`}
+                seconds={timeLimit}
+                running={!isAnswered && !submitting}
+                onExpire={handleTimeout}
+                resetKey={currentIndex}
+              />
+            ) : (
+              <div className="flex flex-col items-center gap-1.5 px-2 text-center">
+                <div className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-gray-200 bg-white text-sm font-medium text-gray-400">
+                  —
+                </div>
+                <span className="text-xs font-medium text-slate-400">No timer</span>
+              </div>
+            )}
 
             <div className="text-right">
               <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Progress</p>

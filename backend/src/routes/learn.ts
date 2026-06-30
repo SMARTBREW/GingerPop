@@ -14,6 +14,7 @@ function serializeQuestion(q: ICourseQuizQuestion) {
     id: q._id.toString(),
     type: q.type,
     question: q.question,
+    examples: q.examples,
     options: q.options,
     points: q.points,
     timeLimit: q.timeLimit,
@@ -90,16 +91,14 @@ router.get("/:token", async (req: Request, res: Response) => {
       }
     }
 
-    const showQuizOnly =
-      isQuizOnly && (invitation.phase === "quiz" || invitation.phase === "completed");
-
     const showLessonQuiz = pendingAssessmentLessonId !== null;
 
-    const visibleQuestions =
-      showQuizOnly || invitation.phase === "completed"
-        ? sortedQuiz.filter((q: ICourseQuizQuestion) => !q.lessonId)
-        : showLessonQuiz
-          ? getLessonQuestions(course, pendingAssessmentLessonId!)
+    const visibleQuestions = isQuizOnly
+      ? sortedQuiz
+      : showLessonQuiz
+        ? getLessonQuestions(course, pendingAssessmentLessonId!)
+        : invitation.phase === "completed"
+          ? sortedQuiz.filter((q: ICourseQuizQuestion) => !q.lessonId)
           : [];
 
     return jsonOk(res, {
@@ -267,10 +266,9 @@ router.post("/:token", async (req: Request, res: Response) => {
           invitation.phase = "learning";
         }
       } else if (isQuizOnly) {
-        const quizOnlyQuestions = course.quizQuestions.filter(
-          (q: ICourseQuizQuestion) => !q.lessonId,
-        );
-        if (invitation.answers.length >= quizOnlyQuestions.length) {
+        const totalQuestions = course.quizQuestions.length;
+        const answeredCount = invitation.answers.length;
+        if (answeredCount >= totalQuestions) {
           invitation.phase = "completed";
           invitation.completedAt = new Date();
         }

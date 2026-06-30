@@ -15,6 +15,7 @@ export interface ICourseQuizQuestion {
   _id: mongoose.Types.ObjectId;
   type: ContentType;
   question: string;
+  examples?: string;
   options: [string, string, string, string];
   correctIndex: number;
   points: number;
@@ -49,6 +50,7 @@ const LessonSchema = new Schema<ILesson>({
 const CourseQuizQuestionSchema = new Schema<ICourseQuizQuestion>({
   type: { type: String, enum: ["text", "image", "video", "audio"], required: true },
   question: { type: String, required: true },
+  examples: String,
   options: {
     type: [String],
     required: true,

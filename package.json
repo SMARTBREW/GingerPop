@@ -9,6 +9,8 @@
   "scripts": {
     "dev": "concurrently -n backend,frontend -c blue,green \"npm run dev -w backend\" \"npm run dev -w frontend\"",
     "dev:frontend": "npm run dev -w frontend",
+    "dev:clean": "rm -rf frontend/.next frontend/out",
+    "dev:fresh": "npm run dev:clean && npm run dev",
     "dev:backend": "npm run dev -w backend",
     "build": "npm run build -w backend && npm run build -w frontend",
     "build:static": "NEXT_STATIC_EXPORT=1 npm run build -w frontend",

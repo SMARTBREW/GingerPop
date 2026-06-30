@@ -2,7 +2,7 @@ import { Router, Request, Response } from "express";
 import multer from "multer";
 import { requireAdmin, sendAuthError } from "@/lib/permissions";
 import { jsonError, jsonOk } from "@/lib/api";
-import { cloudinaryResourceType, isCloudinaryConfigured, uploadToCloudinary } from "@/lib/cloudinary";
+import { cloudinaryResourceType, deleteCloudinaryByUrl, isCloudinaryConfigured, uploadToCloudinary } from "@/lib/cloudinary";
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -71,6 +71,31 @@ router.post("/", upload.single("file"), async (req: Request, res: Response) => {
   } catch (err) {
     console.error("Upload error:", err);
     return jsonError(res, err instanceof Error ? err.message : "Upload failed", 500);
+  }
+});
+
+router.post("/delete", async (req: Request, res: Response) => {
+  const auth = await requireAdmin(req);
+  if ("error" in auth) return sendAuthError(res, auth);
+
+  const { url } = req.body ?? {};
+  if (!url || typeof url !== "string") {
+    return jsonError(res, "Media URL is required", 400);
+  }
+
+  if (!isCloudinaryConfigured()) {
+    return jsonError(res, "Cloudinary is not configured", 503);
+  }
+
+  try {
+    const result = await deleteCloudinaryByUrl(url);
+    if (!result.deleted && result.reason === "not_cloudinary") {
+      return jsonOk(res, { deleted: false, message: "Not a Cloudinary URL" });
+    }
+    return jsonOk(res, { deleted: result.deleted });
+  } catch (err) {
+    console.error("Delete upload error:", err);
+    return jsonError(res, "Failed to delete media", 500);
   }
 });
 

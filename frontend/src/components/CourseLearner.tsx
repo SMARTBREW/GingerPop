@@ -9,6 +9,7 @@ import { PublicLesson } from "@/types/course";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
+import { RichTextContent } from "@/components/editor/RichTextContent";
 
 type LearnerMode = "lesson" | "lesson_quiz" | "quiz_only" | "completed";
 
@@ -115,7 +116,11 @@ export function CourseLearner({
       setAnsweredIds((prev) => [...prev, questionId]);
 
       if (data.completed) {
-        setMode("completed");
+        const prematureQuizComplete =
+          isQuizOnly && answeredIds.length + 1 < initialQuizQuestions.length;
+        if (!prematureQuizComplete) {
+          setMode("completed");
+        }
       } else if (!isQuizOnly) {
         if (data.completedLessonIds) setCompletedIds(data.completedLessonIds);
         if (activeLessonQuizId && data.completedLessonIds?.includes(activeLessonQuizId)) {
@@ -131,7 +136,7 @@ export function CourseLearner({
 
       return data;
     },
-    [token, isQuizOnly, activeLessonQuizId, lessons],
+    [token, isQuizOnly, activeLessonQuizId, lessons, answeredIds.length, initialQuizQuestions.length],
   );
 
   const lessonQuizTitle = activeLessonQuizId
@@ -213,7 +218,10 @@ export function CourseLearner({
             )}
             <h1 className="text-lg font-semibold text-gray-900 sm:text-xl">{courseTitle}</h1>
             {courseDescription && (
-              <p className="mt-1.5 text-sm text-gray-600 line-clamp-3 sm:text-base">{courseDescription}</p>
+              <RichTextContent
+                html={courseDescription}
+                className="mt-1.5 line-clamp-3 text-sm text-gray-600 sm:text-base"
+              />
             )}
 
             <div className="mt-5">

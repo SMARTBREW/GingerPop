@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { PublicLesson } from "@/types/course";
+import { RichTextContent } from "@/components/editor/RichTextContent";
 
 interface LessonViewerProps {
   lesson: PublicLesson;
@@ -41,9 +42,10 @@ export function LessonViewer({ lesson }: LessonViewerProps) {
       )}
 
       {lesson.content && (
-        <div className="rounded-xl border border-slate-200 bg-white p-6 text-slate-700 leading-relaxed whitespace-pre-wrap">
-          {lesson.content}
-        </div>
+        <RichTextContent
+          html={lesson.content}
+          className="rounded-xl border border-slate-200 bg-white p-6 text-slate-700 leading-relaxed"
+        />
       )}
     </div>
   );

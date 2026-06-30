@@ -10,6 +10,7 @@ import { Card, CardHeader } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
+import { RichTextEditor, appendRichText } from "@/components/editor/RichTextEditor";
 import { Select } from "@/components/ui/Select";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -71,7 +72,7 @@ function QuestionEditor({
           className="!text-red-600 hover:!bg-red-50"
           onClick={onRemove}
         >
-          Remove
+          Delete question
         </Button>
       </div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -93,13 +94,31 @@ function QuestionEditor({
           value={q.points}
           onChange={(e) => onChange({ ...q, points: Number(e.target.value) })}
         />
-        <Input
-          label="Time (sec)"
-          type="number"
-          min={5}
-          value={q.timeLimit}
-          onChange={(e) => onChange({ ...q, timeLimit: Number(e.target.value) })}
-        />
+        <div className="flex flex-col gap-2">
+          <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-600">
+            <input
+              type="checkbox"
+              checked={q.timeLimit !== 0}
+              onChange={(e) =>
+                onChange({
+                  ...q,
+                  timeLimit: e.target.checked ? (q.timeLimit > 0 ? q.timeLimit : 30) : 0,
+                })
+              }
+              className="rounded border-gray-300 text-[var(--primary)] focus:ring-[var(--primary)]"
+            />
+            Timer
+          </label>
+          {q.timeLimit !== 0 && (
+            <Input
+              label="Time (sec)"
+              type="number"
+              min={5}
+              value={q.timeLimit}
+              onChange={(e) => onChange({ ...q, timeLimit: Number(e.target.value) })}
+            />
+          )}
+        </div>
         <Select
           label="Correct"
           value={q.correctIndex}
@@ -113,11 +132,22 @@ function QuestionEditor({
         </Select>
       </div>
       <div className="mt-3">
-        <Textarea
+        <RichTextEditor
           label="Question"
           value={q.question}
-          onChange={(e) => onChange({ ...q, question: e.target.value })}
-          rows={2}
+          onChange={(question) => onChange({ ...q, question })}
+          placeholder="Enter question text…"
+          minHeight={80}
+        />
+      </div>
+      <div className="mt-3">
+        <RichTextEditor
+          label="Examples"
+          value={q.examples ?? ""}
+          onChange={(examples) => onChange({ ...q, examples })}
+          placeholder="Add examples, hints, or sample scenarios (optional)…"
+          minHeight={64}
+          enableDictate
         />
       </div>
       {(q.type === "image" || q.type === "video" || q.type === "audio") && (
@@ -126,9 +156,14 @@ function QuestionEditor({
             type={q.type}
             value={q.mediaUrl}
             onChange={(url) => onChange({ ...q, mediaUrl: url })}
+            onTranscript={
+              q.type === "audio"
+                ? (text) => onChange({ ...q, question: appendRichText(q.question, text) })
+                : undefined
+            }
             label={
               q.type === "audio"
-                ? "Voice / audio"
+                ? "Voice / audio (transcript → question text)"
                 : q.type === "video"
                   ? "Video"
                   : "Image"
@@ -138,15 +173,18 @@ function QuestionEditor({
       )}
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
         {q.options.map((opt, oIdx) => (
-          <Input
+          <RichTextEditor
             key={oIdx}
+            compact
             label={`Option ${OPTION_LABELS[oIdx]}`}
             value={opt}
-            onChange={(e) => {
+            onChange={(val) => {
               const options = [...q.options] as [string, string, string, string];
-              options[oIdx] = e.target.value;
+              options[oIdx] = val;
               onChange({ ...q, options });
             }}
+            minHeight={48}
+            enableDictate
           />
         ))}
       </div>
@@ -161,6 +199,7 @@ export default function CourseEditorPage() {
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [descriptionAudioDraft, setDescriptionAudioDraft] = useState("");
   const [published, setPublished] = useState(false);
   const [lessons, setLessons] = useState<LessonRow[]>([]);
   const [quizQuestions, setQuizQuestions] = useState<QuestionRow[]>([]);
@@ -216,6 +255,14 @@ export default function CourseEditorPage() {
   };
 
   const removeQuestion = (questionId: string) => {
+    const question = quizQuestions.find((q) => q.id === questionId);
+    if (!question) return;
+
+    const confirmed = window.confirm(
+      "Delete this question? Any uploaded media will be removed from Cloudinary when you save.",
+    );
+    if (!confirmed) return;
+
     setQuizQuestions((prev) => prev.filter((q) => q.id !== questionId));
   };
 
@@ -260,6 +307,17 @@ export default function CourseEditorPage() {
   };
 
   const removeLesson = (lessonId: string) => {
+    const lesson = lessons.find((l) => l.id === lessonId);
+    if (!lesson) return;
+
+    const questionCount = quizQuestions.filter((q) => q.lessonId === lessonId).length;
+    const confirmed = window.confirm(
+      questionCount > 0
+        ? `Delete this lesson and its ${questionCount} assessment question(s)? Media will be removed from Cloudinary when you save.`
+        : "Delete this lesson? Any lesson media will be removed from Cloudinary when you save.",
+    );
+    if (!confirmed) return;
+
     setLessons((prev) => prev.filter((l) => l.id !== lessonId));
     setQuizQuestions((prev) => prev.filter((q) => q.lessonId !== lessonId));
   };
@@ -293,6 +351,7 @@ export default function CourseEditorPage() {
           lessonId: q.lessonId,
           type: q.type,
           question: q.question,
+          examples: q.examples,
           options: q.options,
           correctIndex: q.correctIndex,
           points: q.points,
@@ -401,13 +460,14 @@ export default function CourseEditorPage() {
             placeholder="Course title"
             className="w-full border-0 bg-transparent text-2xl font-semibold tracking-tight text-gray-900 placeholder:text-gray-300 focus:outline-none sm:text-3xl"
           />
-          <textarea
+          <RichTextEditor
             value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="Add a brief description..."
-            rows={2}
-            className="w-full resize-none border-0 bg-transparent text-base text-gray-600 placeholder:text-gray-300 focus:outline-none"
+            onChange={setDescription}
+            placeholder="Add a brief description… (bold, lists, or dictate)"
+            minHeight={72}
+            enableDictate
           />
+         
           <div className="flex flex-wrap items-center gap-3">
             <Badge variant={published ? "success" : "neutral"}>
               {published ? "Published" : "Draft"}
@@ -579,9 +639,24 @@ export default function CourseEditorPage() {
                                 ),
                               )
                             }
+                            onTranscript={
+                              lesson.type === "audio"
+                                ? (text) =>
+                                    setLessons((prev) =>
+                                      prev.map((l) =>
+                                        l.id === lesson.id
+                                          ? {
+                                              ...l,
+                                              content: appendRichText(l.content ?? "", text),
+                                            }
+                                          : l,
+                                      ),
+                                    )
+                                : undefined
+                            }
                             label={
                               lesson.type === "audio"
-                                ? "Record or upload audio"
+                                ? "Record or upload audio (transcript → content)"
                                 : lesson.type === "video"
                                   ? "Record or upload video"
                                   : "Upload image"
@@ -591,17 +666,18 @@ export default function CourseEditorPage() {
                       )}
 
                       <div className="mt-4">
-                        <Textarea
+                        <RichTextEditor
                           label="Content"
                           value={lesson.content ?? ""}
-                          onChange={(e) =>
+                          onChange={(content) =>
                             setLessons((prev) =>
                               prev.map((l) =>
-                                l.id === lesson.id ? { ...l, content: e.target.value } : l,
+                                l.id === lesson.id ? { ...l, content } : l,
                               ),
                             )
                           }
-                          rows={4}
+                          minHeight={120}
+                          enableDictate
                         />
                       </div>
 

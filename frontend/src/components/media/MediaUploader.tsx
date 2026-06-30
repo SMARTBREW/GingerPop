@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
 
+import { createSpeechRecognition, isSpeechRecognitionSupported, type SpeechRecognitionEvent } from "@/lib/speech-recognition";
+
 type MediaType = "audio" | "video" | "image";
 type Step = "idle" | "recording" | "preview" | "uploading";
 
@@ -12,6 +14,8 @@ interface MediaUploaderProps {
   value?: string;
   onChange: (url: string) => void;
   label?: string;
+  /** Called with live/final transcript while recording audio */
+  onTranscript?: (text: string) => void;
 }
 
 function pickMimeType(type: MediaType): string {
@@ -29,13 +33,15 @@ function formatDuration(seconds: number) {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
-export function MediaUploader({ type, value, onChange, label }: MediaUploaderProps) {
+export function MediaUploader({ type, value, onChange, label, onTranscript }: MediaUploaderProps) {
   const [step, setStep] = useState<Step>("idle");
   const [error, setError] = useState("");
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewBlob, setPreviewBlob] = useState<Blob | null>(null);
   const [duration, setDuration] = useState(0);
   const [liveStream, setLiveStream] = useState<MediaStream | null>(null);
+  const [transcript, setTranscript] = useState("");
+  const [interimTranscript, setInterimTranscript] = useState("");
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -43,6 +49,40 @@ export function MediaUploader({ type, value, onChange, label }: MediaUploaderPro
   const videoPreviewRef = useRef<HTMLVideoElement>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const recognitionRef = useRef<ReturnType<typeof createSpeechRecognition>>(null);
+  const speechSupported = isSpeechRecognitionSupported();
+
+  const stopTranscription = useCallback(() => {
+    recognitionRef.current?.stop();
+    recognitionRef.current = null;
+  }, []);
+
+  const startTranscription = useCallback(() => {
+    if (type !== "audio" || !onTranscript || !speechSupported) return;
+    const recognition = createSpeechRecognition();
+    if (!recognition) return;
+
+    recognitionRef.current = recognition;
+    setTranscript("");
+    setInterimTranscript("");
+
+    recognition.onresult = (event: SpeechRecognitionEvent) => {
+      let interim = "";
+      let finals = "";
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const result = event.results[i];
+        if (result.isFinal) finals += result[0].transcript;
+        else interim += result[0].transcript;
+      }
+      if (finals.trim()) {
+        setTranscript((prev) => `${prev}${finals}`.trimStart());
+      }
+      setInterimTranscript(interim);
+    };
+
+    recognition.onerror = () => stopTranscription();
+    recognition.start();
+  }, [onTranscript, speechSupported, stopTranscription, type]);
 
   const cleanupStream = useCallback(() => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -59,10 +99,11 @@ export function MediaUploader({ type, value, onChange, label }: MediaUploaderPro
   useEffect(() => {
     return () => {
       cleanupStream();
+      stopTranscription();
       if (timerRef.current) clearInterval(timerRef.current);
       if (previewUrl) URL.revokeObjectURL(previewUrl);
     };
-  }, [cleanupStream, previewUrl]);
+  }, [cleanupStream, stopTranscription, previewUrl]);
 
   useEffect(() => {
     const el = videoPreviewRef.current;
@@ -77,8 +118,9 @@ export function MediaUploader({ type, value, onChange, label }: MediaUploaderPro
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
+    stopTranscription();
     mediaRecorderRef.current?.stop();
-  }, []);
+  }, [stopTranscription]);
 
   const startRecording = async () => {
     setError("");
@@ -112,12 +154,16 @@ export function MediaUploader({ type, value, onChange, label }: MediaUploaderPro
         setPreviewBlob(blob);
         setPreviewUrl(url);
         setStep("preview");
+        if (type === "audio") {
+          setTimeout(() => flushTranscriptOnStop(), 300);
+        }
       };
 
       mediaRecorderRef.current = recorder;
       recorder.start(250);
       setStep("recording");
       setDuration(0);
+      if (type === "audio") startTranscription();
       timerRef.current = setInterval(() => setDuration((d) => d + 1), 1000);
     } catch {
       setError(
@@ -130,9 +176,25 @@ export function MediaUploader({ type, value, onChange, label }: MediaUploaderPro
 
   const discardPreview = () => {
     cleanupPreview();
+    stopTranscription();
+    setTranscript("");
+    setInterimTranscript("");
     setStep("idle");
     setDuration(0);
   };
+
+  const insertTranscript = () => {
+    const text = `${transcript} ${interimTranscript}`.trim();
+    if (text && onTranscript) {
+      onTranscript(text);
+      setInterimTranscript("");
+    }
+  };
+
+  const flushTranscriptOnStop = useCallback(() => {
+    const text = `${transcript} ${interimTranscript}`.trim();
+    if (text && onTranscript) onTranscript(text);
+  }, [interimTranscript, onTranscript, transcript]);
 
   const uploadBlob = async (blob: Blob, filename: string) => {
     setStep("uploading");
@@ -203,6 +265,15 @@ export function MediaUploader({ type, value, onChange, label }: MediaUploaderPro
           {type === "video" && (
             <video src={value} controls playsInline className="w-full max-h-64 rounded-md" />
           )}
+          {type === "audio" && onTranscript && transcript && (
+            <div className="mt-3 rounded-md border border-orange-100 bg-orange-50/50 p-3">
+              <p className="text-xs font-medium text-orange-800">Audio transcript</p>
+              <p className="mt-1 text-sm text-gray-700">{transcript}</p>
+              <Button variant="secondary" size="sm" className="mt-2" onClick={insertTranscript}>
+                Insert transcript into text
+              </Button>
+            </div>
+          )}
           <p className="mt-2 truncate text-xs text-gray-400">{value}</p>
         </div>
       )}
@@ -260,6 +331,19 @@ export function MediaUploader({ type, value, onChange, label }: MediaUploaderPro
               <Button variant="danger" className="mt-5" onClick={stopRecording}>
                 Stop recording
               </Button>
+              {type === "audio" && onTranscript && (transcript || interimTranscript) && (
+                <div className="mt-4 w-full rounded-md border border-orange-100 bg-orange-50/60 p-3 text-left">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-orange-700">
+                    Live transcript
+                  </p>
+                  <p className="mt-1 text-sm text-gray-800">
+                    {transcript}
+                    {interimTranscript && (
+                      <span className="text-gray-500"> {interimTranscript}</span>
+                    )}
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
@@ -268,6 +352,22 @@ export function MediaUploader({ type, value, onChange, label }: MediaUploaderPro
               {type === "audio" && <audio src={previewUrl} controls className="mb-4 w-full" />}
               {type === "video" && (
                 <video src={previewUrl} controls playsInline className="mb-4 w-full max-h-52 rounded-lg" />
+              )}
+              {type === "audio" && onTranscript && (transcript || interimTranscript) && (
+                <div className="mb-4 w-full rounded-md border border-orange-100 bg-orange-50/60 p-3 text-left">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-orange-700">
+                    Audio transcript
+                  </p>
+                  <p className="mt-1 text-sm text-gray-800">
+                    {transcript}
+                    {interimTranscript && (
+                      <span className="text-gray-500"> {interimTranscript}</span>
+                    )}
+                  </p>
+                  <Button variant="secondary" size="sm" className="mt-2" onClick={insertTranscript}>
+                    Insert transcript into text
+                  </Button>
+                </div>
               )}
               <p className="mb-4 text-sm text-gray-600">Preview your {typeLabel} before uploading</p>
               <div className="flex gap-3">

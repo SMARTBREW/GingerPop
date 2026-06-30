@@ -14,6 +14,7 @@ export interface CourseQuizQuestion {
   id: string;
   type: ContentType;
   question: string;
+  examples?: string;
   options: [string, string, string, string];
   correctIndex: number;
   points: number;
@@ -38,6 +39,7 @@ export interface PublicQuizQuestion {
   id: string;
   type: ContentType;
   question: string;
+  examples?: string;
   options: [string, string, string, string];
   points: number;
   timeLimit: number;
@@ -55,6 +57,7 @@ export const EMPTY_LESSON: Omit<Lesson, "id"> = {
 export const EMPTY_QUIZ_QUESTION: Omit<CourseQuizQuestion, "id"> = {
   type: "text",
   question: "",
+  examples: "",
   options: ["", "", "", ""],
   correctIndex: 0,
   points: 10,

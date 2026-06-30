@@ -68,4 +68,71 @@ export async function uploadToCloudinary(
   });
 }
 
+export type CloudinaryResourceType = "image" | "video" | "raw";
+
+export function parseCloudinaryUrl(
+  url: string,
+): { publicId: string; resourceType: CloudinaryResourceType } | null {
+  try {
+    const parsed = new URL(url);
+    if (!parsed.hostname.includes("res.cloudinary.com")) return null;
+
+    const parts = parsed.pathname.split("/").filter(Boolean);
+    if (parts.length < 4) return null;
+
+    const resourceType = parts[1] as CloudinaryResourceType;
+    if (!["image", "video", "raw"].includes(resourceType)) return null;
+
+    const uploadIdx = parts.indexOf("upload");
+    if (uploadIdx === -1) return null;
+
+    let startIdx = uploadIdx + 1;
+    if (parts[startIdx]?.startsWith("v")) startIdx++;
+
+    const publicIdWithExt = parts.slice(startIdx).join("/");
+    if (!publicIdWithExt) return null;
+
+    const publicId = publicIdWithExt.replace(/\.[^/.]+$/, "");
+    return { publicId, resourceType };
+  } catch {
+    return null;
+  }
+}
+
+export async function deleteCloudinaryByUrl(url: string) {
+  if (!url || !isCloudinaryConfigured()) return { deleted: false, reason: "not_configured" as const };
+
+  const parsed = parseCloudinaryUrl(url);
+  if (!parsed) return { deleted: false, reason: "not_cloudinary" as const };
+
+  try {
+    const result = await cloudinary.uploader.destroy(parsed.publicId, {
+      resource_type: parsed.resourceType,
+    });
+    return { deleted: result.result === "ok", reason: result.result };
+  } catch (err) {
+    console.error("Cloudinary delete error:", err);
+    return { deleted: false, reason: "error" as const };
+  }
+}
+
+export async function deleteCloudinaryUrls(urls: string[]) {
+  const unique = [...new Set(urls.filter(Boolean))];
+  await Promise.allSettled(unique.map((url) => deleteCloudinaryByUrl(url)));
+}
+
+export function collectCourseMediaUrls(course: {
+  lessons?: { mediaUrl?: string }[];
+  quizQuestions?: { mediaUrl?: string }[];
+}): string[] {
+  const urls: string[] = [];
+  for (const lesson of course.lessons ?? []) {
+    if (lesson.mediaUrl) urls.push(lesson.mediaUrl);
+  }
+  for (const question of course.quizQuestions ?? []) {
+    if (question.mediaUrl) urls.push(question.mediaUrl);
+  }
+  return urls;
+}
+
 export { cloudinary };
