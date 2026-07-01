@@ -3,13 +3,12 @@
 import { useCallback, useRef, useState } from "react";
 import { LessonViewer } from "@/components/LessonViewer";
 import { QuizPlayer } from "@/components/QuizPlayer";
-import { LearnerHeader } from "@/components/layout/LearnerHeader";
 import { AnswerResult, PlayQuestion } from "@/types/quiz";
 import { PublicLesson } from "@/types/course";
-import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
-import { Badge } from "@/components/ui/Badge";
 import { RichTextContent } from "@/components/editor/RichTextContent";
+import { KidZone } from "@/components/layout/KidZone";
+import Link from "next/link";
+import { BrandName } from "@/components/BrandName";
 
 type LearnerMode = "lesson" | "lesson_quiz" | "quiz_only" | "completed";
 
@@ -163,37 +162,50 @@ export function CourseLearner({
 
   if (mode === "completed") {
     const percentage = maxScore > 0 ? Math.round((score / maxScore) * 100) : 0;
+    const stars = percentage >= 80 ? 3 : percentage >= 50 ? 2 : 1;
     return (
-      <main className="flex min-h-screen flex-col items-center justify-center bg-[var(--background)] px-4 py-12">
-        <Card className="max-w-lg text-center">
-          <Badge variant={percentage >= 50 ? "success" : "warning"} className="mb-4">
-            {isQuizOnly ? "Assessment complete" : "Course complete"}
-          </Badge>
-          <h1 className="text-2xl font-semibold tracking-tight text-gray-900">{courseTitle}</h1>
-          <p className="mt-6 text-3xl font-semibold tabular-nums text-gray-900">
-            {score}
-            <span className="text-lg font-normal text-gray-400"> / {maxScore} points</span>
-          </p>
-          <p className="mt-3 text-sm text-gray-600">
-            You scored {percentage}% across all assessments.
-          </p>
-        </Card>
-      </main>
+      <KidZone>
+        <main className="flex min-h-screen flex-col items-center justify-center px-4 py-12">
+          <div className="kid-card max-w-lg p-8 text-center sm:p-10">
+            <div className="game-trophy" aria-hidden>
+              🏆
+            </div>
+            <div className="game-star-row" aria-label={`${stars} out of 3 stars`}>
+              {[0, 1, 2].map((i) => (
+                <span key={i} className={i < stars ? "game-sparkle" : "dim"}>
+                  ⭐
+                </span>
+              ))}
+            </div>
+            <h1 className="game-font mt-4 text-3xl font-bold text-[var(--kid-text)]">
+              {isQuizOnly ? "Quest complete!" : "Adventure complete!"}
+            </h1>
+            <p className="mt-2 font-semibold text-[var(--kid-muted)]">{courseTitle}</p>
+            <p className="game-font mt-6 text-4xl font-bold tabular-nums text-[var(--kid-text)]">
+              {score}
+              <span className="text-xl font-semibold text-[var(--kid-muted)]"> / {maxScore} stars</span>
+            </p>
+            <p className="mt-3 text-base text-[var(--kid-muted)]">
+              You collected {percentage}% of all the stars!
+            </p>
+          </div>
+        </main>
+      </KidZone>
     );
   }
 
   if (mode === "quiz_only") {
     return (
-      <div className="min-h-screen bg-[var(--background)]">
+      <KidZone>
         {invitedBy && (
-          <div className="border-b border-[var(--accent)]/20 bg-[var(--accent-muted)] px-4 py-3 text-center text-base text-[var(--accent-hover)] sm:px-6">
-            <span className="font-medium">{invitedBy.name}</span> invited you to complete this
-            assessment.
+          <div className="game-invite-banner">
+            <span className="game-font">🎉</span>{" "}
+            <span className="font-bold">{invitedBy.name}</span> invited you on a quest!
           </div>
         )}
         <QuizPlayer
           questions={initialQuizQuestions}
-          quizTitle={`${courseTitle} — Assessment`}
+          quizTitle={courseTitle}
           onSubmitAnswer={handleQuizAnswer}
           onQuizFinished={handleQuizFinished}
           skipQuestionIds={answeredQuestionIds}
@@ -202,64 +214,83 @@ export function CourseLearner({
           finalScore={score}
           finalMaxScore={maxScore}
           showHomeLink={false}
+          gamified
         />
-      </div>
+      </KidZone>
     );
   }
 
   if (mode === "lesson_quiz") {
     return (
-      <QuizPlayer
-        questions={lessonQuizQuestions}
-        quizTitle={lessonQuizTitle}
-        onSubmitAnswer={handleQuizAnswer}
-        onQuizFinished={handleQuizFinished}
-        skipQuestionIds={answeredQuestionIds}
-        initialScore={score}
-        completed={false}
-        finalScore={score}
-        finalMaxScore={maxScore}
-        showHomeLink={false}
-      />
+      <KidZone>
+        <QuizPlayer
+          questions={lessonQuizQuestions}
+          quizTitle={lessonQuizTitle.replace(" — Assessment", " Quest")}
+          onSubmitAnswer={handleQuizAnswer}
+          onQuizFinished={handleQuizFinished}
+          skipQuestionIds={answeredQuestionIds}
+          initialScore={score}
+          completed={false}
+          finalScore={score}
+          finalMaxScore={maxScore}
+          showHomeLink={false}
+          gamified
+        />
+      </KidZone>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[var(--background)]">
-      <LearnerHeader courseTitle={courseTitle} invitedBy={invitedBy} />
+    <KidZone>
+      <header className="sticky top-0 z-40 border-b-2 border-white/60 bg-white/75 backdrop-blur-md">
+        <div className="page-shell flex min-h-14 flex-col justify-center gap-0.5 py-2 sm:h-16 sm:flex-row sm:items-center sm:justify-between sm:py-0">
+          <Link href="/" className="game-font text-xl font-bold text-[var(--kid-text)]">
+            <BrandName />
+          </Link>
+          <div className="min-w-0 sm:max-w-[55%] sm:text-right">
+            <span className="block truncate text-base font-bold text-[var(--kid-text)]">
+              🗺️ {courseTitle}
+            </span>
+            {invitedBy && (
+              <span className="block truncate text-sm font-semibold text-[var(--kid-muted)]">
+                Quest guide: {invitedBy.name}
+              </span>
+            )}
+          </div>
+        </div>
+      </header>
 
       <div className="mx-auto flex max-w-6xl flex-col gap-5 px-4 py-6 sm:gap-6 sm:px-6 sm:py-8 lg:flex-row">
         <aside className="w-full shrink-0 lg:w-72">
-          <Card className="lg:sticky lg:top-20 !p-4 sm:!p-5">
+          <div className="kid-card lg:sticky lg:top-20 p-4 sm:p-5">
             {invitedBy && (
-              <p className="mb-3 rounded-md bg-[var(--primary-muted)] px-3 py-2.5 text-sm text-[var(--primary)]">
-                Invited by <span className="font-medium">{invitedBy.name}</span>
+              <p className="mb-3 rounded-xl border-2 border-[#fcd34d] bg-[#fef9c3] px-3 py-2.5 text-sm font-semibold text-[#92400e]">
+                🧭 Guided by <span className="font-bold">{invitedBy.name}</span>
               </p>
             )}
-            <h1 className="text-lg font-semibold text-gray-900 sm:text-xl">{courseTitle}</h1>
+            <h1 className="game-font text-lg font-bold text-[var(--kid-text)] sm:text-xl">
+              Quest map
+            </h1>
             {courseDescription && (
               <RichTextContent
                 html={courseDescription}
-                className="mt-1.5 line-clamp-3 text-sm text-gray-600 sm:text-base"
+                className="mt-1.5 line-clamp-3 text-sm text-[var(--kid-muted)] sm:text-base"
               />
             )}
 
             <div className="mt-5">
-              <div className="mb-1.5 flex justify-between text-sm text-gray-500">
-                <span>Progress</span>
+              <div className="mb-1.5 flex justify-between text-sm font-semibold text-[var(--kid-muted)]">
+                <span>Levels beaten</span>
                 <span className="tabular-nums">
                   {completedIds.length}/{lessons.length}
                 </span>
               </div>
-              <div className="h-1.5 overflow-hidden rounded-full bg-gray-100">
-                <div
-                  className="h-full rounded-full bg-[var(--primary)] transition-all duration-300"
-                  style={{ width: `${progress}%` }}
-                />
+              <div className="game-progress-track h-3">
+                <div className="game-progress-fill" style={{ width: `${progress}%` }} />
               </div>
             </div>
 
-            <nav className="mt-5 max-h-[50vh] space-y-0.5 overflow-y-auto">
+            <nav className="mt-5 max-h-[50vh] space-y-1 overflow-y-auto">
               {lessons.map((lesson, idx) => {
                 const done = completedIds.includes(lesson.id);
                 const active = idx === currentLessonIdx;
@@ -270,76 +301,95 @@ export function CourseLearner({
                     type="button"
                     disabled={locked}
                     onClick={() => !locked && setCurrentLessonIdx(idx)}
-                    className={`flex w-full min-h-11 items-center gap-2.5 rounded-md px-3 py-2.5 text-left text-base transition-colors ${
+                    className={`flex w-full min-h-11 items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-base font-semibold transition-all ${
                       active
-                        ? "bg-[var(--primary-muted)] font-medium text-[var(--primary)]"
+                        ? "border-2 border-[var(--kid-purple)] bg-[#ede9fe] text-[#5b21b6]"
                         : locked
                           ? "cursor-not-allowed text-gray-300"
-                          : "text-gray-600 hover:bg-gray-50"
+                          : "text-[var(--kid-muted)] hover:bg-[#f5f3ff]"
                     }`}
                   >
                     <span
-                      className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold ${
-                        done ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-500"
+                      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-sm font-bold ${
+                        done
+                          ? "bg-[#bbf7d0] text-[#166534]"
+                          : locked
+                            ? "bg-gray-100 text-gray-400"
+                            : "bg-[#ddd6fe] text-[#6d28d9]"
                       }`}
                     >
-                      {done ? "✓" : idx + 1}
+                      {done ? "✓" : locked ? "🔒" : idx + 1}
                     </span>
                     <span className="truncate">{lesson.title}</span>
                   </button>
                 );
               })}
             </nav>
-          </Card>
+          </div>
         </aside>
 
         <div className="min-w-0 flex-1">
-          <Card>
+          <div className="kid-card p-5 sm:p-8">
             {currentLesson ? (
               <>
                 <div className="mb-6 flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium uppercase tracking-wide text-gray-400 sm:text-base">
-                      Lesson {currentLessonIdx + 1} of {lessons.length}
+                    <p className="game-font text-sm font-bold uppercase tracking-wide text-[var(--kid-muted)] sm:text-base">
+                      Level {currentLessonIdx + 1} of {lessons.length}
                     </p>
-                    <h2 className="mt-1 text-xl font-semibold text-gray-900 sm:text-2xl">{currentLesson.title}</h2>
+                    <h2 className="game-font mt-1 text-xl font-bold text-[var(--kid-text)] sm:text-2xl">
+                      {currentLesson.title}
+                    </h2>
                   </div>
-                  {isLessonFullyDone && <Badge variant="success">Completed</Badge>}
+                  {isLessonFullyDone && (
+                    <span className="kid-pill bg-[#bbf7d0] text-[#166534]">✅ Done!</span>
+                  )}
                   {isContentDone && !isLessonFullyDone && (
-                    <Badge variant="primary">Assessment pending</Badge>
+                    <span className="kid-pill bg-[#fef9c3] text-[#92400e]">⚔️ Boss quiz!</span>
                   )}
                 </div>
 
                 <LessonViewer lesson={currentLesson} />
 
-                <div className="mt-8 flex flex-wrap items-center justify-between gap-4 border-t border-gray-100 pt-6">
-                  <Button
-                    variant="secondary"
-                    size="sm"
+                <div className="mt-8 flex flex-wrap items-center justify-between gap-4 border-t-2 border-[#ede9fe] pt-6">
+                  <button
+                    type="button"
+                    className="kid-btn-secondary !px-4 !py-2 !text-sm disabled:opacity-40"
                     disabled={currentLessonIdx === 0}
                     onClick={() => setCurrentLessonIdx((i) => i - 1)}
                   >
-                    Previous
-                  </Button>
+                    ← Back
+                  </button>
 
                   <div className="flex gap-3">
                     {!isContentDone && !isLessonFullyDone && (
-                      <Button onClick={handleCompleteLesson} disabled={marking}>
-                        {marking ? "Saving..." : "Complete & take assessment"}
-                      </Button>
+                      <button
+                        type="button"
+                        className="kid-btn-primary !px-5 !py-2 !text-sm disabled:opacity-60"
+                        onClick={handleCompleteLesson}
+                        disabled={marking}
+                      >
+                        {marking ? "Saving..." : "Finish level → Quiz!"}
+                      </button>
                     )}
                     {isContentDone && !isLessonFullyDone && (
-                      <Button onClick={() => setMode("lesson_quiz")}>Continue assessment</Button>
+                      <button
+                        type="button"
+                        className="kid-btn-primary !px-5 !py-2 !text-sm"
+                        onClick={() => setMode("lesson_quiz")}
+                      >
+                        Start boss quiz!
+                      </button>
                     )}
                   </div>
                 </div>
               </>
             ) : (
-              <p className="text-sm text-gray-500">No lessons in this course.</p>
+              <p className="text-sm text-[var(--kid-muted)]">No levels in this quest yet.</p>
             )}
-          </Card>
+          </div>
         </div>
       </div>
-    </div>
+    </KidZone>
   );
 }

@@ -3,10 +3,10 @@
 import { useEffect, useState } from "react";
 import { useDynamicParam } from "@/lib/use-dynamic-param";
 import { CourseLearner } from "@/components/CourseLearner";
+import { KidZone } from "@/components/layout/KidZone";
 import { PlayQuestion } from "@/types/quiz";
 import { PublicLesson } from "@/types/course";
 import { Spinner } from "@/components/ui/Spinner";
-import { Card } from "@/components/ui/Card";
 
 export default function LearnPage() {
   const token = useDynamicParam(1, "token");
@@ -62,19 +62,32 @@ export default function LearnPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[var(--background)]">
-        <Spinner label="Loading course..." />
-      </div>
+      <KidZone>
+        <div className="flex min-h-screen flex-col items-center justify-center gap-4">
+          <Spinner label="Loading your quest..." />
+          <p className="game-font text-lg font-semibold text-[var(--kid-muted)]">Get ready to play!</p>
+        </div>
+      </KidZone>
     );
   }
 
   if (error || !data) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[var(--background)] px-4">
-        <Card className="max-w-md text-center">
-          <p className="text-sm text-red-600">{error || "Course not found or link expired."}</p>
-        </Card>
-      </div>
+      <KidZone>
+        <div className="flex min-h-screen items-center justify-center px-4">
+          <div className="kid-card max-w-md p-8 text-center">
+            <p className="text-4xl" aria-hidden>
+              😕
+            </p>
+            <p className="game-font mt-4 text-lg font-bold text-red-600">
+              {error || "This quest link expired or was not found."}
+            </p>
+            <p className="mt-2 text-sm text-[var(--kid-muted)]">
+              Ask your teacher to send you a new link!
+            </p>
+          </div>
+        </div>
+      </KidZone>
     );
   }
 

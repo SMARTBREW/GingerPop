@@ -15,6 +15,7 @@ interface QuestionCardProps {
   isAnswered: boolean;
   correctIndex: number | null;
   onSelect: (index: number) => void;
+  gamified?: boolean;
 }
 
 export function QuestionCard({
@@ -25,14 +26,23 @@ export function QuestionCard({
   isAnswered,
   correctIndex,
   onSelect,
+  gamified = false,
 }: QuestionCardProps) {
   return (
     <div className="animate-fade-in w-full">
       <div className="mb-6 flex items-center justify-between">
-        <span className="badge badge-gray">
-          Question {questionNumber} of {totalQuestions}
+        <span className={gamified ? "game-quest-badge" : "badge badge-gray"}>
+          {gamified ? `🎯 Challenge ${questionNumber} of ${totalQuestions}` : `Question ${questionNumber} of ${totalQuestions}`}
         </span>
-        <span className="text-base font-semibold text-[var(--primary)]">{question.points} pts</span>
+        <span
+          className={
+            gamified
+              ? "game-font text-lg font-bold text-[var(--kid-purple)]"
+              : "text-base font-semibold text-[var(--primary)]"
+          }
+        >
+          {gamified ? `⭐ ${question.points}` : `${question.points} pts`}
+        </span>
       </div>
 
       <QuestionMedia question={question} />
@@ -49,7 +59,7 @@ export function QuestionCard({
         <div className="examples-panel mb-8">
           <div className="examples-panel-header">
             <span className="examples-panel-dot" aria-hidden />
-            <p className="examples-panel-label">Examples</p>
+            <p className="examples-panel-label">{gamified ? "💡 Hints" : "Examples"}</p>
           </div>
           <div className="examples-panel-body">
             <RichTextContent html={question.examples!} className="examples-prose" as="div" />
@@ -75,10 +85,10 @@ export function QuestionCard({
               onClick={() => onSelect(idx)}
               className={`option-btn flex items-center gap-3 rounded-lg px-4 py-4 text-left ${stateClass}`}
             >
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-base font-semibold text-slate-600">
+              <span className="option-letter flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-base font-semibold">
                 {OPTION_LABELS[idx]}
               </span>
-              <span className="flex-1 text-base text-slate-700">
+              <span className="option-answer flex-1 text-base">
                 <RichTextContent html={option} className="option-prose" as="span" />
               </span>
             </button>

@@ -2,7 +2,8 @@
 
 import { questions as demoQuestions } from "@/data/questions";
 import { QuizPlayer } from "@/components/QuizPlayer";
-import { MarketingHeader } from "@/components/layout/MarketingHeader";
+import { KidMarketingHeader } from "@/components/layout/KidMarketingHeader";
+import { KidZone } from "@/components/layout/KidZone";
 
 const questions = demoQuestions.map((q) => ({
   id: String(q.id),
@@ -18,14 +19,15 @@ const questions = demoQuestions.map((q) => ({
 
 export default function PlayPage() {
   return (
-    <>
-      <MarketingHeader />
+    <KidZone>
+      <KidMarketingHeader />
       <QuizPlayer
         questions={questions}
-        quizTitle="Demo Assessment"
+        quizTitle="Practice Quest"
         playAgainHref="/play"
         showHomeLink
+        gamified
       />
-    </>
+    </KidZone>
   );
 }

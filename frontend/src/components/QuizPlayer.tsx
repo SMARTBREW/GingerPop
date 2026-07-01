@@ -33,6 +33,25 @@ interface QuizPlayerProps {
   finalMaxScore?: number;
   showHomeLink?: boolean;
   playAgainHref?: string;
+  gamified?: boolean;
+}
+
+function getStarCount(percentage: number) {
+  if (percentage >= 80) return 3;
+  if (percentage >= 50) return 2;
+  return 1;
+}
+
+function StarRow({ count, max = 3 }: { count: number; max?: number }) {
+  return (
+    <div className="game-star-row" aria-label={`${count} out of ${max} stars`}>
+      {Array.from({ length: max }, (_, i) => (
+        <span key={i} className={i < count ? "game-sparkle" : "dim"}>
+          ⭐
+        </span>
+      ))}
+    </div>
+  );
 }
 
 function ScoreRing({ percentage }: { percentage: number }) {
@@ -78,6 +97,7 @@ export function QuizPlayer({
   finalMaxScore,
   showHomeLink = true,
   playAgainHref,
+  gamified = false,
 }: QuizPlayerProps) {
   // Only skip questions already answered before this session (resume). Do not
   // shrink the list mid-quiz when the parent records each new answer.
@@ -219,6 +239,52 @@ export function QuizPlayer({
     const displayMax = finalMaxScore ?? maxScore;
     const percentage = displayMax > 0 ? Math.round((displayScore / displayMax) * 100) : 0;
     const passed = percentage >= 50;
+    const stars = getStarCount(percentage);
+
+    if (gamified) {
+      return (
+        <main className="flex min-h-screen flex-col items-center justify-center px-4 py-12">
+          <div className="kid-card animate-fade-in w-full max-w-lg p-8 text-center sm:p-10">
+            <div className="game-trophy" aria-hidden>
+              {passed ? "🏆" : "🎮"}
+            </div>
+            <StarRow count={stars} />
+            <h1 className="game-font mt-4 text-3xl font-bold text-[var(--kid-text)]">
+              {passed ? "Quest complete!" : "Nice try, adventurer!"}
+            </h1>
+            {quizTitle && (
+              <p className="mt-2 text-base font-semibold text-[var(--kid-muted)]">{quizTitle}</p>
+            )}
+            <p className="game-font mt-6 text-4xl font-bold tabular-nums text-[var(--kid-text)]">
+              {displayScore}
+              <span className="text-xl font-semibold text-[var(--kid-muted)]">
+                {" "}
+                / {displayMax} stars
+              </span>
+            </p>
+            <p className="mt-3 text-base text-[var(--kid-muted)]">
+              {percentage >= 80
+                ? "Amazing! You are a superstar! 🌟"
+                : percentage >= 50
+                  ? "Great job! Keep playing to earn more stars!"
+                  : "Every quest makes you stronger. Try again!"}
+            </p>
+            {playAgainHref && (
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
+                <Link href={playAgainHref} className="kid-btn-primary">
+                  Play again
+                </Link>
+                {showHomeLink && (
+                  <Link href="/" className="kid-btn-secondary">
+                    Back home
+                  </Link>
+                )}
+              </div>
+            )}
+          </div>
+        </main>
+      );
+    }
 
     return (
       <main className="flex min-h-screen flex-col items-center justify-center bg-[var(--background)] px-4 py-12">
@@ -264,79 +330,155 @@ export function QuizPlayer({
 
   if (!question) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[var(--background)]">
-        <p className="text-sm text-gray-500">No questions available.</p>
+      <main
+        className={`flex min-h-screen items-center justify-center ${gamified ? "" : "bg-[var(--background)]"}`}
+      >
+        <p className={gamified ? "game-font text-lg text-[var(--kid-muted)]" : "text-sm text-gray-500"}>
+          No questions available.
+        </p>
       </main>
     );
   }
 
+  const questNumber = skippedOnLoadRef.current.size + currentIndex + 1;
+  const progressPct = questions.length > 0 ? (questNumber / questions.length) * 100 : 0;
+
   return (
-    <main className="min-h-screen bg-[var(--background)] px-4 py-8">
+    <main className={`min-h-screen px-4 py-8 ${gamified ? "" : "bg-[var(--background)]"}`}>
       <AnswerFeedback
         type={answerFeedback ?? "correct"}
         points={question.points}
         visible={answerFeedback !== null}
         exiting={feedbackExiting}
+        gamified={gamified}
       />
 
       <div className="mx-auto max-w-3xl">
-        {quizTitle && (
+        {quizTitle && gamified && (
+          <div className="mb-4 text-center">
+            <span className="game-quest-badge">🗺️ {quizTitle}</span>
+          </div>
+        )}
+        {quizTitle && !gamified && (
           <h1 className="mb-6 text-xl font-semibold tracking-tight text-gray-900">{quizTitle}</h1>
         )}
 
-        <Card className={answerFeedback === "wrong" ? "quiz-card-shake" : undefined}>
-          <header className="mb-8 flex items-center justify-between border-b border-gray-100 pb-6">
-            <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Score</p>
-              <p className="text-2xl font-semibold tabular-nums text-gray-900">{score} pts</p>
-            </div>
-
-            {timerEnabled ? (
-              <QuizTimer
-                key={`${question.id}-${currentIndex}`}
-                seconds={timeLimit}
-                running={!isAnswered && !submitting}
-                onExpire={handleTimeout}
-                resetKey={currentIndex}
-              />
-            ) : (
-              <div className="flex flex-col items-center gap-1.5 px-2 text-center">
-                <div className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-gray-200 bg-white text-sm font-medium text-gray-400">
-                  —
-                </div>
-                <span className="text-xs font-medium text-slate-400">No timer</span>
+        {gamified ? (
+          <div
+            className={`kid-card p-5 sm:p-8 ${answerFeedback === "wrong" ? "quiz-card-shake" : ""}`}
+          >
+            <header className="game-hud mb-6">
+              <div className="game-stat-box">
+                <p className="game-stat-label">Stars</p>
+                <p className="game-stat-value">⭐ {score}</p>
               </div>
-            )}
 
-            <div className="text-right">
-              <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Progress</p>
-              <p className="text-2xl font-semibold tabular-nums text-gray-900">
-                {skippedOnLoadRef.current.size + currentIndex + 1}/{questions.length}
-              </p>
+              {timerEnabled ? (
+                <QuizTimer
+                  key={`${question.id}-${currentIndex}`}
+                  seconds={timeLimit}
+                  running={!isAnswered && !submitting}
+                  onExpire={handleTimeout}
+                  resetKey={currentIndex}
+                  gamified
+                />
+              ) : (
+                <div className="game-stat-box">
+                  <p className="game-stat-label">Timer</p>
+                  <p className="game-stat-value text-2xl">∞</p>
+                </div>
+              )}
+
+              <div className="game-stat-box">
+                <p className="game-stat-label">Level</p>
+                <p className="game-stat-value">
+                  {questNumber}/{questions.length}
+                </p>
+                <div className="game-progress-track">
+                  <div className="game-progress-fill" style={{ width: `${progressPct}%` }} />
+                </div>
+              </div>
+            </header>
+
+            <QuestionCard
+              question={question}
+              questionNumber={questNumber}
+              totalQuestions={questions.length}
+              selectedOption={selectedOption}
+              isAnswered={isAnswered}
+              correctIndex={revealedCorrectIndex}
+              onSelect={handleSelect}
+              gamified
+            />
+
+            <div className="mt-8 flex flex-col items-center gap-3 pt-6">
+              {isAnswered && !answerFeedback && (
+                <p className="game-font text-base font-semibold text-[var(--kid-muted)]">
+                  {timedOut ? "⏰ Time's up!" : "Answer saved!"}
+                </p>
+              )}
+              {!isAnswered && (
+                <p className="text-base font-semibold text-[var(--kid-muted)]">
+                  Tap an answer to continue your quest!
+                </p>
+              )}
             </div>
-          </header>
-
-          <QuestionCard
-            question={question}
-            questionNumber={skippedOnLoadRef.current.size + currentIndex + 1}
-            totalQuestions={questions.length}
-            selectedOption={selectedOption}
-            isAnswered={isAnswered}
-            correctIndex={revealedCorrectIndex}
-            onSelect={handleSelect}
-          />
-
-          <div className="mt-8 flex flex-col items-center gap-3 border-t border-gray-100 pt-6">
-            {isAnswered && !answerFeedback && (
-              <p className="text-sm font-medium text-gray-600">
-                {timedOut ? "Time expired." : "Answer recorded."}
-              </p>
-            )}
-            {!isAnswered && (
-              <p className="text-sm text-gray-500">Tap an option to submit your answer</p>
-            )}
           </div>
-        </Card>
+        ) : (
+          <Card className={answerFeedback === "wrong" ? "quiz-card-shake" : undefined}>
+            <header className="mb-8 flex items-center justify-between border-b border-gray-100 pb-6">
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Score</p>
+                <p className="text-2xl font-semibold tabular-nums text-gray-900">{score} pts</p>
+              </div>
+
+              {timerEnabled ? (
+                <QuizTimer
+                  key={`${question.id}-${currentIndex}`}
+                  seconds={timeLimit}
+                  running={!isAnswered && !submitting}
+                  onExpire={handleTimeout}
+                  resetKey={currentIndex}
+                />
+              ) : (
+                <div className="flex flex-col items-center gap-1.5 px-2 text-center">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-gray-200 bg-white text-sm font-medium text-gray-400">
+                    —
+                  </div>
+                  <span className="text-xs font-medium text-slate-400">No timer</span>
+                </div>
+              )}
+
+              <div className="text-right">
+                <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Progress</p>
+                <p className="text-2xl font-semibold tabular-nums text-gray-900">
+                  {questNumber}/{questions.length}
+                </p>
+              </div>
+            </header>
+
+            <QuestionCard
+              question={question}
+              questionNumber={questNumber}
+              totalQuestions={questions.length}
+              selectedOption={selectedOption}
+              isAnswered={isAnswered}
+              correctIndex={revealedCorrectIndex}
+              onSelect={handleSelect}
+            />
+
+            <div className="mt-8 flex flex-col items-center gap-3 border-t border-gray-100 pt-6">
+              {isAnswered && !answerFeedback && (
+                <p className="text-sm font-medium text-gray-600">
+                  {timedOut ? "Time expired." : "Answer recorded."}
+                </p>
+              )}
+              {!isAnswered && (
+                <p className="text-sm text-gray-500">Tap an option to submit your answer</p>
+              )}
+            </div>
+          </Card>
+        )}
       </div>
     </main>
   );

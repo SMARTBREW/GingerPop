@@ -8,9 +8,10 @@ interface QuizTimerProps {
   running: boolean;
   onExpire: () => void;
   resetKey: number;
+  gamified?: boolean;
 }
 
-export function QuizTimer({ seconds, running, onExpire, resetKey }: QuizTimerProps) {
+export function QuizTimer({ seconds, running, onExpire, resetKey, gamified = false }: QuizTimerProps) {
   const [timeLeft, setTimeLeft] = useState(seconds);
   const expiredRef = useRef(false);
   const onExpireRef = useRef(onExpire);
@@ -56,7 +57,7 @@ export function QuizTimer({ seconds, running, onExpire, resetKey }: QuizTimerPro
   return (
     <div className="flex flex-col items-center gap-1.5">
       <div
-        className={`relative flex h-14 w-14 items-center justify-center rounded-full border-2 bg-white ${borderColor} ${isCritical ? "animate-pulse" : ""}`}
+        className={`relative flex h-14 w-14 items-center justify-center rounded-full border-2 bg-white ${borderColor} ${isCritical ? "animate-pulse" : ""} ${gamified ? "border-[3px] border-[#c4b5fd] shadow-[0_3px_0_#a78bfa]" : ""}`}
       >
         <svg className="absolute inset-0 -rotate-90" viewBox="0 0 64 64">
           <circle cx="32" cy="32" r="28" fill="none" stroke="#e2e8f0" strokeWidth="3" />
@@ -73,9 +74,11 @@ export function QuizTimer({ seconds, running, onExpire, resetKey }: QuizTimerPro
             className={ringColor}
           />
         </svg>
-        <span className={`text-lg font-bold ${textColor}`}>{timeLeft}</span>
+        <span className={`text-lg font-bold ${textColor} ${gamified ? "game-font" : ""}`}>{timeLeft}</span>
       </div>
-      <span className="text-xs font-medium text-slate-400">Time left</span>
+      <span className={`text-xs font-medium ${gamified ? "game-font font-semibold text-[var(--kid-muted)]" : "text-slate-400"}`}>
+        {gamified ? "⏱️ Time" : "Time left"}
+      </span>
     </div>
   );
 }
