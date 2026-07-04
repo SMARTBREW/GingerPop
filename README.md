@@ -24,7 +24,6 @@ Quiz/
 
 ## Setup
 
-```bash
 npm install
 cp .env.example .env   # configure MONGODB_URI, JWT_SECRET, Cloudinary, SMTP
 npm run seed:admin       # seeds super admin + admin accounts
