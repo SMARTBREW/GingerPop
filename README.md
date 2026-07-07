@@ -105,4 +105,3 @@ Configure Cloudinary in `.env`:
 CLOUDINARY_URL=cloudinary://api_key:api_secret@cloud_name
 ```
 
-Restart dev servers after changing `.env`.
