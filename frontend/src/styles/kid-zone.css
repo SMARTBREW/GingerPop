@@ -64,25 +64,25 @@
   justify-content: center;
   gap: 0.5rem;
   border-radius: 9999px;
-  border: 3px solid #e85d04;
+  border: 3.5px solid #e85d04;
   background: linear-gradient(180deg, #ff9f43 0%, #ff6b35 100%);
-  padding: 0.85rem 1.75rem;
+  padding: 1.1rem 2rem;
   font-family: var(--font-game), "Fredoka", system-ui, sans-serif;
-  font-size: 1.125rem;
-  font-weight: 600;
+  font-size: 1.25rem;
+  font-weight: 800;
   color: white;
-  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.15);
-  box-shadow: 0 5px 0 #c44d00, 0 8px 20px rgba(255, 107, 53, 0.35);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.15);
+  box-shadow: 0 8px 0 #c44d00, 0 12px 24px rgba(255, 107, 53, 0.35);
+  transition: all 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
 .kid-btn-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 7px 0 #c44d00, 0 12px 24px rgba(255, 107, 53, 0.4);
+  transform: translateY(-4px);
+  box-shadow: 0 12px 0 #c44d00, 0 16px 28px rgba(255, 107, 53, 0.4);
 }
 
 .kid-btn-primary:active {
-  transform: translateY(3px);
+  transform: translateY(6px);
   box-shadow: 0 2px 0 #c44d00;
 }
 
@@ -92,33 +92,41 @@
   justify-content: center;
   gap: 0.5rem;
   border-radius: 9999px;
-  border: 3px solid #7c3aed;
+  border: 3.5px solid #7c3aed;
   background: linear-gradient(180deg, #c4b5fd 0%, #a78bfa 100%);
-  padding: 0.85rem 1.75rem;
+  padding: 1.1rem 2rem;
   font-family: var(--font-game), "Fredoka", system-ui, sans-serif;
-  font-size: 1.125rem;
-  font-weight: 600;
+  font-size: 1.25rem;
+  font-weight: 800;
   color: white;
-  box-shadow: 0 5px 0 #6d28d9, 0 8px 20px rgba(124, 58, 237, 0.3);
-  transition: transform 0.15s ease;
+  box-shadow: 0 8px 0 #6d28d9, 0 12px 24px rgba(124, 58, 237, 0.3);
+  transition: all 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
 .kid-btn-secondary:hover {
-  transform: translateY(-2px);
+  transform: translateY(-4px);
+  box-shadow: 0 12px 0 #6d28d9, 0 16px 28px rgba(124, 58, 237, 0.4);
+}
+
+.kid-btn-secondary:active {
+  transform: translateY(6px);
+  box-shadow: 0 2px 0 #6d28d9;
 }
 
 .kid-step-card {
-  border-radius: 1.25rem;
-  border: 2px solid rgba(255, 255, 255, 0.8);
-  background: rgba(255, 255, 255, 0.85);
-  padding: 1.25rem;
+  border-radius: 2rem;
+  border: 3.5px solid #e0e7ff;
+  background: #ffffff;
+  padding: 2rem 1.5rem;
   text-align: center;
-  box-shadow: 0 6px 0 rgba(45, 27, 78, 0.06);
-  transition: transform 0.2s ease;
+  box-shadow: 0 8px 0px #e0e7ff;
+  transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
 .kid-step-card:hover {
-  transform: translateY(-4px) rotate(-1deg);
+  transform: translateY(-8px) rotate(-1.5deg);
+  box-shadow: 0 16px 0px #c7d2fe;
+  border-color: #c7d2fe;
 }
 
 .kid-step-icon {
