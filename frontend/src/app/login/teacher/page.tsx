@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { BrandName } from "@/components/BrandName";
 import { KidZone } from "@/components/layout/KidZone";
+import { SiteFooter } from "@/components/layout/SiteFooter";
+import { SiteHeader, SiteHeaderLink } from "@/components/layout/SiteHeader";
 
 export default function TeacherLoginPage() {
   const [email, setEmail] = useState("");
@@ -34,32 +35,20 @@ export default function TeacherLoginPage() {
   };
 
   return (
-    <KidZone className="relative min-h-screen overflow-hidden">
+    <KidZone className="relative flex min-h-screen flex-col overflow-hidden">
       <div className="kid-blob -left-12 top-20 h-36 w-36 bg-[var(--kid-sun)]" aria-hidden />
       <div className="kid-blob right-0 top-10 h-28 w-28 bg-[#fdba74]" aria-hidden />
 
-      <header className="sticky top-0 z-40 border-b-2 border-white/60 bg-white/75 backdrop-blur-md">
-        <div className="page-shell flex h-16 items-center justify-between">
-          <Link href="/" className="game-font text-2xl font-bold text-[var(--kid-text)]">
-            <BrandName />
-          </Link>
-          <Link
-            href="/login"
-            className="rounded-full px-3 py-2 text-sm font-semibold text-[var(--kid-muted)] hover:bg-white/80"
-          >
-            ← Back
-          </Link>
-        </div>
-      </header>
+      <SiteHeader actions={<SiteHeaderLink href="/login">← Back</SiteHeaderLink>} />
 
-      <main className="page-shell relative flex justify-center py-10 sm:py-14">
+      <main className="page-shell relative flex flex-1 justify-center py-10 sm:py-14">
         <div className="kid-card w-full max-w-md p-7 sm:p-9">
           <span className="kid-pill border-2 border-[#fed7aa] bg-[#fff7ed] text-[#c2410c]">
             👩‍🏫 Teacher
           </span>
           <h1 className="game-font mt-4 text-3xl font-bold text-[var(--kid-text)]">Teacher login</h1>
           <p className="mt-2 text-sm font-semibold text-[var(--kid-muted)]">
-            Sign in to create courses, invite learners, and manage quizzes.
+            Sign in to create courses and invite learners.
           </p>
 
           <form onSubmit={handleSubmit} className="mt-7 space-y-4">
@@ -71,7 +60,7 @@ export default function TeacherLoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 autoComplete="email"
-                placeholder="you@school.com"
+                placeholder="teacher@school.com"
                 className="w-full rounded-xl border-2 border-[#fed7aa] bg-white px-4 py-3 text-base font-semibold text-[var(--kid-text)] outline-none focus:border-[#ea580c]"
               />
             </label>
@@ -107,6 +96,8 @@ export default function TeacherLoginPage() {
           </p>
         </div>
       </main>
+
+      <SiteFooter />
     </KidZone>
   );
 }

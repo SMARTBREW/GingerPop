@@ -1,4 +1,5 @@
 import { Fredoka, Nunito } from "next/font/google";
+import type { CSSProperties, ReactNode } from "react";
 
 const fredoka = Fredoka({
   subsets: ["latin"],
@@ -15,12 +16,17 @@ const nunito = Nunito({
 export function KidZone({
   children,
   className = "",
+  style,
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
   className?: string;
+  style?: CSSProperties;
 }) {
   return (
-    <div className={`kid-zone kid-zone-bg ${fredoka.variable} ${nunito.variable} ${className}`}>
+    <div
+      className={`kid-zone kid-zone-bg ${fredoka.variable} ${nunito.variable} ${className}`}
+      style={style}
+    >
       {children}
     </div>
   );

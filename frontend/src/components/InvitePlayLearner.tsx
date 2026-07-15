@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { BrandName } from "@/components/BrandName";
+import { useEffect, useMemo, useState } from "react";
 import { KidZone } from "@/components/layout/KidZone";
+import { SiteFooter } from "@/components/layout/SiteFooter";
+import { SiteHeader } from "@/components/layout/SiteHeader";
 import { MascotQuizPlayer, type InvitePlayLesson } from "@/components/MascotQuizPlayer";
 
 interface TopicNode {
@@ -17,6 +18,14 @@ interface TopicNode {
     lessonSlug: string;
   }[];
 }
+
+export type InviteProgressUpdate = {
+  score?: number;
+  maxScore?: number;
+  phase?: string;
+  completedLessonIds?: string[];
+  contentCompletedLessonIds?: string[];
+};
 
 interface InvitePlayLearnerProps {
   token: string;
@@ -59,18 +68,43 @@ export function InvitePlayLearner({
   const [topicId, setTopicId] = useState<string | null>(null);
   const [activeSlug, setActiveSlug] = useState<string | undefined>(undefined);
   const [resetting, setResetting] = useState(false);
+  const [liveScore, setLiveScore] = useState(score);
+  const [liveMaxScore, setLiveMaxScore] = useState(maxScore);
+  const [livePhase, setLivePhase] = useState(phase);
+  const [liveCompletedLessonIds, setLiveCompletedLessonIds] = useState(completedLessonIds);
+  const [liveContentCompletedLessonIds, setLiveContentCompletedLessonIds] = useState(
+    contentCompletedLessonIds,
+  );
+
+  useEffect(() => {
+    setLiveScore(score);
+    setLiveMaxScore(maxScore);
+    setLivePhase(phase);
+    setLiveCompletedLessonIds(completedLessonIds);
+    setLiveContentCompletedLessonIds(contentCompletedLessonIds);
+  }, [score, maxScore, phase, completedLessonIds, contentCompletedLessonIds]);
+
+  const applyProgress = (update: InviteProgressUpdate) => {
+    if (typeof update.score === "number") setLiveScore(update.score);
+    if (typeof update.maxScore === "number") setLiveMaxScore(update.maxScore);
+    if (update.phase) setLivePhase(update.phase);
+    if (update.completedLessonIds) setLiveCompletedLessonIds(update.completedLessonIds);
+    if (update.contentCompletedLessonIds) {
+      setLiveContentCompletedLessonIds(update.contentCompletedLessonIds);
+    }
+  };
 
   const activeTopic = useMemo(
     () => topics.find((t) => t.id === topicId) ?? null,
     [topics, topicId],
   );
 
-  const isCompleted = phase === "completed";
+  const isCompleted = livePhase === "completed";
   const hasProgress =
     isCompleted ||
-    score > 0 ||
-    completedLessonIds.length > 0 ||
-    contentCompletedLessonIds.length > 0;
+    liveScore > 0 ||
+    liveCompletedLessonIds.length > 0 ||
+    liveContentCompletedLessonIds.length > 0;
   const reviewMode = isCompleted;
 
   const handleReset = async (mode: "try_again" | "reset") => {
@@ -85,6 +119,7 @@ export function InvitePlayLearner({
       const res = await fetch(`/api/learn/${token}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ action: "reset_attempt" }),
       });
       const raw = await res.text();
@@ -110,14 +145,16 @@ export function InvitePlayLearner({
         invite={{
           token,
           lessons: playLessons,
-          score,
-          maxScore,
-          completedLessonIds,
-          contentCompletedLessonIds,
+          score: liveScore,
+          maxScore: liveMaxScore,
+          completedLessonIds: liveCompletedLessonIds,
+          contentCompletedLessonIds: liveContentCompletedLessonIds,
           reviewMode,
+          onProgress: applyProgress,
           onExitToMap: () => {
             setLevel("topics");
             setActiveSlug(undefined);
+            onProgressReset?.();
           },
         }}
       />
@@ -125,22 +162,19 @@ export function InvitePlayLearner({
   }
 
   return (
-    <KidZone className="relative min-h-screen overflow-hidden">
+    <KidZone className="relative flex min-h-screen flex-col overflow-hidden">
       <div className="kid-blob -left-16 top-20 h-40 w-40 bg-[var(--kid-sun)]" aria-hidden />
       <div className="kid-blob right-0 top-10 h-32 w-32 bg-[var(--kid-purple)]" aria-hidden />
 
-      <header className="sticky top-0 z-40 border-b-2 border-white/60 bg-white/75 backdrop-blur-md">
-        <div className="page-shell flex h-16 items-center justify-between">
-          <span className="game-font text-2xl font-bold text-[var(--kid-text)]">
-            <BrandName />
-          </span>
+      <SiteHeader
+        actions={
           <span className="kid-pill border border-[#fed7aa] bg-[#fff7ed] text-[#c2410c]">
-            ⭐ {score}/{maxScore}
+            ⭐ {liveScore}/{liveMaxScore}
           </span>
-        </div>
-      </header>
+        }
+      />
 
-      <main className="page-shell relative py-8 sm:py-12">
+      <main className="page-shell relative flex-1 py-8 sm:py-12">
         <p className="kid-pill mb-3 border-2 border-[#fcd34d] bg-[#fef9c3] text-[#92400e]">
           {isCompleted ? "🏆 Quest complete — review or try again" : "📖 Your invited quest"}
         </p>
@@ -160,8 +194,8 @@ export function InvitePlayLearner({
                 )}
               </div>
               <p className="game-font text-4xl font-bold tabular-nums text-[#065f46]">
-                {score}
-                <span className="text-lg font-semibold text-[#047857]"> / {maxScore}</span>
+                {liveScore}
+                <span className="text-lg font-semibold text-[#047857]"> / {liveMaxScore}</span>
               </p>
             </div>
             <div className="mt-5 flex flex-wrap gap-3">
@@ -275,7 +309,7 @@ export function InvitePlayLearner({
 
             <div className="grid gap-4 sm:grid-cols-2">
               {activeTopic.subtopics.map((sub) => {
-                const done = completedLessonIds.includes(sub.lessonMongoId);
+                const done = liveCompletedLessonIds.includes(sub.lessonMongoId);
                 return (
                   <button
                     key={sub.id}
@@ -312,6 +346,8 @@ export function InvitePlayLearner({
           </>
         )}
       </main>
+
+      <SiteFooter showAuthLinks={false} />
     </KidZone>
   );
 }

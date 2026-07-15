@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { BrandName } from "@/components/BrandName";
 import { KidZone } from "@/components/layout/KidZone";
+import { SiteFooter } from "@/components/layout/SiteFooter";
+import { SiteHeader } from "@/components/layout/SiteHeader";
 
 interface StudentCourseItem {
   invitationId: string;
@@ -86,25 +87,25 @@ export default function StudentDashboardPage() {
 
   if (loading) {
     return (
-      <KidZone>
-        <div className="flex min-h-screen items-center justify-center game-font text-lg font-bold text-[var(--kid-muted)]">
+      <KidZone className="relative flex min-h-screen flex-col">
+        <SiteHeader brandHref="/student/dashboard" actions={null} />
+        <div className="flex flex-1 items-center justify-center game-font text-lg font-bold text-[var(--kid-muted)]">
           Loading your dashboard…
         </div>
+        <SiteFooter showAuthLinks={false} />
       </KidZone>
     );
   }
 
   return (
-    <KidZone className="relative min-h-screen overflow-hidden">
+    <KidZone className="relative flex min-h-screen flex-col overflow-hidden">
       <div className="kid-blob -left-16 top-24 h-40 w-40 bg-[var(--kid-sun)]" aria-hidden />
       <div className="kid-blob right-0 top-16 h-32 w-32 bg-[var(--kid-grass)]" aria-hidden />
 
-      <header className="sticky top-0 z-40 border-b-2 border-white/60 bg-white/75 backdrop-blur-md">
-        <div className="page-shell flex h-16 items-center justify-between gap-3 sm:h-[4.5rem]">
-          <Link href="/student/dashboard" className="game-font text-xl font-bold text-[var(--kid-text)] sm:text-2xl">
-            <BrandName />
-          </Link>
-          <div className="flex items-center gap-2 sm:gap-3">
+      <SiteHeader
+        brandHref="/student/dashboard"
+        actions={
+          <>
             {student && (
               <span className="kid-pill hidden border border-[#bbf7d0] bg-[#f0fdf4] text-[#166534] sm:inline-flex">
                 🎒 {student.name}
@@ -120,11 +121,11 @@ export default function StudentDashboardPage() {
             >
               Log out
             </button>
-          </div>
-        </div>
-      </header>
+          </>
+        }
+      />
 
-      <main className="page-shell relative py-8 sm:py-12">
+      <main className="page-shell relative flex-1 py-8 sm:py-12">
         <section className="kid-card mb-8 overflow-hidden p-6 sm:p-8" style={{ background: "linear-gradient(135deg, #f0fdf4, #ecfeff)" }}>
           <p className="kid-pill mb-3 border-2 border-[#bbf7d0] bg-white text-[#166534]">Student dashboard</p>
           <h1 className="game-font text-3xl font-bold text-[var(--kid-text)] sm:text-4xl">
@@ -239,6 +240,8 @@ export default function StudentDashboardPage() {
           </div>
         </section>
       </main>
+
+      <SiteFooter showAuthLinks={false} />
     </KidZone>
   );
 }

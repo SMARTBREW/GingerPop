@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/cn";
 import { KidZone } from "@/components/layout/KidZone";
+import { SiteFooter } from "@/components/layout/SiteFooter";
 
 export interface AdminUser {
   id: string;
@@ -230,6 +231,8 @@ export function AdminShell({ children, flush }: AdminShellProps) {
         >
           {children}
         </main>
+
+        <SiteFooter showAuthLinks={false} />
       </div>
     </KidZone>
   );

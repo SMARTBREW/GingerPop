@@ -609,6 +609,36 @@ export function SubjectContentEditor({
     setView("play");
   };
 
+  const deleteTopic = (topicTitle: string) => {
+    const topicLessons = lessons.filter((l) => topicKey(l) === topicTitle);
+    const ok = window.confirm(
+      `Delete chapter “${topicTitle}”?\n\nThis removes ${topicLessons.length} lesson(s) and their quizzes from this subject. Save changes to store on the server.`,
+    );
+    if (!ok) return;
+
+    const lessonIds = new Set(topicLessons.map((l) => l.id));
+    onLessonsChange(lessons.filter((l) => !lessonIds.has(l.id)));
+    onQuestionsChange(quizQuestions.filter((q) => !q.lessonId || !lessonIds.has(q.lessonId)));
+    if (activeTopic === topicTitle) {
+      setActiveTopic(null);
+      setView("topics");
+    }
+  };
+
+  const deleteLesson = (lesson: LessonRow) => {
+    const ok = window.confirm(
+      `Delete subtopic “${lesson.title || "Untitled lesson"}”?\n\nThis removes the lesson and its quiz questions. Save changes to store on the server.`,
+    );
+    if (!ok) return;
+
+    onLessonsChange(lessons.filter((l) => l.id !== lesson.id));
+    onQuestionsChange(quizQuestions.filter((q) => q.lessonId !== lesson.id));
+    if (activeLessonId === lesson.id) {
+      setActiveLessonId(null);
+      setView("lessons");
+    }
+  };
+
   /* ─────────── TOPICS (like Maths topics page) ─────────── */
   if (view === "topics") {
     return (
@@ -679,50 +709,64 @@ export function SubjectContentEditor({
 
         <div className="grid gap-4 sm:grid-cols-2">
           {topics.map((t) => (
-            <button
+            <div
               key={t.title}
-              type="button"
-              onClick={() => {
-                setActiveTopic(t.title);
-                setView("lessons");
-              }}
-              className="kid-card p-5 text-left transition-transform hover:-translate-y-1"
+              className="kid-card relative p-5 text-left transition-transform hover:-translate-y-1"
             >
-              <div className="flex items-start gap-3">
-                <input
-                  value={t.emoji}
-                  onClick={(e) => e.stopPropagation()}
-                  onChange={(e) => {
-                    const emoji = e.target.value;
-                    onLessonsChange(
-                      lessons.map((l) =>
-                        topicKey(l) === t.title ? { ...l, topicEmoji: emoji } : l,
-                      ),
-                    );
-                  }}
-                  className="w-12 rounded-lg border border-transparent bg-transparent text-center text-3xl outline-none focus:border-[#fed7aa] focus:bg-white"
-                />
-                <div className="min-w-0 flex-1">
+              <button
+                type="button"
+                className="absolute right-3 top-3 rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-extrabold text-red-700 hover:bg-red-100"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  deleteTopic(t.title);
+                }}
+              >
+                Delete
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTopic(t.title);
+                  setView("lessons");
+                }}
+                className="w-full text-left"
+              >
+                <div className="flex items-start gap-3 pr-16">
                   <input
-                    value={t.title}
+                    value={t.emoji}
                     onClick={(e) => e.stopPropagation()}
                     onChange={(e) => {
-                      const nextName = e.target.value;
+                      const emoji = e.target.value;
                       onLessonsChange(
                         lessons.map((l) =>
-                          topicKey(l) === t.title ? { ...l, topicTitle: nextName } : l,
+                          topicKey(l) === t.title ? { ...l, topicEmoji: emoji } : l,
                         ),
                       );
-                      if (activeTopic === t.title) setActiveTopic(nextName);
                     }}
-                    className="game-font w-full bg-transparent text-xl font-bold text-[var(--kid-text)] outline-none"
+                    className="w-12 rounded-lg border border-transparent bg-transparent text-center text-3xl outline-none focus:border-[#fed7aa] focus:bg-white"
                   />
-                  <p className="mt-3 text-sm font-extrabold text-[var(--kid-purple)]">
-                    {t.lessons.length} lesson{t.lessons.length === 1 ? "" : "s"} →
-                  </p>
+                  <div className="min-w-0 flex-1">
+                    <input
+                      value={t.title}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(e) => {
+                        const nextName = e.target.value;
+                        onLessonsChange(
+                          lessons.map((l) =>
+                            topicKey(l) === t.title ? { ...l, topicTitle: nextName } : l,
+                          ),
+                        );
+                        if (activeTopic === t.title) setActiveTopic(nextName);
+                      }}
+                      className="game-font w-full bg-transparent text-xl font-bold text-[var(--kid-text)] outline-none"
+                    />
+                    <p className="mt-3 text-sm font-extrabold text-[var(--kid-purple)]">
+                      {t.lessons.length} lesson{t.lessons.length === 1 ? "" : "s"} →
+                    </p>
+                  </div>
                 </div>
-              </div>
-            </button>
+              </button>
+            </div>
           ))}
 
           <button
@@ -769,29 +813,43 @@ export function SubjectContentEditor({
 
         <div className="grid gap-4 sm:grid-cols-2">
           {topicLessons.map((lesson) => (
-            <button
+            <div
               key={lesson.id}
-              type="button"
-              onClick={() => openLesson(lesson)}
-              className="kid-card p-5 text-left transition-transform hover:-translate-y-1"
+              className="kid-card relative p-5 text-left transition-transform hover:-translate-y-1"
             >
-              <div className="flex items-start gap-3">
-                <span className="text-3xl" aria-hidden>
-                  ⚖️
-                </span>
-                <div>
-                  <h2 className="game-font text-xl font-bold text-[var(--kid-text)]">
-                    {lesson.title || "Untitled lesson"}
-                  </h2>
-                  <p className="mt-1 text-sm font-semibold text-[var(--kid-muted)]">
-                    {(lesson.pages?.length ?? 1)} topic page
-                    {(lesson.pages?.length ?? 1) === 1 ? "" : "s"} ·{" "}
-                    {getLessonQuestions(quizQuestions, lesson.id).length} quiz Qs
-                  </p>
-                  <p className="mt-3 text-sm font-extrabold text-[#ea580c]">Start lesson →</p>
+              <button
+                type="button"
+                className="absolute right-3 top-3 rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-extrabold text-red-700 hover:bg-red-100"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  deleteLesson(lesson);
+                }}
+              >
+                Delete
+              </button>
+              <button
+                type="button"
+                onClick={() => openLesson(lesson)}
+                className="w-full text-left"
+              >
+                <div className="flex items-start gap-3 pr-16">
+                  <span className="text-3xl" aria-hidden>
+                    ⚖️
+                  </span>
+                  <div>
+                    <h2 className="game-font text-xl font-bold text-[var(--kid-text)]">
+                      {lesson.title || "Untitled lesson"}
+                    </h2>
+                    <p className="mt-1 text-sm font-semibold text-[var(--kid-muted)]">
+                      {(lesson.pages?.length ?? 1)} topic page
+                      {(lesson.pages?.length ?? 1) === 1 ? "" : "s"} ·{" "}
+                      {getLessonQuestions(quizQuestions, lesson.id).length} quiz Qs
+                    </p>
+                    <p className="mt-3 text-sm font-extrabold text-[#ea580c]">Start lesson →</p>
+                  </div>
                 </div>
-              </div>
-            </button>
+              </button>
+            </div>
           ))}
 
           <button

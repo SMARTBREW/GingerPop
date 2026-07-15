@@ -1,28 +1,17 @@
 import Link from "next/link";
-import { BrandName } from "@/components/BrandName";
 import { KidZone } from "@/components/layout/KidZone";
+import { SiteFooter } from "@/components/layout/SiteFooter";
+import { SiteHeader, SiteHeaderLink } from "@/components/layout/SiteHeader";
 
 export default function LoginChooserPage() {
   return (
-    <KidZone className="relative min-h-screen overflow-hidden">
+    <KidZone className="relative flex min-h-screen flex-col overflow-hidden">
       <div className="kid-blob -left-16 top-24 h-40 w-40 bg-[var(--kid-sun)]" aria-hidden />
       <div className="kid-blob right-4 top-16 h-32 w-32 bg-[var(--kid-purple)]" aria-hidden />
 
-      <header className="sticky top-0 z-40 border-b-2 border-white/60 bg-white/75 backdrop-blur-md">
-        <div className="page-shell flex h-16 items-center justify-between sm:h-[4.5rem]">
-          <Link href="/" className="game-font text-2xl font-bold text-[var(--kid-text)]">
-            <BrandName />
-          </Link>
-          <Link
-            href="/"
-            className="rounded-full px-3 py-2 text-sm font-semibold text-[var(--kid-muted)] hover:bg-white/80"
-          >
-            ← Home
-          </Link>
-        </div>
-      </header>
+      <SiteHeader actions={<SiteHeaderLink href="/">← Home</SiteHeaderLink>} />
 
-      <main className="page-shell relative flex flex-col items-center py-12 sm:py-16">
+      <main className="page-shell relative flex flex-1 flex-col items-center py-12 sm:py-16">
         <span className="kid-pill mb-4 border-2 border-[#fcd34d] bg-[#fef9c3] text-[#92400e]">
           👋 Welcome back
         </span>
@@ -65,6 +54,8 @@ export default function LoginChooserPage() {
           </Link>
         </div>
       </main>
+
+      <SiteFooter />
     </KidZone>
   );
 }

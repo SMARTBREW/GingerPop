@@ -8,6 +8,7 @@ import { Course, ICourse, ICourseQuizQuestion, ILesson } from "@/models/Course";
 import { Admin } from "@/models/Admin";
 import { courseSlug, toPlayLesson, toPlayQuestion } from "@/lib/play-lesson";
 import { resetInvitationForRetake } from "@/lib/invitation-reset";
+import { requireInviteLearnAccess, sendAuthError } from "@/lib/permissions";
 
 const router = Router();
 
@@ -59,6 +60,9 @@ router.get("/:token", async (req: Request, res: Response) => {
     const invitation = await Invitation.findOne({ token });
     if (!invitation) return jsonError(res, "Invalid or expired invite link", 404);
     if (isInvitationExpired(invitation)) return jsonError(res, INVITE_EXPIRED_MESSAGE, 410);
+
+    const access = await requireInviteLearnAccess(req, invitation.email);
+    if ("error" in access) return sendAuthError(res, access);
 
     const course = await Course.findById(invitation.courseId);
     if (!course || !course.published) return jsonError(res, "Course not found", 404);
@@ -203,6 +207,9 @@ router.post("/:token", async (req: Request, res: Response) => {
     if (invitation.phase !== "completed" && isInvitationExpired(invitation)) {
       return jsonError(res, INVITE_EXPIRED_MESSAGE, 410);
     }
+
+    const access = await requireInviteLearnAccess(req, invitation.email);
+    if ("error" in access) return sendAuthError(res, access);
 
     const course = await Course.findById(invitation.courseId);
     if (!course) return jsonError(res, "Course not found", 404);

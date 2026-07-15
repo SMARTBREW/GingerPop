@@ -7,8 +7,8 @@ import { AnswerResult, PlayQuestion } from "@/types/quiz";
 import { PublicLesson } from "@/types/course";
 import { RichTextContent } from "@/components/editor/RichTextContent";
 import { KidZone } from "@/components/layout/KidZone";
-import Link from "next/link";
-import { BrandName } from "@/components/BrandName";
+import { SiteFooter } from "@/components/layout/SiteFooter";
+import { SiteHeader } from "@/components/layout/SiteHeader";
 
 type LearnerMode = "lesson" | "lesson_quiz" | "quiz_only" | "completed";
 
@@ -106,6 +106,7 @@ export function CourseLearner({
       const res = await fetch(`/api/learn/${token}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ action: "complete_lesson", lessonId: currentLesson.id }),
       });
       const data = await res.json();
@@ -127,6 +128,7 @@ export function CourseLearner({
       const res = await fetch(`/api/learn/${token}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ action: "quiz_answer", questionId, selectedIndex }),
       });
       const data = await res.json();
@@ -241,13 +243,10 @@ export function CourseLearner({
   }
 
   return (
-    <KidZone>
-      <header className="sticky top-0 z-40 border-b-2 border-white/60 bg-white/75 backdrop-blur-md">
-        <div className="page-shell flex min-h-14 flex-col justify-center gap-0.5 py-2 sm:h-16 sm:flex-row sm:items-center sm:justify-between sm:py-0">
-          <Link href="/" className="game-font text-xl font-bold text-[var(--kid-text)]">
-            <BrandName />
-          </Link>
-          <div className="min-w-0 sm:max-w-[55%] sm:text-right">
+    <KidZone className="relative flex min-h-screen flex-col">
+      <SiteHeader
+        actions={
+          <div className="min-w-0 max-w-[min(100%,18rem)] text-right sm:max-w-[22rem]">
             <span className="block truncate text-base font-bold text-[var(--kid-text)]">
               🗺️ {courseTitle}
             </span>
@@ -257,10 +256,10 @@ export function CourseLearner({
               </span>
             )}
           </div>
-        </div>
-      </header>
+        }
+      />
 
-      <div className="mx-auto flex max-w-6xl flex-col gap-5 px-4 py-6 sm:gap-6 sm:px-6 sm:py-8 lg:flex-row">
+      <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-5 px-4 py-6 sm:gap-6 sm:px-6 sm:py-8 lg:flex-row">
         <aside className="w-full shrink-0 lg:w-72">
           <div className="kid-card lg:sticky lg:top-20 p-4 sm:p-5">
             {invitedBy && (
@@ -390,6 +389,8 @@ export function CourseLearner({
           </div>
         </div>
       </div>
+
+      <SiteFooter showAuthLinks={false} />
     </KidZone>
   );
 }

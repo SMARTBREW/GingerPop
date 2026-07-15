@@ -2,14 +2,26 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { BrandName } from "@/components/BrandName";
+import { useSearchParams } from "next/navigation";
 import { KidZone } from "@/components/layout/KidZone";
+import { SiteFooter } from "@/components/layout/SiteFooter";
+import { SiteHeader, SiteHeaderLink } from "@/components/layout/SiteHeader";
+import { Suspense } from "react";
 
-export default function StudentLoginPage() {
-  const [email, setEmail] = useState("");
+function StudentLoginForm() {
+  const searchParams = useSearchParams();
+  const nextPath = searchParams.get("next") || "/student/dashboard";
+  const invitedEmail = searchParams.get("email") || "";
+
+  const [email, setEmail] = useState(invitedEmail);
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const safeNext = (() => {
+    if (!nextPath.startsWith("/") || nextPath.startsWith("//")) return "/student/dashboard";
+    return nextPath;
+  })();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,7 +37,7 @@ export default function StudentLoginPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Invalid credentials");
-      window.location.href = "/student/dashboard";
+      window.location.href = safeNext;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sign in failed");
     } finally {
@@ -34,32 +46,22 @@ export default function StudentLoginPage() {
   };
 
   return (
-    <KidZone className="relative min-h-screen overflow-hidden">
+    <KidZone className="relative flex min-h-screen flex-col overflow-hidden">
       <div className="kid-blob -left-12 top-20 h-36 w-36 bg-[var(--kid-grass)]" aria-hidden />
       <div className="kid-blob right-0 top-10 h-28 w-28 bg-[var(--kid-sun)]" aria-hidden />
 
-      <header className="sticky top-0 z-40 border-b-2 border-white/60 bg-white/75 backdrop-blur-md">
-        <div className="page-shell flex h-16 items-center justify-between">
-          <Link href="/" className="game-font text-2xl font-bold text-[var(--kid-text)]">
-            <BrandName />
-          </Link>
-          <Link
-            href="/login"
-            className="rounded-full px-3 py-2 text-sm font-semibold text-[var(--kid-muted)] hover:bg-white/80"
-          >
-            ← Back
-          </Link>
-        </div>
-      </header>
+      <SiteHeader actions={<SiteHeaderLink href="/login">← Back</SiteHeaderLink>} />
 
-      <main className="page-shell relative flex justify-center py-10 sm:py-14">
+      <main className="page-shell relative flex flex-1 justify-center py-10 sm:py-14">
         <div className="kid-card w-full max-w-md p-7 sm:p-9">
           <span className="kid-pill border-2 border-[#bbf7d0] bg-[#f0fdf4] text-[#166534]">
             🎒 Student
           </span>
           <h1 className="game-font mt-4 text-3xl font-bold text-[var(--kid-text)]">Student login</h1>
           <p className="mt-2 text-sm font-semibold text-[var(--kid-muted)]">
-            Sign in to see your invited courses and quests.
+            {safeNext.startsWith("/learn/")
+              ? "Sign in with the email your teacher invited, then open your quest."
+              : "Sign in to see your invited courses and quests."}
           </p>
 
           <form onSubmit={handleSubmit} className="mt-7 space-y-4">
@@ -107,6 +109,24 @@ export default function StudentLoginPage() {
           </p>
         </div>
       </main>
+
+      <SiteFooter />
     </KidZone>
+  );
+}
+
+export default function StudentLoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <KidZone>
+          <div className="flex min-h-screen items-center justify-center game-font text-lg font-bold text-[var(--kid-muted)]">
+            Loading…
+          </div>
+        </KidZone>
+      }
+    >
+      <StudentLoginForm />
+    </Suspense>
   );
 }

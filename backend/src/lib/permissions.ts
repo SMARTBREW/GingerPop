@@ -78,6 +78,37 @@ export async function requireStudent(
   return { student };
 }
 
+/**
+ * Invite play access: logged-in admin/superadmin may open any invite link;
+ * students must be logged in and their email must match the invitation.
+ */
+export async function requireInviteLearnAccess(
+  req: Request,
+  invitationEmail: string,
+): Promise<
+  | { actor: "admin"; admin: SessionAdmin }
+  | { actor: "student"; student: SessionStudent }
+  | AuthError
+> {
+  const admin = await getSessionAdmin(req);
+  if (admin) return { actor: "admin", admin };
+
+  const student = await getSessionStudent(req);
+  if (!student) {
+    return { error: "Student login required", status: 401 };
+  }
+
+  const invited = invitationEmail.toLowerCase().trim();
+  if (student.email.toLowerCase().trim() !== invited) {
+    return {
+      error: "This quest was invited to a different email. Sign in with that account.",
+      status: 403,
+    };
+  }
+
+  return { actor: "student", student };
+}
+
 export function canManageCourse(admin: SessionAdmin, courseAdminId: string) {
   return admin.role === "super_admin" || admin.id === courseAdminId;
 }

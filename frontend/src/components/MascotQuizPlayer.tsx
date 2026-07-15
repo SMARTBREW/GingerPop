@@ -1270,6 +1270,7 @@ function QuizCard({
   questionIndex,
   onComplete,
   onScoreChange,
+  onInviteProgress,
   onBackToLesson,
   transitionClass,
   inviteToken,
@@ -1281,6 +1282,12 @@ function QuizCard({
   questionIndex: number;
   onComplete: () => void;
   onScoreChange: (delta: number) => void;
+  onInviteProgress?: (update: {
+    score?: number;
+    maxScore?: number;
+    phase?: string;
+    completedLessonIds?: string[];
+  }) => void;
   inviteToken?: string;
   reviewMode?: boolean;
 }) {
@@ -1329,11 +1336,13 @@ function QuizCard({
         const res = await fetch(`/api/learn/${inviteToken}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          credentials: "include",
           body: JSON.stringify({
             action: "quiz_answer",
             questionId: question.id,
             selectedIndex: originalIndex,
           }),
+          cache: "no-store",
         });
         const raw = await res.text();
         let data: {
@@ -1343,6 +1352,10 @@ function QuizCard({
           pointsEarned?: number;
           explanation?: string;
           wrongExplanation?: string;
+          score?: number;
+          maxScore?: number;
+          phase?: string;
+          completedLessonIds?: string[];
         } = {};
         try {
           data = JSON.parse(raw) as typeof data;
@@ -1352,8 +1365,19 @@ function QuizCard({
         if (!res.ok) throw new Error(data.error ?? "Answer failed");
         setRevealedCorrect(toDisplayCorrect(data.correctIndex ?? originalIndex));
         setAnswered(true);
-        if (data.correct) onScoreChange(data.pointsEarned || 10);
-        else onScoreChange(-1);
+        if (typeof data.score === "number") {
+          onInviteProgress?.({
+            score: data.score,
+            maxScore: data.maxScore,
+            phase: data.phase,
+            completedLessonIds: data.completedLessonIds,
+          });
+        }
+        if (data.correct) {
+          onScoreChange(typeof data.pointsEarned === "number" ? data.pointsEarned : 0);
+        } else {
+          onScoreChange(-1);
+        }
         if (data.explanation) question.explanation = data.explanation;
         if (data.wrongExplanation) question.wrongExplanation = data.wrongExplanation;
       } catch (err) {
@@ -1736,6 +1760,13 @@ export function MascotQuizPlayer({
     completedLessonIds: string[];
     contentCompletedLessonIds: string[];
     reviewMode?: boolean;
+    onProgress?: (update: {
+      score?: number;
+      maxScore?: number;
+      phase?: string;
+      completedLessonIds?: string[];
+      contentCompletedLessonIds?: string[];
+    }) => void;
     onExitToMap?: () => void;
   };
 }) {
@@ -1744,7 +1775,6 @@ export function MascotQuizPlayer({
     Boolean(initialLessonId) && !invite,
   );
   const [remoteError, setRemoteError] = useState("");
-  const [inviteScore, setInviteScore] = useState(invite?.score ?? 240);
 
   useEffect(() => {
     if (invite || !initialLessonId) {
@@ -1840,7 +1870,13 @@ export function MascotQuizPlayer({
   const [hasStartedQuiz, setHasStartedQuiz] = useState(false);
   const [questionIndex, setQuestionIndex] = useState(0);
   const [lives, setLives] = useState(7);
-  const [score, setScore] = useState(invite ? invite.score : 240);
+  const [score, setScore] = useState(invite ? invite.score : 0);
+
+  useEffect(() => {
+    if (!invite) return;
+    setScore(invite.score);
+  }, [invite?.score]);
+
   const [correctCount, setCorrectCount] = useState(0);
   const [quizDone, setQuizDone] = useState(false);
   const [completedLessons, setCompletedLessons] = useState<Set<number>>(() => {
@@ -1909,13 +1945,32 @@ export function MascotQuizPlayer({
     idx === 0 || completedLessons.has(idx - 1);
 
   const handleScoreChange = (delta: number) => {
+    if (invite) {
+      // Invite total score is set from API via handleInviteProgress; delta only tracks
+      // correct answers / lives for this lesson card.
+      if (delta > 0) setCorrectCount((c) => c + 1);
+      else setLives((l) => Math.max(0, l - 1));
+      return;
+    }
     if (delta > 0) {
       setScore((s) => s + delta);
-      setInviteScore((s) => s + delta);
       setCorrectCount((c) => c + 1);
     } else {
       setLives((l) => Math.max(0, l - 1));
     }
+  };
+
+  const handleInviteProgress = (update: {
+    score?: number;
+    maxScore?: number;
+    phase?: string;
+    completedLessonIds?: string[];
+    contentCompletedLessonIds?: string[];
+  }) => {
+    if (typeof update.score === "number") {
+      setScore(update.score);
+    }
+    invite?.onProgress?.(update);
   };
 
   const startQuiz = async () => {
@@ -1924,6 +1979,7 @@ export function MascotQuizPlayer({
         const res = await fetch(`/api/learn/${invite.token}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          credentials: "include",
           body: JSON.stringify({ action: "complete_lesson", lessonId: lesson.mongoId }),
         });
         const raw = await res.text();
@@ -2104,6 +2160,7 @@ export function MascotQuizPlayer({
                   questionIndex={questionIndex}
                   onComplete={handleQuestionComplete}
                   onScoreChange={handleScoreChange}
+                  onInviteProgress={invite ? handleInviteProgress : undefined}
                   inviteToken={invite?.token}
                   reviewMode={Boolean(invite?.reviewMode)}
                   onBackToLesson={() => {
@@ -2155,8 +2212,11 @@ export function MascotQuizPlayer({
                       Score
                     </p>
                     <p style={{ margin: "0.2rem 0 0", fontSize: "1.75rem", fontWeight: 900, color: "#065f46", fontFamily: "var(--font-game), Fredoka, system-ui, sans-serif" }}>
-                      {correctCount * 10}
-                      <span style={{ fontSize: "1rem", color: "#6b7280" }}> / {lesson.quizQuestions.length * 10}</span>
+                      {invite ? score : correctCount * 10}
+                      <span style={{ fontSize: "1rem", color: "#6b7280" }}>
+                        {" "}
+                        / {invite ? invite.maxScore : lesson.quizQuestions.length * 10}
+                      </span>
                     </p>
                   </div>
                   <div

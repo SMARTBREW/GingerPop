@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { BrandName } from "@/components/BrandName";
+import { SiteFooter } from "@/components/layout/SiteFooter";
+import { SiteHeader } from "@/components/layout/SiteHeader";
 
 /* ── Mascot SVG (same green frog from play page) ── */
 function LandingMascotSvg({
@@ -164,6 +166,8 @@ export default function HomePage() {
         fontFamily: "'Nunito', system-ui, sans-serif",
         overflowX: "hidden",
         position: "relative",
+        display: "flex",
+        flexDirection: "column",
       }}
     >
       {/* Keyframe animations injected via style tag */}
@@ -209,6 +213,42 @@ export default function HomePage() {
         }
         .lnd-btn-secondary:hover { transform: translateY(-4px); }
         .lnd-btn-secondary:active { transform: translateY(3px); }
+        .site-header-play-btn {
+          transition: transform 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.15s ease;
+        }
+        .site-header-play-btn:hover { transform: translateY(-3px); }
+        .site-header-play-btn:active { transform: translateY(2px); }
+        .lnd-hero {
+          max-width: 1100px;
+          margin: 0 auto;
+          padding: 5.5rem 1.75rem 4rem;
+          display: flex;
+          align-items: center;
+          gap: 4.5rem;
+          flex-wrap: wrap;
+          justify-content: space-between;
+        }
+        .lnd-steps-grid {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 2rem;
+        }
+        @media (min-width: 900px) {
+          .lnd-steps-grid {
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2.25rem;
+          }
+        }
+        .lnd-section-steps {
+          max-width: 1100px;
+          margin: 0 auto;
+          padding: 4rem 1.75rem 5rem;
+        }
+        .lnd-section-cta {
+          max-width: 1100px;
+          margin: 0 auto;
+          padding: 0 1.75rem 6rem;
+        }
       `}</style>
 
       {/* Decorative floating blobs (background) */}
@@ -226,57 +266,19 @@ export default function HomePage() {
       </div>
 
       {/* ── HEADER ── */}
-      <header style={{
-        position: "sticky",
-        top: 0,
-        zIndex: 50,
-        background: "rgba(255,255,255,0.88)",
-        backdropFilter: "blur(16px)",
-        borderBottom: "2px solid rgba(167,139,250,0.2)",
-        boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
-      }}>
-        <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0.75rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
-            <LandingMascotSvg size={36} noFloat floatDelay="0s" />
-            <span style={{ fontFamily: "'Fredoka', system-ui, sans-serif", fontSize: "1.375rem", fontWeight: 700, color: "#1f2937", letterSpacing: "-0.01em" }}>
-              <BrandName />
-            </span>
-          </div>
-          <nav style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-            <Link href="/login" style={{ fontSize: "0.875rem", fontWeight: 700, color: "#6b7280", textDecoration: "none" }}>
-              Sign in
-            </Link>
-            <Link
-              href="/subjects"
-              className="lnd-btn"
-              style={{
-                display: "inline-flex", alignItems: "center", gap: "0.4rem",
-                padding: "0.55rem 1.25rem", borderRadius: 999,
-                border: "2.5px solid #e85d04",
-                background: "linear-gradient(180deg, #ff9f43 0%, #ff6b35 100%)",
-                fontFamily: "'Fredoka', system-ui, sans-serif",
-                fontSize: "1rem", fontWeight: 800, color: "white",
-                textDecoration: "none", textShadow: "0 1px 0 rgba(0,0,0,0.15)",
-                boxShadow: "0 5px 0 #c44d00",
-              }}
-            >
-              🎮 Play Now
-            </Link>
-          </nav>
-        </div>
-      </header>
+      <SiteHeader />
 
       {/* ── HERO ── */}
-      <section style={{ maxWidth: 1100, margin: "0 auto", padding: "4rem 1.5rem 2rem", display: "flex", alignItems: "center", gap: "3rem", flexWrap: "wrap", justifyContent: "center" }}>
+      <section className="lnd-hero">
         {/* Left: text */}
-        <div style={{ flex: "1 1 340px", maxWidth: 520 }}>
+        <div style={{ flex: "1 1 360px", maxWidth: 500 }}>
           <div style={{
             display: "inline-flex", alignItems: "center", gap: "0.4rem",
             padding: "0.4rem 1rem", borderRadius: 999,
             border: "2px solid #fcd34d",
             background: "linear-gradient(135deg, #fffbeb, #fde68a)",
             fontSize: "0.8rem", fontWeight: 800, letterSpacing: "0.06em",
-            textTransform: "uppercase", color: "#92400e", marginBottom: "1.25rem",
+            textTransform: "uppercase", color: "#92400e", marginBottom: "1.75rem",
             animation: "lnd-badge-glow 2.5s ease-in-out infinite",
           }}>
             <span style={{ animation: "lnd-sparkle 2s ease-in-out infinite" }}>✨</span>
@@ -285,9 +287,9 @@ export default function HomePage() {
 
           <h1 style={{
             fontFamily: "'Fredoka', system-ui, sans-serif",
-            fontSize: "clamp(2.75rem, 6vw, 4.5rem)",
-            fontWeight: 700, lineHeight: 1.1, color: "#111827",
-            letterSpacing: "-0.02em", margin: "0 0 1rem",
+            fontSize: "clamp(2.5rem, 5.5vw, 4rem)",
+            fontWeight: 700, lineHeight: 1.15, color: "#111827",
+            letterSpacing: "-0.02em", margin: "0 0 1.35rem",
           }}>
             Learn.{" "}
             <span style={{ background: "linear-gradient(135deg, #f97316, #fb923c)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>Play.</span>
@@ -295,12 +297,12 @@ export default function HomePage() {
             <span style={{ background: "linear-gradient(135deg, #a78bfa, #ec4899)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>Level Up! 🚀</span>
           </h1>
 
-          <p style={{ fontSize: "1.125rem", lineHeight: 1.6, color: "#4b5563", margin: "0 0 2rem", maxWidth: 440 }}>
+          <p style={{ fontSize: "1.125rem", lineHeight: 1.7, color: "#4b5563", margin: "0 0 2.25rem", maxWidth: 440 }}>
             <strong><BrandName /></strong> turns boring quizzes into{" "}
             <span style={{ color: "#7c3aed", fontWeight: 700 }}>epic mini games</span>. Open the link from your email and start your quest — no sign-up needed!
           </p>
 
-          <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", alignItems: "center" }}>
+          <div style={{ display: "flex", gap: "1.25rem", flexWrap: "wrap", alignItems: "center" }}>
             <Link
               href="/subjects"
               className="lnd-btn"
@@ -317,33 +319,42 @@ export default function HomePage() {
             >
               🎯 Try a Practice Quest
             </Link>
-            <p style={{ fontSize: "0.875rem", fontWeight: 700, color: "#9ca3af", maxWidth: 180 }}>
+            <p style={{ fontSize: "0.875rem", fontWeight: 700, color: "#9ca3af", maxWidth: 180, lineHeight: 1.4, margin: 0 }}>
               Got an email invite? Tap that link first!
             </p>
           </div>
         </div>
 
         {/* Right: mascot cluster */}
-        <div style={{ flex: "1 1 280px", display: "flex", alignItems: "center", justifyContent: "center", position: "relative", minHeight: 280 }}>
+        <div style={{
+          flex: "0 1 340px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          position: "relative",
+          minHeight: 340,
+          marginLeft: "auto",
+          marginRight: "auto",
+        }}>
           {/* Main mascot */}
           <div style={{ position: "relative", zIndex: 2 }}>
-            <LandingMascotSvg size={180} expression="excited" floatDelay="0s" />
+            <LandingMascotSvg size={200} expression="excited" floatDelay="0s" />
           </div>
-          {/* Star in top-right */}
-          <div style={{ position: "absolute", top: 0, right: 10, zIndex: 1 }}>
-            <StarMascotSvg size={72} />
+          {/* Star in top-right — kept outside the text column */}
+          <div style={{ position: "absolute", top: 8, right: 0, zIndex: 1 }}>
+            <StarMascotSvg size={64} />
           </div>
           {/* Rocket in bottom-left */}
-          <div style={{ position: "absolute", bottom: 0, left: 10, zIndex: 1 }}>
-            <RocketMascotSvg size={64} />
+          <div style={{ position: "absolute", bottom: 8, left: 0, zIndex: 1 }}>
+            <RocketMascotSvg size={58} />
           </div>
           {/* Speech bubble */}
           <div style={{
-            position: "absolute", top: -20, right: -10,
+            position: "absolute", top: 0, right: -8,
             background: "white", border: "2.5px solid #e5e7eb",
             borderRadius: "1rem", borderBottomLeftRadius: "0.25rem",
             padding: "0.65rem 1rem", fontSize: "0.875rem", fontWeight: 700,
-            color: "#374151", maxWidth: 160,
+            color: "#374151", maxWidth: 150,
             boxShadow: "0 4px 12px rgba(0,0,0,0.08)", lineHeight: 1.4,
             animation: "lnd-float-alt 4s ease-in-out infinite",
           }}>
@@ -351,7 +362,7 @@ export default function HomePage() {
           </div>
           {/* Score pill */}
           <div style={{
-            position: "absolute", bottom: 10, right: -15,
+            position: "absolute", bottom: 24, right: 0,
             display: "flex", alignItems: "center", gap: "0.35rem",
             padding: "0.45rem 0.85rem", borderRadius: 999,
             background: "#fffbeb", border: "2px solid #fcd34d",
@@ -363,7 +374,7 @@ export default function HomePage() {
           </div>
           {/* Lives pill */}
           <div style={{
-            position: "absolute", top: 60, left: -20,
+            position: "absolute", top: 80, left: 0,
             display: "flex", alignItems: "center", gap: "0.35rem",
             padding: "0.45rem 0.85rem", borderRadius: 999,
             background: "#fff1f0", border: "2px solid #fca5a5",
@@ -377,19 +388,21 @@ export default function HomePage() {
       </section>
 
       {/* ── HOW IT WORKS ── */}
-      <section style={{ maxWidth: 1100, margin: "0 auto", padding: "3rem 1.5rem 4rem" }}>
-        <div style={{ textAlign: "center", marginBottom: "2.5rem" }}>
+      <section className="lnd-section-steps">
+        <div style={{ textAlign: "center", marginBottom: "3rem" }}>
           <h2 style={{
             fontFamily: "'Fredoka', system-ui, sans-serif",
             fontSize: "clamp(1.75rem, 4vw, 2.5rem)", fontWeight: 700,
-            color: "#111827", margin: "0 0 0.5rem", letterSpacing: "-0.01em",
+            color: "#111827", margin: "0 0 0.75rem", letterSpacing: "-0.01em",
           }}>
             How your quest works 🗺️
           </h2>
-          <p style={{ color: "#6b7280", fontSize: "1.1rem", margin: 0 }}>Three simple steps to become a quiz champion!</p>
+          <p style={{ color: "#6b7280", fontSize: "1.1rem", margin: 0, lineHeight: 1.5 }}>
+            Three simple steps to become a quiz champion!
+          </p>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "1.5rem" }}>
+        <div className="lnd-steps-grid">
           {steps.map((step, i) => (
             <article
               key={step.title}
@@ -398,7 +411,7 @@ export default function HomePage() {
                 borderRadius: "2rem",
                 border: `3.5px solid ${step.border}`,
                 background: step.bg,
-                padding: "2rem 1.5rem",
+                padding: "2.25rem 1.75rem 2rem",
                 textAlign: "center",
                 boxShadow: `0 8px 0 ${step.shadow}`,
                 position: "relative",
@@ -416,7 +429,7 @@ export default function HomePage() {
                 {i + 1}
               </div>
               {/* Mascot */}
-              <div style={{ marginBottom: "0.75rem", display: "flex", justifyContent: "center" }}>
+              <div style={{ marginBottom: "1rem", display: "flex", justifyContent: "center" }}>
                 <LandingMascotSvg size={72} expression={step.expression} floatDelay={step.floatDelay} />
               </div>
               {/* Emoji icon */}
@@ -424,15 +437,15 @@ export default function HomePage() {
                 width: "3.5rem", height: "3.5rem", borderRadius: "1.25rem",
                 background: "rgba(255,255,255,0.8)", border: `2.5px solid ${step.border}`,
                 display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: "1.75rem", margin: "0 auto 0.875rem",
+                fontSize: "1.75rem", margin: "0 auto 1rem",
                 boxShadow: `0 4px 0 ${step.shadow}`,
               }}>
                 {step.emoji}
               </div>
-              <h3 style={{ fontFamily: "'Fredoka', system-ui, sans-serif", fontSize: "1.25rem", fontWeight: 700, color: "#111827", margin: "0 0 0.5rem" }}>
+              <h3 style={{ fontFamily: "'Fredoka', system-ui, sans-serif", fontSize: "1.25rem", fontWeight: 700, color: "#111827", margin: "0 0 0.65rem" }}>
                 {step.title}
               </h3>
-              <p style={{ fontSize: "0.9375rem", color: "#4b5563", margin: 0, lineHeight: 1.5 }}>
+              <p style={{ fontSize: "0.9375rem", color: "#4b5563", margin: 0, lineHeight: 1.55 }}>
                 {step.description}
               </p>
             </article>
@@ -441,37 +454,37 @@ export default function HomePage() {
       </section>
 
       {/* ── CTA SECTION ── */}
-      <section style={{ maxWidth: 1100, margin: "0 auto", padding: "0 1.5rem 5rem" }}>
+      <section className="lnd-section-cta">
         <div style={{
           borderRadius: "2rem",
           border: "3.5px solid #c4b5fd",
           background: "linear-gradient(145deg, #faf5ff 0%, #ede9fe 50%, #fce7f3 100%)",
-          padding: "3rem 2rem", textAlign: "center",
+          padding: "3.5rem 2rem", textAlign: "center",
           boxShadow: "0 10px 0 #a78bfa, 0 20px 40px rgba(167,139,250,0.2)",
           position: "relative", overflow: "hidden",
         }}>
-          <div style={{ position: "absolute", top: -10, left: 20, opacity: 0.6 }}>
-            <StarMascotSvg size={60} />
+          <div style={{ position: "absolute", top: 12, left: 24, opacity: 0.55 }}>
+            <StarMascotSvg size={52} />
           </div>
-          <div style={{ position: "absolute", bottom: -10, right: 20, opacity: 0.6 }}>
-            <RocketMascotSvg size={60} />
+          <div style={{ position: "absolute", bottom: 12, right: 24, opacity: 0.55 }}>
+            <RocketMascotSvg size={52} />
           </div>
 
-          <div style={{ marginBottom: "1rem" }}>
+          <div style={{ marginBottom: "1.25rem" }}>
             <LandingMascotSvg size={100} expression="excited" floatDelay="0s" />
           </div>
 
           <h2 style={{
             fontFamily: "'Fredoka', system-ui, sans-serif",
             fontSize: "clamp(1.75rem, 4vw, 2.5rem)", fontWeight: 700,
-            color: "#111827", margin: "0 0 0.75rem", letterSpacing: "-0.01em",
+            color: "#111827", margin: "0 0 0.85rem", letterSpacing: "-0.01em",
           }}>
             Ready to play? 🎯
           </h2>
-          <p style={{ fontSize: "1.0625rem", color: "#4b5563", margin: "0 0 2rem", maxWidth: 400, marginLeft: "auto", marginRight: "auto" }}>
+          <p style={{ fontSize: "1.0625rem", color: "#4b5563", margin: "0 0 2.25rem", maxWidth: 420, marginLeft: "auto", marginRight: "auto", lineHeight: 1.6 }}>
             Check your inbox for your quest link, or try a practice round first and meet your quiz buddy!
           </p>
-          <div style={{ display: "flex", gap: "1rem", justifyContent: "center", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: "1.25rem", justifyContent: "center", flexWrap: "wrap" }}>
             <Link
               href="/subjects"
               className="lnd-btn"
@@ -509,20 +522,7 @@ export default function HomePage() {
       </section>
 
       {/* ── FOOTER ── */}
-      <footer style={{ borderTop: "2px solid rgba(167,139,250,0.2)", background: "rgba(255,255,255,0.5)", padding: "1.25rem 1.5rem" }}>
-        <div style={{ maxWidth: 1100, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}>
-          <span style={{ fontFamily: "'Fredoka', system-ui, sans-serif", fontWeight: 700, color: "#1f2937", fontSize: "1rem" }}>
-            <BrandName />
-          </span>
-          <div style={{ display: "flex", alignItems: "center", gap: "1.25rem", fontSize: "0.875rem", color: "#9ca3af" }}>
-            <Link href="/login" style={{ fontWeight: 700, color: "#6b7280", textDecoration: "none" }}>
-              Sign in
-            </Link>
-            <span>Made with 🌱 for tiny scientists</span>
-            <span>© {new Date().getFullYear()}</span>
-          </div>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }

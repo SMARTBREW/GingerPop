@@ -92,6 +92,26 @@ export default function TeacherDashboardPage() {
 
   const firstName = teacher?.name?.split(" ")[0] ?? "Teacher";
 
+  const handleDeleteSubject = async (course: CourseSummary) => {
+    const ok = window.confirm(
+      `Delete subject “${course.title}”?\n\nThis permanently removes its lessons, quizzes, and all invite links. This cannot be undone.`,
+    );
+    if (!ok) return;
+
+    setError("");
+    try {
+      const res = await fetch(`/api/courses/${course.id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Failed to delete subject");
+      setCourses((prev) => prev.filter((c) => c.id !== course.id));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete subject");
+    }
+  };
+
   return (
     <AdminShell>
       {loading ? (
@@ -222,13 +242,20 @@ export default function TeacherDashboardPage() {
                     </span>
                   </div>
 
-                  <div className="mt-auto pt-5">
+                  <div className="mt-auto flex flex-wrap items-center gap-2 pt-5">
                     <Link
                       href={`/admin/courses/${course.id}`}
                       className="kid-btn-primary inline-flex !px-4 !py-2 !text-sm"
                     >
                       Edit subject →
                     </Link>
+                    <button
+                      type="button"
+                      onClick={() => void handleDeleteSubject(course)}
+                      className="rounded-full border-2 border-red-200 bg-red-50 px-4 py-2 text-sm font-extrabold text-red-700 transition hover:bg-red-100"
+                    >
+                      Delete
+                    </button>
                   </div>
                 </div>
               ))}

@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { useDynamicParam } from "@/lib/use-dynamic-param";
 import { InvitePlayLearner } from "@/components/InvitePlayLearner";
 import { KidZone } from "@/components/layout/KidZone";
+import { SiteFooter } from "@/components/layout/SiteFooter";
+import { SiteHeader } from "@/components/layout/SiteHeader";
 import { Spinner } from "@/components/ui/Spinner";
 import type { InvitePlayLesson } from "@/components/MascotQuizPlayer";
 
@@ -61,14 +63,32 @@ export default function LearnPage() {
   } | null>(null);
 
   useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setError("");
+    if (!token || token === "_") {
+      setLoading(true);
+      return;
+    }
 
-    fetch(`/api/learn/${token}`)
-      .then((r) => r.json())
-      .then((res) => {
+    let cancelled = false;
+    const showSpinner = !data;
+    if (showSpinner) {
+      setLoading(true);
+      setError("");
+    }
+
+    fetch(`/api/learn/${encodeURIComponent(token)}`, {
+      cache: "no-store",
+      credentials: "include",
+    })
+      .then(async (r) => {
+        const res = await r.json();
         if (cancelled) return;
+
+        if (r.status === 401) {
+          const next = `/learn/${encodeURIComponent(token)}`;
+          window.location.href = `/login/student?next=${encodeURIComponent(next)}`;
+          return;
+        }
+
         if (res.error) {
           setError(res.error);
           setLoading(false);
@@ -99,42 +119,55 @@ export default function LearnPage() {
           topics: res.course.topics ?? [],
           playLessons,
           phase: res.invitation.phase,
-          completedLessonIds: res.invitation.completedLessonIds,
+          completedLessonIds: res.invitation.completedLessonIds ?? [],
           contentCompletedLessonIds: res.invitation.contentCompletedLessonIds ?? [],
           invitedBy: res.invitation.invitedBy ?? null,
-          score: res.invitation.score,
-          maxScore: res.invitation.maxScore,
+          score: Number(res.invitation.score) || 0,
+          maxScore: Number(res.invitation.maxScore) || 0,
         });
         setLoading(false);
       })
       .catch(() => {
         if (cancelled) return;
-        setError("Failed to load course");
+        if (showSpinner) setError("Failed to load course");
         setLoading(false);
       });
 
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only refetch on token/reloadKey; keep map UI mounted on silent refresh
   }, [token, reloadKey]);
+
+  useEffect(() => {
+    if (!token || token === "_") return;
+    const onPageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) setReloadKey((k) => k + 1);
+    };
+    window.addEventListener("pageshow", onPageShow);
+    return () => window.removeEventListener("pageshow", onPageShow);
+  }, [token]);
 
   const reloadInvite = () => setReloadKey((k) => k + 1);
 
   if (loading) {
     return (
-      <KidZone>
-        <div className="flex min-h-screen flex-col items-center justify-center gap-4">
+      <KidZone className="relative flex min-h-screen flex-col">
+        <SiteHeader />
+        <div className="flex flex-1 flex-col items-center justify-center gap-4">
           <Spinner label="Loading your quest..." />
           <p className="game-font text-lg font-semibold text-[var(--kid-muted)]">Get ready to play!</p>
         </div>
+        <SiteFooter showAuthLinks={false} />
       </KidZone>
     );
   }
 
   if (error || !data) {
     return (
-      <KidZone>
-        <div className="flex min-h-screen items-center justify-center px-4">
+      <KidZone className="relative flex min-h-screen flex-col">
+        <SiteHeader />
+        <div className="flex flex-1 items-center justify-center px-4">
           <div className="kid-card max-w-md p-8 text-center">
             <p className="text-4xl" aria-hidden>
               😕
@@ -147,14 +180,16 @@ export default function LearnPage() {
             </p>
           </div>
         </div>
+        <SiteFooter />
       </KidZone>
     );
   }
 
   if (!data.playLessons.length) {
     return (
-      <KidZone>
-        <div className="flex min-h-screen items-center justify-center px-4">
+      <KidZone className="relative flex min-h-screen flex-col">
+        <SiteHeader />
+        <div className="flex flex-1 items-center justify-center px-4">
           <div className="kid-card max-w-md p-8 text-center">
             <p className="text-4xl">📚</p>
             <p className="game-font mt-4 text-lg font-bold text-[var(--kid-text)]">
@@ -165,6 +200,7 @@ export default function LearnPage() {
             </p>
           </div>
         </div>
+        <SiteFooter />
       </KidZone>
     );
   }
