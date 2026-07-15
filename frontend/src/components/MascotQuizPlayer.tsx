@@ -1897,17 +1897,19 @@ export function MascotQuizPlayer({
   }, [remoteLesson]);
 
   useEffect(() => {
-    if (invite && initialLessonId) {
-      const idx = invite.lessons.findIndex((l) => l.id === initialLessonId);
-      if (idx >= 0) {
-        setActiveLessonIndex(idx);
-        setViewMode("lesson");
-        setHasStartedQuiz(false);
-        setQuestionIndex(0);
-        setQuizDone(false);
-      }
-    }
-  }, [invite, initialLessonId]);
+    if (!invite || !initialLessonId) return;
+    const idx = invite.lessons.findIndex((l) => l.id === initialLessonId);
+    if (idx < 0) return;
+    setActiveLessonIndex(idx);
+    setViewMode("lesson");
+    setHasStartedQuiz(false);
+    setQuestionIndex(0);
+    setCorrectCount(0);
+    setQuizDone(false);
+    // Only re-sync when the lesson being opened changes — NOT when invite score/phase
+    // updates mid-quiz (that was resetting players back to the lesson card).
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- invite.lessons identity changes every parent score tick
+  }, [initialLessonId, invite?.token]);
 
   const [isTransitioning, setIsTransitioning] = useState(false);
 
