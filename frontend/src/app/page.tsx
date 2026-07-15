@@ -243,11 +243,11 @@ export default function HomePage() {
             </span>
           </div>
           <nav style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-            <Link href="/admin/login" style={{ fontSize: "0.875rem", fontWeight: 700, color: "#6b7280", textDecoration: "none" }}>
-              Teachers Sign In
+            <Link href="/login" style={{ fontSize: "0.875rem", fontWeight: 700, color: "#6b7280", textDecoration: "none" }}>
+              Sign in
             </Link>
             <Link
-              href="/play"
+              href="/subjects"
               className="lnd-btn"
               style={{
                 display: "inline-flex", alignItems: "center", gap: "0.4rem",
@@ -302,7 +302,7 @@ export default function HomePage() {
 
           <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", alignItems: "center" }}>
             <Link
-              href="/play"
+              href="/subjects"
               className="lnd-btn"
               style={{
                 display: "inline-flex", alignItems: "center", gap: "0.5rem",
@@ -461,17 +461,6 @@ export default function HomePage() {
             <LandingMascotSvg size={100} expression="excited" floatDelay="0s" />
           </div>
 
-          <div style={{
-            display: "inline-flex", alignItems: "center", gap: "0.4rem",
-            padding: "0.3rem 0.9rem", borderRadius: 999,
-            border: "1.5px solid #6ee7b7",
-            background: "linear-gradient(135deg, #ecfdf5, #d1fae5)",
-            fontSize: "0.7rem", fontWeight: 800, letterSpacing: "0.06em",
-            textTransform: "uppercase", color: "#065f46", marginBottom: "1rem",
-          }}>
-            🌱 No sign-up required
-          </div>
-
           <h2 style={{
             fontFamily: "'Fredoka', system-ui, sans-serif",
             fontSize: "clamp(1.75rem, 4vw, 2.5rem)", fontWeight: 700,
@@ -484,7 +473,7 @@ export default function HomePage() {
           </p>
           <div style={{ display: "flex", gap: "1rem", justifyContent: "center", flexWrap: "wrap" }}>
             <Link
-              href="/play"
+              href="/subjects"
               className="lnd-btn"
               style={{
                 display: "inline-flex", alignItems: "center", gap: "0.5rem",
@@ -500,7 +489,7 @@ export default function HomePage() {
               🎮 Start Practice Quest
             </Link>
             <Link
-              href="/admin/login"
+              href="/login"
               className="lnd-btn-secondary"
               style={{
                 display: "inline-flex", alignItems: "center", gap: "0.5rem",
@@ -513,7 +502,7 @@ export default function HomePage() {
                 boxShadow: "0 8px 0 #6d28d9, 0 12px 24px rgba(124,58,237,0.3)",
               }}
             >
-              👩‍🏫 Teachers Sign In
+              🔐 Sign in
             </Link>
           </div>
         </div>
@@ -526,8 +515,8 @@ export default function HomePage() {
             <BrandName />
           </span>
           <div style={{ display: "flex", alignItems: "center", gap: "1.25rem", fontSize: "0.875rem", color: "#9ca3af" }}>
-            <Link href="/admin/login" style={{ fontWeight: 700, color: "#6b7280", textDecoration: "none" }}>
-              Teachers Sign In
+            <Link href="/login" style={{ fontWeight: 700, color: "#6b7280", textDecoration: "none" }}>
+              Sign in
             </Link>
             <span>Made with 🌱 for tiny scientists</span>
             <span>© {new Date().getFullYear()}</span>

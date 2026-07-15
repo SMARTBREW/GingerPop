@@ -8,26 +8,15 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Tabs } from "@/components/ui/Tabs";
 import { Card, CardHeader } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
-import { RichTextEditor, appendRichText } from "@/components/editor/RichTextEditor";
-import { Select } from "@/components/ui/Select";
+import { RichTextEditor } from "@/components/editor/RichTextEditor";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Spinner } from "@/components/ui/Spinner";
-import { MediaUploader } from "@/components/media/MediaUploader";
+import { SubjectContentEditor } from "@/components/admin/SubjectContentEditor";
+import { canPublishCourse } from "@/lib/course-rules";
 import {
-  canAddAnotherLesson,
-  canPublishCourse,
-  getLessonQuestions,
-  isQuizOnlyCourse,
-  lessonHasAssessment,
-} from "@/lib/course-rules";
-import {
-  ContentType,
   CourseQuizQuestion,
-  EMPTY_LESSON,
-  EMPTY_QUIZ_QUESTION,
   Lesson,
 } from "@/types/course";
 
@@ -44,153 +33,8 @@ interface InvitationRow {
   invitedByName?: string | null;
 }
 
-const LESSON_TYPES: ContentType[] = ["text", "video", "image", "audio"];
-const QUIZ_TYPES: ContentType[] = ["text", "video", "audio", "image"];
-const OPTION_LABELS = ["A", "B", "C", "D"] as const;
-
 type LessonRow = Lesson & { id: string };
 type QuestionRow = CourseQuizQuestion & { id: string };
-
-function QuestionEditor({
-  q,
-  idx,
-  onChange,
-  onRemove,
-}: {
-  q: QuestionRow;
-  idx: number;
-  onChange: (updated: QuestionRow) => void;
-  onRemove: () => void;
-}) {
-  return (
-    <div className="rounded-md border border-gray-100 bg-gray-50/50 p-4">
-      <div className="mb-3 flex items-center justify-between">
-        <span className="text-xs font-medium text-gray-500">Question {idx + 1}</span>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="!text-red-600 hover:!bg-red-50"
-          onClick={onRemove}
-        >
-          Delete question
-        </Button>
-      </div>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Select
-          label="Type"
-          value={q.type}
-          onChange={(e) => onChange({ ...q, type: e.target.value as ContentType })}
-        >
-          {QUIZ_TYPES.map((t) => (
-            <option key={t} value={t}>
-              {t.charAt(0).toUpperCase() + t.slice(1)}
-            </option>
-          ))}
-        </Select>
-        <Input
-          label="Points"
-          type="number"
-          min={1}
-          value={q.points}
-          onChange={(e) => onChange({ ...q, points: Number(e.target.value) })}
-        />
-        <div className="flex flex-col gap-2">
-          <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-600">
-            <input
-              type="checkbox"
-              checked={q.timeLimit !== 0}
-              onChange={(e) =>
-                onChange({
-                  ...q,
-                  timeLimit: e.target.checked ? (q.timeLimit > 0 ? q.timeLimit : 30) : 0,
-                })
-              }
-              className="rounded border-gray-300 text-[var(--primary)] focus:ring-[var(--primary)]"
-            />
-            Timer
-          </label>
-          {q.timeLimit !== 0 && (
-            <Input
-              label="Time (sec)"
-              type="number"
-              min={5}
-              value={q.timeLimit}
-              onChange={(e) => onChange({ ...q, timeLimit: Number(e.target.value) })}
-            />
-          )}
-        </div>
-        <Select
-          label="Correct"
-          value={q.correctIndex}
-          onChange={(e) => onChange({ ...q, correctIndex: Number(e.target.value) })}
-        >
-          {OPTION_LABELS.map((label, i) => (
-            <option key={label} value={i}>
-              Option {label}
-            </option>
-          ))}
-        </Select>
-      </div>
-      <div className="mt-3">
-        <RichTextEditor
-          label="Question"
-          value={q.question}
-          onChange={(question) => onChange({ ...q, question })}
-          placeholder="Enter question text…"
-          minHeight={80}
-        />
-      </div>
-      <div className="mt-3">
-        <RichTextEditor
-          label="Examples"
-          value={q.examples ?? ""}
-          onChange={(examples) => onChange({ ...q, examples })}
-          placeholder="Add examples, hints, or sample scenarios (optional)…"
-          minHeight={64}
-          enableDictate
-        />
-      </div>
-      {(q.type === "image" || q.type === "video" || q.type === "audio") && (
-        <div className="mt-3">
-          <MediaUploader
-            type={q.type}
-            value={q.mediaUrl}
-            onChange={(url) => onChange({ ...q, mediaUrl: url })}
-            onTranscript={
-              q.type === "audio"
-                ? (text) => onChange({ ...q, question: appendRichText(q.question, text) })
-                : undefined
-            }
-            label={
-              q.type === "audio"
-                ? "Voice / audio (transcript → question text)"
-                : q.type === "video"
-                  ? "Video"
-                  : "Image"
-            }
-          />
-        </div>
-      )}
-      <div className="mt-3 grid gap-3 sm:grid-cols-2">
-        {q.options.map((opt, oIdx) => (
-          <RichTextEditor
-            key={oIdx}
-            compact
-            label={`Option ${OPTION_LABELS[oIdx]}`}
-            value={opt}
-            onChange={(val) => {
-              const options = [...q.options] as [string, string, string, string];
-              options[oIdx] = val;
-              onChange({ ...q, options });
-            }}
-            minHeight={48}
-            enableDictate
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
 
 export default function CourseEditorPage() {
   const id = useDynamicParam(2, "id");
@@ -199,8 +43,13 @@ export default function CourseEditorPage() {
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [descriptionAudioDraft, setDescriptionAudioDraft] = useState("");
   const [published, setPublished] = useState(false);
+  const [subjectMeta, setSubjectMeta] = useState({
+    emoji: "📚",
+    color: "#fff7ed",
+    accent: "#ea580c",
+    slug: "",
+  });
   const [lessons, setLessons] = useState<LessonRow[]>([]);
   const [quizQuestions, setQuizQuestions] = useState<QuestionRow[]>([]);
   const [invitations, setInvitations] = useState<InvitationRow[]>([]);
@@ -213,6 +62,53 @@ export default function CourseEditorPage() {
   const [saving, setSaving] = useState(false);
   const [inviting, setInviting] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [editorReady, setEditorReady] = useState(false);
+  const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
+
+  const draftKey = `gingerpop-subject-draft:${id}`;
+
+  const applyCoursePayload = useCallback(
+    (course: {
+      title: string;
+      description?: string;
+      published: boolean;
+      emoji?: string;
+      color?: string;
+      accent?: string;
+      slug?: string;
+      lessons: (Lesson & { id: string })[];
+      quizQuestions: (CourseQuizQuestion & { id: string })[];
+    }) => {
+      setTitle(course.title);
+      setDescription(course.description ?? "");
+      setPublished(course.published);
+      setSubjectMeta({
+        emoji: course.emoji || "📚",
+        color: course.color || "#fff7ed",
+        accent: course.accent || "#ea580c",
+        slug: course.slug || "",
+      });
+      setLessons(
+        course.lessons.map((l) => ({
+          ...l,
+          id: l.id,
+          pages: l.pages?.length
+            ? l.pages
+            : l.content
+              ? [{ title: l.title || "Topic 1", content: l.content, imageUrl: l.imageUrl || l.mediaUrl }]
+              : [{ title: "Topic 1", content: "", imageUrl: l.imageUrl || l.mediaUrl }],
+        })),
+      );
+      setQuizQuestions(
+        course.quizQuestions.map((q) => ({
+          ...q,
+          id: q.id,
+          optionEmojis: q.optionEmojis ?? ["🐊", "🐊", "🐊", "😐"],
+        })),
+      );
+    },
+    [],
+  );
 
   const loadCourse = useCallback(() => {
     return fetch(`/api/courses/${id}`)
@@ -222,37 +118,55 @@ export default function CourseEditorPage() {
           router.push("/admin/dashboard");
           return;
         }
-        setTitle(data.course.title);
-        setDescription(data.course.description ?? "");
-        setPublished(data.course.published);
-        setLessons(
-          data.course.lessons.map((l: Lesson & { id: string }) => ({
-            ...l,
-            id: l.id,
-          })),
-        );
-        setQuizQuestions(
-          data.course.quizQuestions.map((q: CourseQuizQuestion & { id: string }) => ({
-            ...q,
-            id: q.id,
-          })),
-        );
+
+        let restoredDraft = false;
+        try {
+          const raw = localStorage.getItem(draftKey);
+          if (raw) {
+            const draft = JSON.parse(raw) as {
+              title: string;
+              description: string;
+              published: boolean;
+              subjectMeta: typeof subjectMeta;
+              lessons: LessonRow[];
+              quizQuestions: QuestionRow[];
+            };
+            setTitle(draft.title ?? data.course.title);
+            setDescription(draft.description ?? data.course.description ?? "");
+            setPublished(draft.published ?? data.course.published);
+            setSubjectMeta(draft.subjectMeta ?? {
+              emoji: data.course.emoji || "📚",
+              color: data.course.color || "#fff7ed",
+              accent: data.course.accent || "#ea580c",
+              slug: data.course.slug || "",
+            });
+            setLessons(draft.lessons ?? []);
+            setQuizQuestions(draft.quizQuestions ?? []);
+            restoredDraft = true;
+          } else {
+            applyCoursePayload(data.course);
+          }
+        } catch {
+          applyCoursePayload(data.course);
+        }
+
         setInvitations(data.invitations ?? []);
         setLoading(false);
+        setEditorReady(true);
+        if (restoredDraft) {
+          setMessage({
+            type: "success",
+            text: "Restored your draft after refresh. Click Save changes to keep it on the server.",
+          });
+        }
       });
-  }, [id, router]);
+  }, [id, router, draftKey, applyCoursePayload]);
 
   useEffect(() => {
     loadCourse();
   }, [loadCourse]);
 
-  const quizOnly = isQuizOnlyCourse(lessons, quizQuestions);
   const publishCheck = canPublishCourse(lessons, quizQuestions);
-  const canAddLesson = canAddAnotherLesson(lessons, quizQuestions);
-
-  const updateQuestion = (questionId: string, updated: QuestionRow) => {
-    setQuizQuestions((prev) => prev.map((q) => (q.id === questionId ? updated : q)));
-  };
 
   const persistCourse = async (
     nextLessons: LessonRow[],
@@ -275,28 +189,48 @@ export default function CourseEditorPage() {
         title,
         description,
         published: nextPublished,
+        emoji: subjectMeta.emoji,
+        color: subjectMeta.color,
+        accent: subjectMeta.accent,
+        slug: subjectMeta.slug,
         lessons: nextLessons.map((l, idx) => ({
           id: l.id,
-          type: l.type,
+          type: l.type || "text",
           title: l.title,
           content: l.content,
-          mediaUrl: l.mediaUrl,
+          mediaUrl: l.imageUrl || l.mediaUrl,
           mediaCaption: l.mediaCaption,
           order: idx,
+          slug: l.slug,
+          topicTitle: l.topicTitle,
+          topicEmoji: l.topicEmoji,
+          badgeText: l.badgeText,
+          mascotSpeech: l.mascotSpeech,
+          ctaText: l.ctaText,
+          imageUrl: l.imageUrl || l.mediaUrl,
+          audioUrl: l.audioUrl,
+          audioText: l.audioText,
+          pages: l.pages,
         })),
         quizQuestions: nextQuestions.map((q, idx) => ({
           id: q.id.startsWith("new-") ? undefined : q.id,
           lessonId: q.lessonId,
-          type: q.type,
+          type: q.type || "text",
           question: q.question,
           examples: q.examples,
           options: q.options,
           correctIndex: q.correctIndex,
           points: q.points,
           timeLimit: q.timeLimit,
-          mediaUrl: q.mediaUrl,
+          mediaUrl: q.imageUrl || q.mediaUrl,
           mediaCaption: q.mediaCaption,
           order: idx,
+          subtitle: q.subtitle,
+          hint: q.hint,
+          explanation: q.explanation,
+          wrongExplanation: q.wrongExplanation,
+          optionEmojis: q.optionEmojis,
+          imageUrl: q.imageUrl || q.mediaUrl,
         })),
       }),
     });
@@ -304,109 +238,50 @@ export default function CourseEditorPage() {
     setSaving(false);
 
     if (res.ok) {
-      await loadCourse();
+      localStorage.removeItem(draftKey);
+      setLastSavedAt(new Date().toLocaleTimeString());
+      // Reload from server without re-applying stale drafts
+      const fresh = await fetch(`/api/courses/${id}`).then((r) => r.json());
+      if (!fresh.error) {
+        applyCoursePayload(fresh.course);
+        setInvitations(fresh.invitations ?? []);
+      }
       return true;
     }
     setMessage({ type: "error", text: data.error ?? "Failed to save changes." });
     return false;
   };
 
+  // Keep a local draft so refresh does not wipe typing
+  useEffect(() => {
+    if (!editorReady || loading) return;
+    const payload = {
+      title,
+      description,
+      published,
+      subjectMeta,
+      lessons,
+      quizQuestions,
+      savedAt: Date.now(),
+    };
+    localStorage.setItem(draftKey, JSON.stringify(payload));
+  }, [
+    editorReady,
+    loading,
+    title,
+    description,
+    published,
+    subjectMeta,
+    lessons,
+    quizQuestions,
+    draftKey,
+  ]);
+
   const handleSave = async () => {
     const ok = await persistCourse(lessons, quizQuestions);
     if (ok) {
       setMessage({ type: "success", text: "Changes saved successfully." });
     }
-  };
-
-  const removeQuestion = async (questionId: string) => {
-    const question = quizQuestions.find((q) => q.id === questionId);
-    if (!question) return;
-
-    const nextQuestions = quizQuestions.filter((q) => q.id !== questionId);
-    const structureAfterDelete = canPublishCourse(lessons, nextQuestions);
-    const willUnpublish = published && !structureAfterDelete.valid;
-
-    const confirmed = window.confirm(
-      willUnpublish
-        ? "Delete this question? The course will be unpublished until the structure is valid again (add required assessments). Media on Cloudinary will be removed."
-        : "Delete this question? It will be removed immediately, including any media on Cloudinary.",
-    );
-    if (!confirmed) return;
-
-    setQuizQuestions(nextQuestions);
-
-    const ok = await persistCourse(lessons, nextQuestions, {
-      publishedOverride: willUnpublish ? false : undefined,
-    });
-    if (ok) {
-      if (willUnpublish) {
-        setPublished(false);
-        setMessage({
-          type: "success",
-          text: "Question deleted. Course unpublished — add a new question, then publish again.",
-        });
-      } else {
-        setMessage({ type: "success", text: "Question deleted." });
-      }
-    } else {
-      setQuizQuestions(quizQuestions);
-    }
-  };
-
-  const addQuestionForLesson = (lessonId: string) => {
-    setQuizQuestions((prev) => [
-      ...prev,
-      {
-        ...EMPTY_QUIZ_QUESTION,
-        id: `new-q-${Date.now()}`,
-        lessonId,
-        order: prev.length,
-      },
-    ]);
-  };
-
-  const addQuizOnlyQuestion = () => {
-    setQuizQuestions((prev) => [
-      ...prev,
-      {
-        ...EMPTY_QUIZ_QUESTION,
-        id: `new-q-${Date.now()}`,
-        order: prev.length,
-      },
-    ]);
-  };
-
-  const addLesson = () => {
-    if (!canAddLesson) return;
-    // Switching from quiz-only to lesson-based: remove unlinked questions
-    if (lessons.length === 0) {
-      setQuizQuestions((prev) => prev.filter((q) => q.lessonId));
-    }
-    const newId = `new-${Date.now()}`;
-    setLessons((prev) => [
-      ...prev,
-      {
-        ...EMPTY_LESSON,
-        id: newId,
-        order: prev.length,
-      },
-    ]);
-  };
-
-  const removeLesson = (lessonId: string) => {
-    const lesson = lessons.find((l) => l.id === lessonId);
-    if (!lesson) return;
-
-    const questionCount = quizQuestions.filter((q) => q.lessonId === lessonId).length;
-    const confirmed = window.confirm(
-      questionCount > 0
-        ? `Delete this lesson and its ${questionCount} assessment question(s)? Media will be removed from Cloudinary when you save.`
-        : "Delete this lesson? Any lesson media will be removed from Cloudinary when you save.",
-    );
-    if (!confirmed) return;
-
-    setLessons((prev) => prev.filter((l) => l.id !== lessonId));
-    setQuizQuestions((prev) => prev.filter((q) => q.lessonId !== lessonId));
   };
 
   const handlePublishToggle = (checked: boolean) => {
@@ -466,8 +341,8 @@ export default function CourseEditorPage() {
       <div className="sticky top-14 z-20 border-b border-gray-200 bg-white/95 px-4 py-4 backdrop-blur-sm sm:px-6 lg:top-0 lg:px-8">
         <PageHeader
           breadcrumbs={[
-            { label: "Courses", href: "/admin/dashboard" },
-            { label: title || "Untitled course" },
+            { label: "Subjects", href: "/teacher/dashboard" },
+            { label: title || "Untitled subject" },
           ]}
           title=""
           actions={
@@ -489,11 +364,15 @@ export default function CourseEditorPage() {
             </div>
           }
         />
+        <p className="mt-2 text-xs font-semibold text-gray-500">
+          Draft autosaves in this browser on every edit
+          {lastSavedAt ? ` · last saved to server ${lastSavedAt}` : " · click Save changes to store on server"}
+        </p>
         <div className="mt-2 space-y-3">
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="Course title"
+            placeholder="Subject title (e.g. Maths)"
             className="w-full border-0 bg-transparent text-2xl font-semibold tracking-tight text-gray-900 placeholder:text-gray-300 focus:outline-none sm:text-3xl"
           />
           <RichTextEditor
@@ -503,15 +382,19 @@ export default function CourseEditorPage() {
             minHeight={72}
             enableDictate
           />
-         
+
           <div className="flex flex-wrap items-center gap-3">
             <Badge variant={published ? "success" : "neutral"}>
               {published ? "Published" : "Draft"}
             </Badge>
-            {quizOnly && <Badge variant="primary">Quiz only</Badge>}
             <span className="text-sm text-gray-500">
-              {lessons.length} lessons · {quizQuestions.length} assessments
+              {lessons.length} lessons · {quizQuestions.length} quiz questions
             </span>
+            {subjectMeta.slug && (
+              <span className="text-sm font-semibold text-[var(--kid-muted)]">
+                /subjects → {subjectMeta.slug}
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -546,231 +429,16 @@ export default function CourseEditorPage() {
         />
 
         {tab === "content" && (
-          <div className="space-y-6">
-            {lessons.length === 0 ? (
-              <>
-                <Card>
-                  <CardHeader
-                    title="Quiz-only course"
-                    description="Publish a standalone assessment with no lessons. Add questions below, then publish and invite learners."
-                  />
-                  {quizQuestions.length === 0 ? (
-                    <EmptyState
-                      title="No assessment questions"
-                      description="Add at least one question to create a quiz-only course."
-                      action={
-                        <Button variant="secondary" onClick={addQuizOnlyQuestion}>
-                          Add question
-                        </Button>
-                      }
-                    />
-                  ) : (
-                    <div className="space-y-4">
-                      {quizQuestions.map((q, idx) => (
-                        <QuestionEditor
-                          key={q.id}
-                          q={q}
-                          idx={idx}
-                          onChange={(updated) => updateQuestion(q.id, updated)}
-                          onRemove={() => removeQuestion(q.id)}
-                        />
-                      ))}
-                    </div>
-                  )}
-                  {quizQuestions.length > 0 && (
-                    <Button variant="outline" className="mt-4 w-full border-dashed" onClick={addQuizOnlyQuestion}>
-                      Add question
-                    </Button>
-                  )}
-                </Card>
-
-                <div className="relative">
-                  <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-gray-200" />
-                  </div>
-                  <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-[var(--background)] px-3 text-gray-400">or</span>
-                  </div>
-                </div>
-
-                <Card>
-                  <CardHeader
-                    title="Course with lessons"
-                    description="Each lesson requires at least one assessment before you can add the next lesson."
-                  />
-                  <Button onClick={addLesson}>Add first lesson</Button>
-                </Card>
-              </>
-            ) : (
-              <>
-                {lessons.map((lesson, idx) => {
-                  const lessonQs = getLessonQuestions(quizQuestions, lesson.id);
-                  const hasAssessment = lessonHasAssessment(quizQuestions, lesson.id);
-                  return (
-                    <Card key={lesson.id}>
-                      <div className="mb-4 flex items-center justify-between">
-                        <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-                          Lesson {idx + 1}
-                        </span>
-                        <div className="flex items-center gap-2">
-                          {!hasAssessment && (
-                            <Badge variant="warning">Assessment required</Badge>
-                          )}
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="!text-red-600 hover:!bg-red-50"
-                            onClick={() => removeLesson(lesson.id)}
-                          >
-                            Remove lesson
-                          </Button>
-                        </div>
-                      </div>
-
-                      <div className="grid gap-4 sm:grid-cols-2">
-                        <Select
-                          label="Content type"
-                          value={lesson.type}
-                          onChange={(e) =>
-                            setLessons((prev) =>
-                              prev.map((l) =>
-                                l.id === lesson.id
-                                  ? { ...l, type: e.target.value as ContentType }
-                                  : l,
-                              ),
-                            )
-                          }
-                        >
-                          {LESSON_TYPES.map((t) => (
-                            <option key={t} value={t}>
-                              {t.charAt(0).toUpperCase() + t.slice(1)}
-                            </option>
-                          ))}
-                        </Select>
-                        <Input
-                          label="Title"
-                          value={lesson.title}
-                          onChange={(e) =>
-                            setLessons((prev) =>
-                              prev.map((l) =>
-                                l.id === lesson.id ? { ...l, title: e.target.value } : l,
-                              ),
-                            )
-                          }
-                          placeholder="Lesson title"
-                        />
-                      </div>
-
-                      {(lesson.type === "video" ||
-                        lesson.type === "audio" ||
-                        lesson.type === "image") && (
-                        <div className="mt-4">
-                          <MediaUploader
-                            type={lesson.type}
-                            value={lesson.mediaUrl}
-                            onChange={(url) =>
-                              setLessons((prev) =>
-                                prev.map((l) =>
-                                  l.id === lesson.id ? { ...l, mediaUrl: url } : l,
-                                ),
-                              )
-                            }
-                            onTranscript={
-                              lesson.type === "audio"
-                                ? (text) =>
-                                    setLessons((prev) =>
-                                      prev.map((l) =>
-                                        l.id === lesson.id
-                                          ? {
-                                              ...l,
-                                              content: appendRichText(l.content ?? "", text),
-                                            }
-                                          : l,
-                                      ),
-                                    )
-                                : undefined
-                            }
-                            label={
-                              lesson.type === "audio"
-                                ? "Record or upload audio (transcript → content)"
-                                : lesson.type === "video"
-                                  ? "Record or upload video"
-                                  : "Upload image"
-                            }
-                          />
-                        </div>
-                      )}
-
-                      <div className="mt-4">
-                        <RichTextEditor
-                          label="Content"
-                          value={lesson.content ?? ""}
-                          onChange={(content) =>
-                            setLessons((prev) =>
-                              prev.map((l) =>
-                                l.id === lesson.id ? { ...l, content } : l,
-                              ),
-                            )
-                          }
-                          minHeight={120}
-                          enableDictate
-                        />
-                      </div>
-
-                      <div className="mt-6 border-t border-gray-100 pt-6">
-                        <div className="mb-4 flex items-center justify-between">
-                          <div>
-                            <h3 className="text-sm font-semibold text-gray-900">
-                              Lesson assessment
-                            </h3>
-                            <p className="text-xs text-gray-500">
-                              Required before adding the next lesson.
-                            </p>
-                          </div>
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            onClick={() => addQuestionForLesson(lesson.id)}
-                          >
-                            Add question
-                          </Button>
-                        </div>
-
-                        {lessonQs.length === 0 ? (
-                          <p className="rounded-md border border-dashed border-amber-200 bg-amber-50/50 px-4 py-3 text-sm text-amber-800">
-                            Add at least one assessment question for this lesson.
-                          </p>
-                        ) : (
-                          <div className="space-y-4">
-                            {lessonQs.map((q, qIdx) => (
-                              <QuestionEditor
-                                key={q.id}
-                                q={q}
-                                idx={qIdx}
-                                onChange={(updated) => updateQuestion(q.id, updated)}
-                                onRemove={() => removeQuestion(q.id)}
-                              />
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </Card>
-                  );
-                })}
-
-                <Button
-                  variant="outline"
-                  className="w-full border-dashed"
-                  disabled={!canAddLesson}
-                  onClick={addLesson}
-                >
-                  {canAddLesson
-                    ? "Add another lesson"
-                    : "Add assessment to the last lesson first"}
-                </Button>
-              </>
-            )}
-          </div>
+          <SubjectContentEditor
+            subjectTitle={title}
+            subjectDescription={description}
+            meta={subjectMeta}
+            onMetaChange={setSubjectMeta}
+            lessons={lessons}
+            quizQuestions={quizQuestions}
+            onLessonsChange={setLessons}
+            onQuestionsChange={setQuizQuestions}
+          />
         )}
 
         {tab === "invites" && (
@@ -780,11 +448,7 @@ export default function CourseEditorPage() {
                 title="Invite learners"
                 description={
                   admin
-                    ? `Invitations are valid for 2 weeks. They will be sent by ${admin.name} (${admin.email}). ${
-                        quizOnly
-                          ? "Learners go straight to the assessment."
-                          : "Each lesson includes its own assessment."
-                      }`
+                    ? `Invitations are valid for 2 weeks. They will be sent by ${admin.name} (${admin.email}). Each lesson includes its own assessment.`
                     : "Invitation links expire after 2 weeks. Re-send to issue a fresh link."
                 }
               />
@@ -801,7 +465,7 @@ export default function CourseEditorPage() {
                   {inviting ? "Sending..." : "Send invitations"}
                 </Button>
                 {!published && (
-                  <p className="text-sm text-amber-700">Publish the course before inviting.</p>
+                  <p className="text-sm text-amber-700">Publish the subject before inviting.</p>
                 )}
                 {published && !publishCheck.valid && (
                   <p className="text-sm text-amber-700">{publishCheck.error}</p>
@@ -895,7 +559,7 @@ export default function CourseEditorPage() {
             ) : (
               <EmptyState
                 title="No learners enrolled"
-                description="Invite learners once the course is published and valid."
+                description="Invite learners once the subject is published and valid."
               />
             )}
           </div>

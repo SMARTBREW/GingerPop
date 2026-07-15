@@ -835,6 +835,68 @@
   transform: translateY(-1px);
 }
 
+@keyframes hint-bulb-blink {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+    filter: drop-shadow(0 0 0 transparent);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(1.12);
+    filter: drop-shadow(0 0 8px rgba(251, 191, 36, 0.9));
+  }
+}
+
+@keyframes hint-tab-pulse {
+  0%,
+  100% {
+    box-shadow: 0 3px 0 #d97706, 0 0 0 0 rgba(251, 191, 36, 0.45);
+  }
+  50% {
+    box-shadow: 0 3px 0 #d97706, 0 0 0 6px rgba(251, 191, 36, 0);
+  }
+}
+
+.hint-blink-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.55rem 1rem 0.55rem 0.75rem;
+  border-radius: 999px;
+  border: 2.5px solid #f59e0b;
+  background: linear-gradient(180deg, #fef3c7 0%, #fde68a 100%);
+  cursor: pointer;
+  animation: hint-tab-pulse 1.4s ease-in-out infinite;
+  transition: transform 0.12s ease;
+}
+
+.hint-blink-tab:hover {
+  transform: translateY(-1px);
+}
+
+.hint-blink-tab:active {
+  transform: translateY(1px);
+}
+
+.hint-blink-bulb {
+  font-size: 1.35rem;
+  line-height: 1;
+  display: inline-block;
+  animation: hint-bulb-blink 1s ease-in-out infinite;
+}
+
+.hint-blink-label {
+  font-family: var(--font-game), "Fredoka", system-ui, sans-serif;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #92400e;
+  letter-spacing: 0.02em;
+  text-transform: lowercase;
+  animation: hint-bulb-blink 1s ease-in-out infinite;
+}
+
 /* ── Journey card ── */
 .mascot-journey-card {
   background: transparent;
@@ -1028,5 +1090,261 @@
 
   .mascot-header-inner {
     padding: 0.75rem 1.5rem;
+  }
+}
+
+/* ── Custom Responsive Player Classes ── */
+
+/* Shell Layout */
+.mascot-shell-layout {
+  height: 100dvh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Main content area */
+.mascot-main-content {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  max-width: 1100px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 0.75rem 1.5rem 0;
+  gap: 0.5rem;
+}
+
+/* Content grid overlay area */
+.mascot-content-grid {
+  flex: 1;
+  overflow: hidden;
+  padding-bottom: 0.5rem;
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
+}
+
+/* Card outer wrapper (lesson + quiz) */
+.mascot-card-wrapper {
+  flex: 1;
+  display: flex;
+  padding: 0.5rem 0;
+  min-height: 0;
+  max-height: 560px;
+}
+
+/* Card container — desktop default: side-by-side */
+.mascot-player-card {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  border-radius: 1.5rem;
+  overflow: hidden;
+  border: 2px solid #e9e9f0;
+  box-shadow: 0 6px 0 #e0e0ea;
+  background: white;
+  min-height: 0;
+}
+
+/* Left image panel — lesson */
+.mascot-player-left {
+  width: 38%;
+  flex-shrink: 0;
+  background: linear-gradient(145deg, #f0fdf4, #dcfce7);
+  border-right: 2px solid #e9e9f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  box-sizing: border-box;
+}
+
+.mascot-player-left.mascot-player-left--topics {
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 0.75rem;
+  text-align: left;
+}
+
+.mascot-player-left.mascot-player-left--no-image {
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  position: relative;
+}
+
+.mascot-player-left.mascot-player-left--no-image > h2 {
+  margin: 0;
+}
+
+.mascot-player-left.mascot-player-left--no-image > p {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 1.25rem;
+  margin: 0;
+}
+
+/* Left image panel — quiz */
+.mascot-player-left-quiz {
+  width: 38%;
+  flex-shrink: 0;
+  background: linear-gradient(145deg, #eff6ff, #dbeafe);
+  border-right: 2px solid #e9e9f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  box-sizing: border-box;
+}
+
+/* Right content panel — lesson */
+.mascot-player-right {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+  padding: 1.5rem 1.75rem;
+  min-width: 0;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+/* Right content panel — quiz */
+.mascot-player-right-quiz {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 1.25rem 1.5rem;
+  min-width: 0;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+/* ── Tablet (768px to 1024px) ── */
+@media (min-width: 768px) and (max-width: 1024px) {
+  .mascot-player-left,
+  .mascot-player-left-quiz {
+    width: 34%;
+    padding: 1rem;
+  }
+
+  .mascot-player-right,
+  .mascot-player-right-quiz {
+    padding: 1.25rem;
+  }
+
+  .mascot-card-wrapper {
+    max-height: 500px;
+  }
+}
+
+/* ── Mobile (< 768px) ── */
+@media (max-width: 767px) {
+  /* Allow full page scroll — remove fixed height lock */
+  .mascot-shell-layout {
+    height: auto;
+    min-height: 100dvh;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  /* Main content: no overflow clipping, let it grow */
+  .mascot-main-content {
+    overflow: visible;
+    padding: 0.5rem 0.75rem 6rem;
+    flex: none;
+  }
+
+  /* Content grid: no overflow clipping */
+  .mascot-content-grid {
+    overflow: visible;
+    display: block;
+    height: auto;
+    padding-bottom: 0.5rem;
+  }
+
+  /* Card outer wrapper: remove fixed max-height */
+  .mascot-card-wrapper {
+    max-height: none;
+    flex: none;
+    padding: 0.5rem 0;
+    display: block;
+  }
+
+  /* Card: vertical stack */
+  .mascot-player-card {
+    flex-direction: column;
+    border-radius: 1rem;
+    overflow: visible;
+  }
+
+  /* Image panels: full width, horizontal separator */
+  .mascot-player-left,
+  .mascot-player-left-quiz {
+    width: 100%;
+    height: 200px;
+    border-right: none;
+    border-bottom: 2px solid #e9e9f0;
+    padding: 1rem;
+  }
+
+  /* Content panels: full width */
+  .mascot-player-right,
+  .mascot-player-right-quiz {
+    width: 100%;
+    padding: 1rem;
+    overflow-y: visible;
+  }
+
+  /* Header: wrap tightly on small screens */
+  .mascot-header-inner {
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    padding: 0.5rem 0.75rem;
+  }
+
+  /* Progress bar moves to its own row */
+  .mascot-header-bar-wrap {
+    order: 3;
+    width: 100%;
+    flex: none;
+    margin-top: 0.1rem;
+  }
+
+  .mascot-header-lesson {
+    max-width: 120px;
+  }
+
+  .mascot-stat-pill {
+    padding: 0.2rem 0.5rem;
+    font-size: 0.72rem;
+    gap: 0.2rem;
+  }
+
+  .mascot-audio-btn {
+    width: 28px;
+    height: 28px;
+    font-size: 0.8rem;
+  }
+
+  /* Scale down and reposition the pacing mascot */
+  .mascot-pacing-container {
+    bottom: 85px;
+    transform: scale(0.75);
+    transform-origin: bottom left;
+  }
+
+  /* Animations use simpler transforms on mobile */
+  .card-enter {
+    animation: expand-from-animal 0.4s cubic-bezier(0.19, 1, 0.22, 1) forwards;
+  }
+
+  .card-exit {
+    animation: collapse-to-animal 0.35s cubic-bezier(0.19, 1, 0.22, 1) forwards;
   }
 }

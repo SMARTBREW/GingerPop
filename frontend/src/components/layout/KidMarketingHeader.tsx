@@ -9,14 +9,14 @@ export function KidMarketingHeader() {
           <BrandName />
         </Link>
         <nav className="flex items-center gap-2 sm:gap-3">
-          <Link href="/play" className="kid-btn-secondary !px-4 !py-2 !text-sm sm:!px-5 sm:!text-base">
+          <Link href="/subjects" className="kid-btn-secondary !px-4 !py-2 !text-sm sm:!px-5 sm:!text-base">
             Try a quest
           </Link>
           <Link
-            href="/admin/login"
+            href="/login"
             className="rounded-full px-3 py-2 text-sm font-semibold text-[var(--kid-muted)] hover:bg-white/80 hover:text-[var(--kid-text)]"
           >
-            Teachers
+            Sign in
           </Link>
         </nav>
       </div>

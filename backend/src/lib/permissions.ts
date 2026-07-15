@@ -1,7 +1,8 @@
 import { Request, Response } from "express";
 import { connectDB } from "@/lib/mongodb";
-import { getAdminSessionFromRequest } from "@/lib/auth";
+import { getAdminSessionFromRequest, getStudentSessionFromRequest } from "@/lib/auth";
 import { Admin, AdminRole } from "@/models/Admin";
+import { Student } from "@/models/Student";
 import { jsonError } from "@/lib/api";
 
 export interface SessionAdmin {
@@ -9,6 +10,12 @@ export interface SessionAdmin {
   name: string;
   email: string;
   role: AdminRole;
+}
+
+export interface SessionStudent {
+  id: string;
+  name: string;
+  email: string;
 }
 
 export type AuthError = { error: string; status: number };
@@ -46,6 +53,29 @@ export async function requireSuperAdmin(
     return { error: "Super admin access required", status: 403 };
   }
   return result;
+}
+
+export async function getSessionStudent(req: Request): Promise<SessionStudent | null> {
+  const session = await getStudentSessionFromRequest(req);
+  if (!session?.studentId) return null;
+
+  await connectDB();
+  const student = await Student.findById(session.studentId);
+  if (!student || !student.active) return null;
+
+  return {
+    id: student._id.toString(),
+    name: student.name,
+    email: student.email,
+  };
+}
+
+export async function requireStudent(
+  req: Request,
+): Promise<{ student: SessionStudent } | AuthError> {
+  const student = await getSessionStudent(req);
+  if (!student) return { error: "Unauthorized", status: 401 };
+  return { student };
 }
 
 export function canManageCourse(admin: SessionAdmin, courseAdminId: string) {

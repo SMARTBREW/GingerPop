@@ -122,15 +122,27 @@ export async function deleteCloudinaryUrls(urls: string[]) {
 }
 
 export function collectCourseMediaUrls(course: {
-  lessons?: { mediaUrl?: string }[];
-  quizQuestions?: { mediaUrl?: string }[];
+  lessons?: {
+    mediaUrl?: string;
+    imageUrl?: string;
+    audioUrl?: string;
+    pages?: { imageUrl?: string; audioUrl?: string }[];
+  }[];
+  quizQuestions?: { mediaUrl?: string; imageUrl?: string }[];
 }): string[] {
   const urls: string[] = [];
   for (const lesson of course.lessons ?? []) {
     if (lesson.mediaUrl) urls.push(lesson.mediaUrl);
+    if (lesson.imageUrl) urls.push(lesson.imageUrl);
+    if (lesson.audioUrl) urls.push(lesson.audioUrl);
+    for (const page of lesson.pages ?? []) {
+      if (page.imageUrl) urls.push(page.imageUrl);
+      if (page.audioUrl) urls.push(page.audioUrl);
+    }
   }
   for (const question of course.quizQuestions ?? []) {
     if (question.mediaUrl) urls.push(question.mediaUrl);
+    if (question.imageUrl) urls.push(question.imageUrl);
   }
   return urls;
 }

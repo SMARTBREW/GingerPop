@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { BrandName } from "@/components/BrandName";
 
@@ -33,7 +33,18 @@ interface Lesson {
   ctaText: string;
   quizQuestions: QuizQuestion[];
   imageUrl?: string;
+  pages?: {
+    title: string;
+    content?: string;
+    imageUrl?: string;
+    audioUrl?: string;
+    audioText?: string;
+  }[];
+  /** Mongo ObjectId when loaded from invite / API */
+  mongoId?: string;
 }
+
+export type InvitePlayLesson = Lesson & { mongoId: string };
 
 interface DiagramStep {
   emoji: string;
@@ -45,228 +56,225 @@ interface DiagramStep {
 const ALL_MATH_LESSONS: Lesson[] = [
   {
     id: "comparing-numbers",
-    title: "Comparing Numbers (Bada, Chhota, Ya Barabar!)",
-    badgeText: "TODAY'S MATH LESSON",
-    imageUrl: "/img/image.png", // Alligator reference guide sheet
-    mascotSpeech:
-      "Psst! Do you know how to compare numbers? Yeh bilkul alligator (magarmach) ke muh ki tarah hai! Bada number dekhkar alligator apna muh us taraf khol leta hai! 🐊",
-    diagram: [
-      { emoji: "🐊", label: "8 > 4 (Greater)" },
-      { emoji: "😐", label: "7 = 7 (Equal)" },
-      { emoji: "🐊", label: "2 < 3 (Less)" },
-    ],
+    title: "Comparing Numbers",
+    badgeText: "1. COMPARING NUMBERS",
+    imageUrl: "/img/image.png",
+    mascotSpeech: "Hey there! Let's learn how to compare numbers. Compare karne ka matlab hai check karna kaun bada hai, kaun chhota, ya dono equal hain! 🐊",
     facts: [
-      "Greater Than (>) matlab bada hai (e.g. 8 > 4) aur Less Than (<) matlab chhota hai (e.g. 2 < 3).",
-      "Digits check karo: Jis number mein zyada digits hain, wo hamesha bada hoga! (e.g., 254 > 99).",
-      "Decimal check: Pehle whole part compare karo (3.4 vs 3.09 -> 3.4 bada hai!).",
-      "Hinglish Fun Rule: Magarmach hamesha bade (larger) number ko khana chahta hai!",
+      "1. What is Compare? : Do ya zyada numbers ko dekhkar decide karna ki kaunsa bada (>), chhota (<) ya barabar (=) hai.",
+      "2. Important Symbols : '>' (Greater Than / bada hai) e.g. 8 > 5, '<' (Less Than / chhota hai) e.g. 3 < 7, '=' (Equal to / barabar hai) e.g. 6 = 6.",
+      "3. Kaise Compare karte hain? : Step 1: Digits count karo (more digits = bigger! e.g. 254 > 99). Step 2: Left-most digit compare karo (e.g. 457 < 489).",
+      "4. Comparing Decimals : Pehle whole part compare karo, fir decimal point ke baad tenths place check karo (e.g. 3.4 > 3.09).",
+      "5. Real-life Examples : Mere paas 5 apples hain, dost ke paas 8 (5 < 8) aur 50 Rs vs 20 Rs items (50 > 20).",
+      "💡 Think Box: \n- Tumhare aur friend ke marks mein kaun bada hai?\n- Equal numbers ke liye kaunsa symbol use hota hai?",
     ],
-    ctaText: "Ready to test your math wizard skills? Quiz time! 📐",
+    ctaText: "Next",
     quizQuestions: [
       {
         id: "math-q1",
-        question: "Which symbol fits here: 64 ___ 89?",
-        subtitle: "Think about which number is bigger!",
-        imageUrl: "/img/image copy.png", // Alligator comparison card sheet
+        question: "Fill in the blank: 64 ___ 89",
+        subtitle: "Practice Question a",
+        imageUrl: "/img/image copy.png",
         options: [
-          { emoji: "🐊", text: "> (Greater Than)" },
           { emoji: "🐊", text: "< (Less Than)" },
+          { emoji: "🐊", text: "> (Greater Than)" },
           { emoji: "😐", text: "= (Equal To)" },
         ],
-        correctIndex: 1,
-        explanation: "Shabash! 64 chhota hai 89 se, isliye 64 < 89! 🎉",
-        wrongExplanation: "Oops! 64 chhota (smaller) hota hai 89 se, so we use <.",
-        hint: "Alligator always wants to eat the bigger number (89)!",
+        correctIndex: 0,
+        explanation: "Correct! 64 is less than 89, so 64 < 89. 🎉",
+        wrongExplanation: "Oops! 64 is smaller than 89, so we use <.",
+        hint: "89 is bigger than 64!",
       },
       {
         id: "math-q2",
-        question: "Solve this: 123 ___ 98",
-        subtitle: "Count the digits first!",
+        question: "Fill in the blank: 123 ___ 98",
+        subtitle: "Practice Question b",
         options: [
-          { emoji: "🐊", text: "> (Greater Than)" },
           { emoji: "🐊", text: "< (Less Than)" },
+          { emoji: "🐊", text: "> (Greater Than)" },
           { emoji: "😐", text: "= (Equal To)" },
         ],
-        correctIndex: 0,
-        explanation: "Kya baat hai! 123 has 3 digits and 98 has only 2 digits, so 123 > 98! 🌟",
-        wrongExplanation: "Check digits! 3 digits (123) is always bigger than 2 digits (98).",
-        hint: "Digits check: 123 has 3 digits, 98 has 2.",
+        correctIndex: 1,
+        explanation: "Perfect! 123 has 3 digits and 98 has 2 digits, so 123 > 98. 🌟",
+        wrongExplanation: "A 3-digit number is always greater than a 2-digit number.",
+        hint: "Count the digits first!",
       },
       {
         id: "math-q3",
-        question: "Compare these decimals: 5.2 ___ 5.09",
-        subtitle: "Look closely at the tenths place!",
+        question: "Fill in the blank: 5.2 ___ 5.09",
+        subtitle: "Practice Question c",
         options: [
-          { emoji: "🐊", text: "> (Greater Than)" },
           { emoji: "🐊", text: "< (Less Than)" },
+          { emoji: "🐊", text: "> (Greater Than)" },
           { emoji: "😐", text: "= (Equal To)" },
         ],
-        correctIndex: 0,
-        explanation: "Superb! Pehle whole part check kiya (5 = 5), fir tenths (2 is bigger than 0), so 5.2 > 5.09! 🍬",
-        wrongExplanation: "Oops! 5.2 has 2 tenths, 5.09 has 0 tenths. So 5.2 is bigger.",
-        hint: "Write 5.2 as 5.20 to compare easily with 5.09!",
+        correctIndex: 1,
+        explanation: "Correct! Pehle whole number compare kiya (5=5), fir tenths position par 2 is greater than 0, so 5.2 > 5.09. 🍬",
+        wrongExplanation: "Check the tenths place: 2 is larger than 0.",
+        hint: "Think of 5.2 as 5.20 vs 5.09!",
       },
       {
         id: "math-q4",
-        question: "Compare these: 300 ___ 300",
-        subtitle: "Both numbers look identical!",
+        question: "Fill in the blank: 300 ___ 300",
+        subtitle: "Practice Question d",
         options: [
-          { emoji: "🐊", text: "> (Greater Than)" },
           { emoji: "🐊", text: "< (Less Than)" },
+          { emoji: "🐊", text: "> (Greater Than)" },
           { emoji: "😐", text: "= (Equal To)" },
         ],
         correctIndex: 2,
-        explanation: "Bilkul sahi! Dono side barabar hain, so we use = symbol! 🌟",
-        wrongExplanation: "Oops! Both numbers are exactly the same, so they are equal (=).",
-        hint: "Are they the same or is one larger?",
+        explanation: "Superb! Both numbers are exactly the same, so 300 = 300. 🌟",
+        wrongExplanation: "Dono numbers barabar hain, so we use =.",
+        hint: "Are they identical?",
       }
     ],
   },
   {
     id: "organising-data",
-    title: "Organising Data (Information ko Arrange Karna!)",
-    badgeText: "TODAY'S MATH LESSON",
-    mascotSpeech:
-      "Hello young detective! Data matlab information collection. Lekin jab tak hum use list ya table mein organise nahi karenge, tab tak hum useful baatein nahi samajh sakte! 📊",
-    diagram: [
-      { emoji: "🍎", label: "Raw Survey" },
-      { emoji: "📝", label: "Tally Marks" },
-      { emoji: "📊", label: "Neat Graph" },
-    ],
+    title: "Organising Data",
+    badgeText: "2. ORGANISING DATA",
+    mascotSpeech: "Data ko table ya graph mein simple tareeke se arrange karna hi Organising Data kehta hai. Let's see some survey examples! 📊",
     facts: [
-      "Raw Data matlab survey se mila seedha data (jaise Red, Blue, Green, Blue...).",
-      "Organised data ko table, list ya graph mein likha jata hai taaki asani se samajh aaye.",
-      "Tally marks banana aur pictograph banana data organisation seekhne ki solid activities hain!",
-      "Organise karne se compare karna aur accurate conclusions nikalna bohot easy ho jata hai.",
+      "What is Data? : Kisi topic par gathered information (jaise favourite colours, fruits, recess choices, birthdays, etc.).",
+      "What is Organising? : Data ko saaf, simple aur arranged tareeke se table, list ya graph mein likhna, taaki easily samajh aaye.",
+      "Survey Example : Favourite colour survey has Red (3), Blue (4), Green (2), Yellow (1). Blue is the most popular colour!",
+      "Organising Benefits : Data samajhna easy ho jaata hai, compare karna asaan hota hai aur graphs/tally marks banana possible ho jata hai.",
+      "💡 Think Box: \n- Kya raw data samajhna easy hota hai?\n- Table banane se kya fayda hota hai?",
     ],
-    ctaText: "Let's crack the data detective quiz! Start! 🔍",
+    ctaText: "Next",
     quizQuestions: [
       {
         id: "data-q1",
-        question: "10 friends se survey kiya aur answers mile: Red, Blue, Green, Blue, Yellow, Red, Blue, Green, Red, Blue. Which is the most popular color?",
-        subtitle: "Organise and count: Red (3), Blue (4), Green (2), Yellow (1).",
+        question: "Activity 1: Favourite Pet Survey. If Dog got 4 votes, Cat got 3 votes, Fish got 2 votes, Rabbit got 2 votes, and Bird got 1 vote. Sabse popular pet kaunsa nikla?",
+        subtitle: "Count the survey votes for each pet!",
         options: [
-          { emoji: "🔴", text: "Red" },
-          { emoji: "🔵", text: "Blue" },
-          { emoji: "🟢", text: "Green" },
+          { emoji: "🐶", text: "Dog" },
+          { emoji: "🐱", text: "Cat" },
+          { emoji: "🐰", text: "Rabbit" },
         ],
-        correctIndex: 1,
-        explanation: "Awesome! Blue color matches 4 times, which is the highest frequency! 🔵",
-        wrongExplanation: "Count again! Blue appears 4 times, Red 3 times, Green 2 times. So Blue is the winner.",
-        hint: "Count how many times each color is listed in the survey responses.",
+        correctIndex: 0,
+        explanation: "Sahi jawab! Dog has the highest votes (4), making it the most popular pet! 🐶",
+        wrongExplanation: "Dog had 4 votes, which is the highest number in the poll.",
+        hint: "Which pet has the highest number of votes?",
       },
       {
         id: "data-q2",
-        question: "Apne city ka maximum temp note kiya aur temperatures ko ascending order mein arrange karna hai. What is ascending order?",
-        subtitle: "Think about sizes!",
+        question: "Activity 2: Daily Temperature. Arrange these temperatures in ascending order (small to big): 32°C, 31°C, 35°C, 33°C, 34°C, 30°C, 31°C.",
+        subtitle: "Find the smallest first!",
         options: [
-          { emoji: "📈", text: "Smallest to Biggest" },
-          { emoji: "📉", text: "Biggest to Smallest" },
-          { emoji: "📊", text: "Random arrangement" },
+          { emoji: "📈", text: "30°C, 31°C, 31°C, 32°C, 33°C, 34°C, 35°C" },
+          { emoji: "📈", text: "35°C, 34°C, 33°C, 32°C, 31°C, 31°C, 30°C" },
+          { emoji: "📈", text: "30°C, 31°C, 32°C, 33°C, 34°C, 35°C" },
         ],
         correctIndex: 0,
-        explanation: "Correct! Ascending order means small to big (jaise seedhi chhadna). 📈",
-        wrongExplanation: "Incorrect. Ascending is going up (Smallest to Biggest). Descending is going down.",
-        hint: "Ascend means to climb up!",
+        explanation: "Correct! Ascending order starts from the smallest (30°C) and goes to the largest (35°C), keeping both 31°C values. 📈",
+        wrongExplanation: "Oops! Ascending starts from small and goes to big, including duplicate values.",
+        hint: "Start with 30, then both 31s, then 32...",
       },
       {
         id: "data-q3",
-        question: "Teacher ne raw data share kiya: 3, 5, 2, 4, 6, 3, 0, 5, 4, 2. If you make a tally mark for number 3, how many tallies will it have?",
-        subtitle: "Count how many times 3 appears in the list!",
+        question: "Activity 3: Books Read Class Data. Teacher shared raw data of books read in April: 3, 5, 2, 4, 6, 3, 0, 5, 4, 2, 3, 6, 1, 4, 5, 2, 3, 4, 2, 1, 5, 0, 3, 4, 2, 6, 1, 4, 3, 2. Kitne students ne 4 ya usse zyada books padhi?",
+        subtitle: "Count all values that are 4, 5, or 6!",
         options: [
-          { emoji: "Ⅰ", text: "1" },
-          { emoji: "Ⅱ", text: "2" },
-          { emoji: "Ⅲ", text: "3" },
+          { emoji: "📚", text: "10 students" },
+          { emoji: "📚", text: "13 students" },
+          { emoji: "📚", text: "15 students" },
         ],
         correctIndex: 1,
-        explanation: "Yes! 3 appears exactly 2 times in the list (3, 5, 2, 4, 6, 3...), so it has 2 tallies! Ⅱ",
-        wrongExplanation: "Oops! Count carefully: 3 appears 2 times.",
-        hint: "Find all the '3's in: 3, 5, 2, 4, 6, 3, 0...",
+        explanation: "Perfect! Exactly 13 values in the raw list are 4, 5, or 6! 📚",
+        wrongExplanation: "Count them carefully: there are 6 fours, 4 fives, and 3 sixes. 6 + 4 + 3 = 13.",
+        hint: "Filter and sum the occurrences of 4, 5, and 6 in the list.",
       },
+      {
+        id: "data-q4",
+        question: "Activity 4: Snack Choices. Poll results: Chips (7), Sandwich (5), Fruit (6), Chocolate (2). Chips se 2 kam frequency wala snack kaunsa hai?",
+        subtitle: "Chips has a frequency of 7. Find the snack with frequency 7 - 2 = 5!",
+        options: [
+          { emoji: "🥪", text: "Sandwich" },
+          { emoji: "🍎", text: "Fruit" },
+          { emoji: "🍫", text: "Chocolate" },
+        ],
+        correctIndex: 0,
+        explanation: "Kya baat hai! Chips is 7, and 7 - 2 = 5, which matches Sandwich. 🥪",
+        wrongExplanation: "Chips has 7, so 7 - 2 = 5. Sandwich is the snack chosen by 5 students.",
+        hint: "Calculate 7 - 2, then look at the snack frequencies.",
+      }
     ],
   },
   {
-    id: "points-lines",
-    title: "Points, Lines, & Line Segments",
-    badgeText: "TODAY'S GEOMETRY LESSON",
-    imageUrl: "/img/image copy 6.png", // Drawing line segment using ruler
-    mascotSpeech:
-      "Geometry time! Let's meet the building blocks of shapes: Point (bas ek tiny dot), Line (dono taraf infinite chalti hai), and Line Segment (has two fixed ends like a ruler). 📏",
-    diagram: [
-      { emoji: "📍", label: "Point (Dot)" },
-      { emoji: "↔️", label: "Line (Endless)" },
-      { emoji: "📏", label: "Segment (Fixed)" },
-    ],
+    id: "geometry",
+    title: "Geometry",
+    badgeText: "3. GEOMETRY",
+    imageUrl: "/img/image copy 6.png",
+    mascotSpeech: "Let's explore the fundamental building blocks of geometry: Point, Line, Line Segment, and Ray! 📐",
     facts: [
-      "Point: Ek exact position dikhata hai. It has no length, no width (e.g. pencil dot, location pin).",
-      "Line: Dono directions mein bina ruke chalti rehti hai. It has no ends! (e.g. endless straight road).",
-      "Line Segment: Line ka ek fixed part jiske do fixed endpoints hote hain (e.g. matchstick, ruler edge).",
-      "Ray: Ek endpoint se start hokar doosri side forever chalti jaati hai (e.g. torch light, sun ray).",
+      "1. Point (A dot / exact position) : A point shows an exact position. It has no length, no width. (e.g. pencil dot, location pin, sky star).",
+      "2. Line (Goes on forever both sides) : Line dono taraf infinity tak chalti rehti hai. Symbol: ↔ AB. (e.g. endless straight road, railway track).",
+      "3. Line Segment (Has 2 fixed ends) : Line ka wo hissa jiska start aur end fixed ho. Symbol: AB̅. (e.g. matchstick, ruler edge).",
+      "4. Ray (Kiran) : Ray ek side se start hoti hai aur doosri side infinity tak jaati hai. Symbol: → AB. (e.g. sunlight beam, torch light).",
+      "💡 Think Box: \n- Road seedhi hoti hai ya curved? Kyun?\n- Parallel lines real life mein kahan dikhti hain?",
     ],
-    ctaText: "Show your geometry power! Start Quiz! 📐",
+    ctaText: "Next",
     quizQuestions: [
       {
         id: "geom-q1",
-        question: "Which of these has NO length and NO width, only an exact position?",
-        subtitle: "It looks like a tiny dot!",
+        question: "Which of these shows an exact position and has NO length and NO width?",
+        subtitle: "Think about a Google Maps location pin!",
         options: [
           { emoji: "📍", text: "Point" },
           { emoji: "📏", text: "Line Segment" },
           { emoji: "↔️", text: "Line" },
         ],
         correctIndex: 0,
-        explanation: "Perfect! A Point is just an exact position, represented by a tiny dot. 📍",
-        wrongExplanation: "Oops! A point has no dimensions, only a location. Lines and segments have length.",
-        hint: "Think about a Google Maps location pin!",
+        explanation: "Correct! A Point (dot) has no dimensions, only a location. 📍",
+        wrongExplanation: "Oops! A point represents position only. Line segments and lines have length.",
+        hint: "A star in the sky looks like a point dot!",
       },
       {
         id: "geom-q2",
-        question: "What goes on forever in BOTH directions without any end?",
-        subtitle: "Look at the straight road and railway tracks below!",
-        imageUrl: "/img/image copy 2.png", // Straight road
+        question: "What geometric figure goes on forever in BOTH directions without any end?",
+        subtitle: "Think of an endless straight road!",
         options: [
           { emoji: "📏", text: "Line Segment" },
           { emoji: "↔️", text: "Line" },
           { emoji: "➡️", text: "Ray" },
         ],
         correctIndex: 1,
-        explanation: "Correct! A Line (↔) goes endlessly on both sides, just like an infinite straight road! ↔️",
-        wrongExplanation: "Incorrect. A Line Segment has 2 ends, a Ray has 1 end, but a Line goes on forever on both sides.",
-        hint: "Its symbol has arrows on both left and right (↔).",
+        explanation: "Sahi! A Line (↔) goes on endlessly on both sides without ending. ↔️",
+        wrongExplanation: "Incorrect. Line segments have ends; lines do not.",
+        hint: "Its symbol is ↔ AB.",
       },
       {
         id: "geom-q3",
-        question: "What geometric shape has one fixed endpoint and goes on forever in the other direction (like Ray AB)?",
-        subtitle: "Look at the Ray diagram below!",
-        imageUrl: "/img/image copy 4.png", // Ray AB and GH diagram
+        question: "What shape has a fixed start and end point (like the edge of a ruler or a matchstick)?",
+        subtitle: "It has two fixed endpoints!",
+        options: [
+          { emoji: "📏", text: "Line Segment" },
+          { emoji: "↔️", text: "Line" },
+          { emoji: "➡️", text: "Ray" },
+        ],
+        correctIndex: 0,
+        explanation: "Perfect! A Line Segment (AB̅) has 2 fixed endpoints and a measurable length. 📏",
+        wrongExplanation: "Incorrect. A Line Segment has fixed ends, unlike a Line or Ray.",
+        hint: "The edge of a ruler is a segment.",
+      },
+      {
+        id: "geom-q4",
+        question: "What starts at one endpoint and goes on forever in the other direction?",
+        subtitle: "Think of sunlight or torch light beams!",
         options: [
           { emoji: "📍", text: "Point" },
           { emoji: "↔️", text: "Line" },
           { emoji: "➡️", text: "Ray" },
         ],
         correctIndex: 2,
-        explanation: "Exactly! Ray has one starting endpoint and goes infinitely in the other direction. ➡️",
-        wrongExplanation: "Oops! It has only one arrow pointing forever, so it is a Ray.",
-        hint: "Think of a torch light shine direction or a sun ray!",
-      },
-      {
-        id: "geom-q4",
-        question: "How many matchsticks do you need to move to make 3 squares in this puzzle?",
-        subtitle: "Look at the matches diagram below!",
-        imageUrl: "/img/image copy 5.png", // Matchsticks puzzle
-        options: [
-          { emoji: "🪵", text: "Move 1 matchstick" },
-          { emoji: "🪵", text: "Move 2 matchsticks" },
-          { emoji: "🪵", text: "Move 3 matchsticks" },
-        ],
-        correctIndex: 1,
-        explanation: "Yes! Moving exactly 2 matchsticks lets you rearrange the squares perfectly into 3! 🪵",
-        wrongExplanation: "Try again! You need to move exactly 2 matchsticks.",
-        hint: "Look at the arrow direction shown in the top and bottom diagrams.",
+        explanation: "Excellent! A Ray (→) has a start point and goes infinitely in the other direction. ➡️",
+        wrongExplanation: "Oops! Ray starts at one point and is endless on the other.",
+        hint: "It looks like an arrow pointing to one side.",
       }
     ],
   },
-];
+];;
 
 const PLANT_POWER_LESSON = ALL_MATH_LESSONS[0];
 
@@ -500,9 +508,9 @@ function InteractiveMascot({
         }}
       >
         {mode === "lesson" ? (
-          <span>Click me to open quiz! 🎯</span>
+          <span>open quiz! 🎯</span>
         ) : (
-          <span>Click me to open lesson! 📖</span>
+          <span>open lesson! 📖</span>
         )}
         {/* Triangle pointer pointing right */}
         <div style={{
@@ -528,6 +536,536 @@ function InteractiveMascot({
   );
 }
 
+function InteractiveFactCard({ fact, index }: { fact: string; index: number }) {
+  const [revealed, setRevealed] = useState(false);
+
+  let front = `Fact #${index + 1} 💡`;
+  let back = fact;
+
+  if (fact.includes(":")) {
+    const parts = fact.split(":");
+    front = parts[0].trim();
+    back = parts[1].trim();
+  } else if (fact.includes("?")) {
+    const idx = fact.indexOf("?");
+    front = fact.substring(0, idx + 1).trim();
+    back = fact.substring(idx + 1).trim();
+  }
+
+  const bgColors = ["#eff6ff", "#fdf2f8", "#fffbeb", "#f0fdf4"];
+  const textColors = ["#1e40af", "#9d174d", "#92400e", "#166534"];
+  const borderColors = ["#bfdbfe", "#fbcfe8", "#fde68a", "#bbf7d0"];
+
+  const themeIdx = index % 4;
+
+  return (
+    <div
+      onClick={() => setRevealed(!revealed)}
+      style={{
+        cursor: "pointer",
+        perspective: "1000px",
+        height: "65px",
+        display: "flex",
+        userSelect: "none",
+        position: "relative",
+      }}
+    >
+      <div style={{
+        flex: 1,
+        position: "relative",
+        transformStyle: "preserve-3d",
+        transition: "transform 0.5s cubic-bezier(0.19, 1, 0.22, 1)",
+        transform: revealed ? "rotateY(180deg)" : "none",
+      }}>
+        {/* FRONT */}
+        <div style={{
+          position: "absolute",
+          inset: 0,
+          backfaceVisibility: "hidden",
+          WebkitBackfaceVisibility: "hidden",
+          background: bgColors[themeIdx],
+          color: textColors[themeIdx],
+          border: `2.5px solid ${borderColors[themeIdx]}`,
+          borderRadius: "0.85rem",
+          padding: "0.6rem 0.85rem",
+          display: "flex",
+          alignItems: "center",
+          gap: "0.5rem",
+          fontWeight: 800,
+          fontSize: "0.8rem",
+          boxShadow: `0 3.5px 0 ${borderColors[themeIdx]}`,
+          boxSizing: "border-box",
+        }}>
+          <span style={{ fontSize: "1.1rem" }}>❓</span>
+          <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
+            {front}
+          </span>
+        </div>
+
+        {/* BACK */}
+        <div style={{
+          position: "absolute",
+          inset: 0,
+          backfaceVisibility: "hidden",
+          WebkitBackfaceVisibility: "hidden",
+          transform: "rotateY(180deg)",
+          background: "#ffffff",
+          color: "#374151",
+          border: "2.5px solid #e5e7eb",
+          borderRadius: "0.85rem",
+          padding: "0.5rem 0.75rem",
+          display: "flex",
+          alignItems: "center",
+          gap: "0.5rem",
+          fontSize: "0.78rem",
+          lineHeight: 1.35,
+          boxShadow: "0 3.5px 0 #e5e7eb",
+          boxSizing: "border-box",
+          overflowY: "auto",
+        }}>
+          <span style={{ fontSize: "1.1rem" }}>✅</span>
+          <span style={{ flex: 1 }}>{back}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface LessonTopic {
+  title: string;
+  imageUrl?: string;
+  audioUrl?: string;
+  /** Spoken aloud when no audioUrl is set */
+  audioText?: string;
+  body: React.ReactNode;
+}
+
+function TopicAudioBar({
+  audioUrl,
+  audioText,
+  resetKey,
+}: {
+  audioUrl?: string;
+  audioText?: string;
+  resetKey: string;
+}) {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [playing, setPlaying] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [durationLabel, setDurationLabel] = useState("0:00");
+  const [currentLabel, setCurrentLabel] = useState("0:00");
+
+  const formatTime = (secs: number) => {
+    if (!Number.isFinite(secs) || secs < 0) return "0:00";
+    const m = Math.floor(secs / 60);
+    const s = Math.floor(secs % 60);
+    return `${m}:${s.toString().padStart(2, "0")}`;
+  };
+
+  const stopAll = useCallback(() => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+    }
+    setPlaying(false);
+    setProgress(0);
+    setCurrentLabel("0:00");
+  }, []);
+
+  useEffect(() => {
+    stopAll();
+    return () => stopAll();
+  }, [resetKey, stopAll]);
+
+  useEffect(() => {
+    if (!audioUrl) return;
+    const el = new Audio(audioUrl);
+    audioRef.current = el;
+
+    const onTime = () => {
+      if (!el.duration) return;
+      setProgress((el.currentTime / el.duration) * 100);
+      setCurrentLabel(formatTime(el.currentTime));
+    };
+    const onMeta = () => setDurationLabel(formatTime(el.duration));
+    const onEnded = () => {
+      setPlaying(false);
+      setProgress(0);
+      setCurrentLabel("0:00");
+    };
+
+    el.addEventListener("timeupdate", onTime);
+    el.addEventListener("loadedmetadata", onMeta);
+    el.addEventListener("ended", onEnded);
+
+    return () => {
+      el.pause();
+      el.removeEventListener("timeupdate", onTime);
+      el.removeEventListener("loadedmetadata", onMeta);
+      el.removeEventListener("ended", onEnded);
+      audioRef.current = null;
+    };
+  }, [audioUrl]);
+
+  const toggle = () => {
+    if (audioUrl && audioRef.current) {
+      if (playing) {
+        audioRef.current.pause();
+        setPlaying(false);
+      } else {
+        void audioRef.current.play();
+        setPlaying(true);
+      }
+      return;
+    }
+
+    if (!audioText || typeof window === "undefined" || !("speechSynthesis" in window)) return;
+
+    if (playing) {
+      window.speechSynthesis.cancel();
+      setPlaying(false);
+      setProgress(0);
+      return;
+    }
+
+    const utter = new SpeechSynthesisUtterance(audioText);
+    utter.rate = 0.92;
+    utter.pitch = 1.05;
+    const words = Math.max(audioText.split(/\s+/).length, 1);
+    const estimatedSec = Math.max(words / 2.4, 2);
+    setDurationLabel(formatTime(estimatedSec));
+    const started = Date.now();
+    const tick = window.setInterval(() => {
+      const elapsed = (Date.now() - started) / 1000;
+      setProgress(Math.min((elapsed / estimatedSec) * 100, 99));
+      setCurrentLabel(formatTime(elapsed));
+    }, 200);
+
+    utter.onend = () => {
+      window.clearInterval(tick);
+      setPlaying(false);
+      setProgress(100);
+      setCurrentLabel(formatTime(estimatedSec));
+      window.setTimeout(() => {
+        setProgress(0);
+        setCurrentLabel("0:00");
+      }, 400);
+    };
+    utter.onerror = () => {
+      window.clearInterval(tick);
+      setPlaying(false);
+      setProgress(0);
+    };
+
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(utter);
+    setPlaying(true);
+  };
+
+  if (!audioUrl && !audioText) return null;
+
+  return (
+    <div
+      className="topic-audio-bar"
+      role="group"
+      aria-label="Listen to this topic"
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "0.85rem",
+        width: "100%",
+        maxWidth: "100%",
+        padding: "0.85rem 1rem",
+        borderRadius: "1.25rem",
+        border: "2.5px solid #86efac",
+        background: "linear-gradient(180deg, #f0fdf4 0%, #dcfce7 100%)",
+        boxShadow: "0 4px 0 #4ade80",
+        boxSizing: "border-box",
+        minHeight: 64,
+      }}
+    >
+      <button
+        type="button"
+        onClick={toggle}
+        aria-label={playing ? "Pause audio" : "Play audio"}
+        style={{
+          width: 48,
+          height: 48,
+          flexShrink: 0,
+          borderRadius: "50%",
+          border: "none",
+          background: "linear-gradient(180deg, #4ade80, #22c55e)",
+          color: "white",
+          fontSize: "1.15rem",
+          fontWeight: 800,
+          cursor: "pointer",
+          boxShadow: "0 4px 0 #15803d",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        {playing ? "❚❚" : "▶"}
+      </button>
+
+      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: "0.4rem" }}>
+        <div
+          style={{
+            height: 12,
+            borderRadius: 999,
+            background: "rgba(22, 163, 74, 0.18)",
+            overflow: "hidden",
+          }}
+        >
+          <div
+            style={{
+              height: "100%",
+              width: `${progress}%`,
+              borderRadius: 999,
+              background: "linear-gradient(90deg, #22c55e, #16a34a)",
+              transition: "width 0.15s linear",
+            }}
+          />
+        </div>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            fontSize: "0.75rem",
+            fontWeight: 700,
+            color: "#166534",
+          }}
+        >
+          <span>{currentLabel}</span>
+          <span>{playing ? "Playing…" : "Tap play to listen"}</span>
+          <span>{durationLabel}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function getLessonTopics(lesson: Lesson): LessonTopic[] {
+  if (lesson.pages && lesson.pages.length > 0) {
+    return lesson.pages.map((page) => ({
+      title: page.title,
+      imageUrl: page.imageUrl || lesson.imageUrl,
+      audioUrl: page.audioUrl,
+      audioText: page.audioText || page.content || page.title,
+      body: (
+        <div
+          style={{ margin: 0, lineHeight: 1.55, color: "#4b5563", fontSize: "0.95rem", fontWeight: 600 }}
+          dangerouslySetInnerHTML={{
+            __html: page.content?.includes("<")
+              ? page.content
+              : `<p style="margin:0">${(page.content || "").replace(/\n/g, "<br/>")}</p>`,
+          }}
+        />
+      ),
+    }));
+  }
+
+  if (lesson.id === "comparing-numbers") {
+    return [
+      {
+        title: "1. What is Compare in Maths?",
+        imageUrl: lesson.imageUrl,
+        audioText:
+          "What is Compare in Maths? Compare karne ka matlab hota hai do ya zyada numbers ko dekhkar decide karna ki kaunsa bada hai, kaunsa chhota hai, ya dono barabar hain.",
+        body: (
+          <p style={{ margin: 0, lineHeight: 1.55, color: "#4b5563", fontSize: "0.95rem" }}>
+            Compare karne ka matlab hota hai do ya zyada numbers ko dekhkar decide karna ki kaunsa bada hai, kaunsa chhota hai, ya dono barabar hain.
+          </p>
+        ),
+      },
+      {
+        title: "2. Important Symbols",
+        imageUrl: lesson.imageUrl,
+        audioText:
+          "Important Symbols. Greater Than means bada hai, for example 8 greater than 5. Less Than means chhota hai, for example 3 less than 7. Equal to means barabar hai, for example 6 equals 6.",
+        body: (
+          <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+            <span style={{ padding: "0.4rem 0.7rem", background: "#f3f4f6", borderRadius: "0.5rem", fontWeight: 700 }}>&gt; (Greater Than / bada hai) [8 &gt; 5]</span>
+            <span style={{ padding: "0.4rem 0.7rem", background: "#f3f4f6", borderRadius: "0.5rem", fontWeight: 700 }}>&lt; (Less Than / chhota hai) [3 &lt; 7]</span>
+            <span style={{ padding: "0.4rem 0.7rem", background: "#f3f4f6", borderRadius: "0.5rem", fontWeight: 700 }}>= (Equal to / barabar hai) [6 = 6]</span>
+          </div>
+        ),
+      },
+      {
+        title: "3. Kaise Compare karte hain?",
+        imageUrl: lesson.imageUrl,
+        audioText:
+          "Kaise Compare karte hain? Step 1: Digits count karo. Jis number mein zyada digits hain wo bada hota hai, jaise 254 greater than 99. Step 2: Digits same hain to left se compare karo. Hundreds, tens, then ones place check karo, jaise 457 less than 489.",
+        body: (
+          <ul style={{ margin: 0, paddingLeft: "1.25rem", display: "flex", flexDirection: "column", gap: "0.4rem", lineHeight: 1.5, fontSize: "0.92rem" }}>
+            <li><strong>Step 1: Digits count karo</strong> — Jis number mein zyada digits hain wo bada hota hai. <span style={{ color: "#059669", fontWeight: 600 }}>(254 &gt; 99)</span></li>
+            <li><strong>Step 2: Digits same hain to left se compare karo</strong> — Hundreds, tens, then ones place check karo. <span style={{ color: "#059669", fontWeight: 600 }}>(457 &lt; 489)</span></li>
+          </ul>
+        ),
+      },
+      {
+        title: "4. Comparing Decimals",
+        imageUrl: lesson.imageUrl,
+        audioText:
+          "Comparing Decimals. Pehle whole part compare karo. Whole part same ho, to decimal point ke baad tenths place compare karo. For example, 3.4 is greater than 3.09.",
+        body: (
+          <p style={{ margin: 0, lineHeight: 1.55, color: "#4b5563", fontSize: "0.95rem" }}>
+            Pehle whole part compare karo. Whole part same ho, to decimal point ke baad tenths place compare karo. <span style={{ color: "#059669", fontWeight: 600 }}>(3.4 &gt; 3.09)</span>
+          </p>
+        ),
+      },
+      {
+        title: "5. Real-life Examples",
+        imageUrl: lesson.imageUrl,
+        audioText:
+          "Real-life Examples. Mere paas 5 apples hain, dost ke paas 8, so 5 is less than 8. Market mein 50 rupees versus 20 rupees items, so 50 is greater than 20.",
+        body: (
+          <p style={{ margin: 0, lineHeight: 1.55, color: "#4b5563", fontSize: "0.95rem" }}>
+            • Mere paas 5 apples hain, dost ke paas 8: <span style={{ fontWeight: 700 }}>5 &lt; 8</span><br />
+            • Market mein 50 Rs vs 20 Rs items: <span style={{ fontWeight: 700 }}>50 &gt; 20</span>
+          </p>
+        ),
+      },
+    ];
+  }
+
+  if (lesson.id === "organising-data") {
+    return [
+      {
+        title: "1. What is Data?",
+        audioText:
+          "What is Data? Jab hum kisi topic par information ikatthi karte hain, jaise favourite fruit ya recess snack choices, use data kehte hain. Usko arrange karna bohot zaroori hota hai!",
+        body: (
+          <p style={{ margin: 0, lineHeight: 1.55, color: "#4b5563", fontSize: "0.95rem" }}>
+            Jab hum kisi topic par information ikatthi karte hain (jaise favourite fruit, recess snack choices), use data kehte hain. Usko arrange karna bohot zaroori hota hai!
+          </p>
+        ),
+      },
+      {
+        title: "2. Organising Data ka matlab",
+        audioText:
+          "Organising Data ka matlab. Data ko saaf, simple aur arranged tareeke se table, list ya graph mein likhna, taaki easily samajh aaye.",
+        body: (
+          <p style={{ margin: 0, lineHeight: 1.55, color: "#4b5563", fontSize: "0.95rem" }}>
+            Data ko saaf, simple aur arranged tareeke se table, list ya graph mein likhna, taaki easily samajh aaye.
+          </p>
+        ),
+      },
+      {
+        title: "3. Example: Colour Survey Table",
+        audioText:
+          "Colour Survey Table example. Blue has 4 votes, Red has 3 votes, Green has 2 votes, and Yellow has 1 vote. Blue is the most popular colour!",
+        body: (
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
+            <thead>
+              <tr style={{ background: "#f3f4f6", borderBottom: "1.5px solid #e5e7eb" }}>
+                <th style={{ padding: "0.35rem 0.5rem", textAlign: "left", fontWeight: 700 }}>Colour</th>
+                <th style={{ padding: "0.35rem 0.5rem", textAlign: "right", fontWeight: 700 }}>Votes Count</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr style={{ borderBottom: "1px solid #f3f4f6" }}>
+                <td style={{ padding: "0.35rem 0.5rem" }}>🔵 Blue</td>
+                <td style={{ padding: "0.35rem 0.5rem", textAlign: "right", fontWeight: 700 }}>4</td>
+              </tr>
+              <tr style={{ borderBottom: "1px solid #f3f4f6" }}>
+                <td style={{ padding: "0.35rem 0.5rem" }}>🔴 Red</td>
+                <td style={{ padding: "0.35rem 0.5rem", textAlign: "right", fontWeight: 700 }}>3</td>
+              </tr>
+              <tr style={{ borderBottom: "1px solid #f3f4f6" }}>
+                <td style={{ padding: "0.35rem 0.5rem" }}>🟢 Green</td>
+                <td style={{ padding: "0.35rem 0.5rem", textAlign: "right", fontWeight: 700 }}>2</td>
+              </tr>
+              <tr>
+                <td style={{ padding: "0.35rem 0.5rem" }}>🟡 Yellow</td>
+                <td style={{ padding: "0.35rem 0.5rem", textAlign: "right", fontWeight: 700 }}>1</td>
+              </tr>
+            </tbody>
+          </table>
+        ),
+      },
+      {
+        title: "4. Organising ke Fayde (Benefits)",
+        audioText:
+          "Organising ke Fayde. Data samajhna easy ho jaata hai aur compare karna asaan hota hai. Bar graph, pictograph ya tally table banana possible ho jaata hai!",
+        body: (
+          <p style={{ margin: 0, lineHeight: 1.55, color: "#4b5563", fontSize: "0.95rem" }}>
+            ✔ Data samajhna easy ho jaata hai & compare karna asaan hota hai.<br />
+            ✔ Bar graph, pictograph ya tally table banana possible ho jaata hai!
+          </p>
+        ),
+      },
+    ];
+  }
+
+  if (lesson.id === "geometry") {
+    return [
+      {
+        title: "1. Point (A dot / exact position)",
+        imageUrl: lesson.imageUrl,
+        audioText:
+          "Point. A point shows an exact position. It has no length, no width. For example, a pencil dot, stars, or location pins.",
+        body: (
+          <p style={{ margin: 0, lineHeight: 1.55, color: "#4b5563", fontSize: "0.95rem" }}>
+            A point shows an exact position. It has no length, no width. (e.g., A pencil dot, stars, location pins).
+          </p>
+        ),
+      },
+      {
+        title: "2. Line (Goes on forever both sides)",
+        imageUrl: lesson.imageUrl,
+        audioText:
+          "Line. Line dono taraf infinity tak chalti rehti hai. For example, a straight road or railway track.",
+        body: (
+          <p style={{ margin: 0, lineHeight: 1.55, color: "#4b5563", fontSize: "0.95rem" }}>
+            Line dono taraf infinity tak chalti rehti hai. Symbol: ↔ AB. (e.g., straight road, railway track).
+          </p>
+        ),
+      },
+      {
+        title: "3. Line Segment (Has 2 fixed ends)",
+        imageUrl: lesson.imageUrl,
+        audioText:
+          "Line Segment. Line ka wo hissa jiska start aur end fixed ho. For example, a ruler edge or a matchstick.",
+        body: (
+          <p style={{ margin: 0, lineHeight: 1.55, color: "#4b5563", fontSize: "0.95rem" }}>
+            Line ka wo hissa jiska start aur end fixed ho. Symbol: AB̅. (e.g., Ruler edge, matchstick).
+          </p>
+        ),
+      },
+      {
+        title: "4. Ray (Kiran)",
+        imageUrl: lesson.imageUrl,
+        audioText:
+          "Ray, or Kiran. Ray ek side se start hoti hai aur doosri side infinity tak jaati hai. For example, sunlight or a torch beam.",
+        body: (
+          <p style={{ margin: 0, lineHeight: 1.55, color: "#4b5563", fontSize: "0.95rem" }}>
+            Ray ek side se start hoti hai aur doosri side infinity tak jaati hai. Symbol: → AB. (e.g., Sunlight, torch beam).
+          </p>
+        ),
+      },
+    ];
+  }
+
+  // Fallback: one card per fact (skip Think Box lines)
+  return lesson.facts
+    .filter((fact) => !fact.trim().startsWith("💡"))
+    .map((fact, i) => {
+      const [titlePart, ...rest] = fact.split(" : ");
+      const title = rest.length ? `${i + 1}. ${titlePart}` : `Topic ${i + 1}`;
+      const text = rest.length ? rest.join(" : ") : fact;
+      return {
+        title,
+        imageUrl: lesson.imageUrl,
+        audioText: `${title}. ${text}`,
+        body: <InteractiveFactCard index={i} fact={text} />,
+      };
+    });
+}
+
 function LessonPage({
   lesson,
   onStartQuiz,
@@ -537,122 +1075,185 @@ function LessonPage({
   onStartQuiz: () => void;
   transitionClass: string;
 }) {
+  const topics = getLessonTopics(lesson);
+  const [topicIndex, setTopicIndex] = useState(0);
+
+  // Reset topic pager when switching lessons
+  React.useEffect(() => {
+    setTopicIndex(0);
+  }, [lesson.id]);
+
+  const safeIndex = Math.min(topicIndex, Math.max(topics.length - 1, 0));
+  const topic = topics[safeIndex];
+  const isLastTopic = safeIndex >= topics.length - 1;
+  const hasImage = Boolean(topic?.imageUrl);
+
+  const handleNext = () => {
+    if (isLastTopic) {
+      onStartQuiz();
+      return;
+    }
+    setTopicIndex((i) => i + 1);
+  };
+
+  if (!topic) return null;
+
   return (
-    <div
-      className={transitionClass}
-      style={{
-        flex: 1,
-        display: "flex",
-        padding: "0.5rem 0",
-        minHeight: 0,
-        maxHeight: "480px",
-      }}
-    >
-      {/* Single unified card */}
-      <div style={{
-        flex: 1,
-        display: "flex",
-        borderRadius: "1.5rem",
-        overflow: "hidden",
-        border: "2px solid #e9e9f0",
-        boxShadow: "0 6px 0 #e0e0ea",
-        background: "white",
-        minHeight: 0,
-      }}>
-        {/* LEFT: Image panel */}
-        {lesson.imageUrl && (
-          <div style={{
-            width: "38%",
-            flexShrink: 0,
-            background: "linear-gradient(145deg, #f0fdf4, #dcfce7)",
-            borderRight: "2px solid #e9e9f0",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "1.5rem",
-          }}>
+    <div className={`mascot-card-wrapper ${transitionClass}`}>
+      <div className="mascot-player-card">
+        {/* LEFT: lesson name + optional image */}
+        <div
+          className={`mascot-player-left mascot-player-left--topics${hasImage ? "" : " mascot-player-left--no-image"}`}
+        >
+          <h2
+            style={{
+              margin: 0,
+              fontSize: hasImage ? "1.15rem" : "1.45rem",
+              fontWeight: 900,
+              color: "#111827",
+              lineHeight: 1.3,
+              letterSpacing: "-0.02em",
+              textAlign: hasImage ? "left" : "center",
+              alignSelf: hasImage ? "flex-start" : "center",
+              width: "100%",
+            }}
+          >
+            {lesson.title}
+          </h2>
+          {hasImage && (
             <img
-              src={lesson.imageUrl}
+              src={topic.imageUrl}
               alt={lesson.title}
               style={{
                 width: "100%",
-                height: "100%",
+                height: "auto",
                 objectFit: "contain",
-                maxHeight: "340px",
+                maxHeight: "300px",
                 borderRadius: "0.75rem",
                 filter: "drop-shadow(0 4px 12px rgba(0,0,0,0.08))",
+                alignSelf: "flex-start",
               }}
             />
-          </div>
-        )}
+          )}
+          <p
+            style={{
+              margin: hasImage ? "auto 0 0" : 0,
+              fontSize: "0.75rem",
+              fontWeight: 700,
+              color: "#6b7280",
+              alignSelf: hasImage ? "flex-start" : "center",
+              textAlign: hasImage ? "left" : "center",
+              width: "100%",
+            }}
+          >
+            Topic {safeIndex + 1} of {topics.length}
+          </p>
+        </div>
 
-        {/* RIGHT: Content panel */}
-        <div style={{
-          flex: 1,
-          display: "flex",
-          flexDirection: "column",
-          gap: "0.75rem",
-          padding: "1.5rem 1.75rem",
-          minWidth: 0,
-          overflowY: "auto",
-        }}>
-          {/* Badge + Title */}
-          <div>
-            {lesson.badgeText && (
-              <span className="mascot-badge" style={{ fontSize: "0.65rem", padding: "0.2rem 0.65rem", marginBottom: "0.5rem", display: "inline-flex" }}>
-                🌿 {lesson.badgeText}
-              </span>
-            )}
-            <h1 style={{
-              fontSize: "1.35rem", fontWeight: 900, color: "#111827",
-              lineHeight: 1.25, margin: "0.3rem 0 0", letterSpacing: "-0.025em",
-            }}>
-              {lesson.title}
-            </h1>
-          </div>
+        {/* RIGHT: topic question + answer */}
+        <div className="mascot-player-right">
+          {lesson.badgeText && (
+            <span className="mascot-badge" style={{ fontSize: "0.65rem", padding: "0.2rem 0.65rem", display: "inline-flex", alignSelf: "flex-start" }}>
+              🌿 {lesson.badgeText}
+            </span>
+          )}
 
-          {/* Mascot + speech */}
-          <div style={{ display: "flex", alignItems: "flex-start", gap: "0.65rem" }}>
-            <MascotSvg size={44} animate />
-            <div style={{
-              flex: 1,
-              background: "#f8fafc",
-              border: "1.5px solid #e2e8f0",
-              borderRadius: "0.875rem",
-              borderBottomLeftRadius: "0.25rem",
-              padding: "0.6rem 0.875rem",
-              fontSize: "0.82rem",
-              lineHeight: 1.55,
-              color: "#475569",
-            }}>
-              {lesson.mascotSpeech}
-            </div>
-          </div>
-
-          {/* Key facts */}
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem", flex: 1 }}>
-            <p style={{ fontSize: "0.65rem", fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "#9ca3af", margin: 0 }}>Key Points</p>
-            {lesson.facts.slice(0, 4).map((fact, i) => (
-              <div key={i} style={{
-                display: "flex", alignItems: "flex-start", gap: "0.6rem",
-                fontSize: "0.82rem", color: "#374151", lineHeight: 1.5,
-                padding: "0.4rem 0.6rem",
-                background: i % 2 === 0 ? "#f9fafb" : "transparent",
-                borderRadius: "0.5rem",
-              }}>
-                <span style={{
-                  width: 20, height: 20, borderRadius: "50%",
-                  background: ["#22c55e","#3b82f6","#f59e0b","#ec4899"][i],
-                  color: "white",
-                  fontSize: "0.65rem", fontWeight: 800,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  flexShrink: 0, marginTop: "0.1rem",
-                }}>{i + 1}</span>
-                <span>{fact}</span>
+          {safeIndex === 0 && (
+            <div style={{ display: "flex", alignItems: "flex-start", gap: "0.65rem" }}>
+              <MascotSvg size={44} animate />
+              <div
+                style={{
+                  flex: 1,
+                  background: "#f8fafc",
+                  border: "1.5px solid #e2e8f0",
+                  borderRadius: "0.875rem",
+                  borderBottomLeftRadius: "0.25rem",
+                  padding: "0.6rem 0.875rem",
+                  fontSize: "0.82rem",
+                  lineHeight: 1.55,
+                  color: "#475569",
+                }}
+              >
+                {lesson.mascotSpeech}
               </div>
-            ))}
+            </div>
+          )}
+
+          <div style={{ display: "flex", flexDirection: "column", gap: "1.15rem", alignItems: "flex-start", textAlign: "left", width: "100%" }}>
+            <h1
+              style={{
+                margin: 0,
+                fontSize: "1.2rem",
+                fontWeight: 900,
+                color: "#111827",
+                lineHeight: 1.3,
+                letterSpacing: "-0.025em",
+                textAlign: "left",
+              }}
+            >
+              {topic.title}
+            </h1>
+            <div style={{ width: "100%", textAlign: "left" }}>
+              {topic.body}
+            </div>
+            <TopicAudioBar
+              audioUrl={topic.audioUrl}
+              audioText={topic.audioText}
+              resetKey={`${lesson.id}-${safeIndex}`}
+            />
           </div>
 
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.75rem", marginTop: "auto", paddingTop: "1.25rem" }}>
+            <button
+              type="button"
+              disabled={safeIndex === 0}
+              onClick={() => setTopicIndex((i) => Math.max(0, i - 1))}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                padding: "0.45rem 1rem",
+                borderRadius: "999px",
+                border: "2px solid #e5e7eb",
+                background: safeIndex === 0 ? "#f9fafb" : "white",
+                color: safeIndex === 0 ? "#9ca3af" : "#374151",
+                fontWeight: 800,
+                fontSize: "0.8rem",
+                cursor: safeIndex === 0 ? "not-allowed" : "pointer",
+              }}
+            >
+              ← Back
+            </button>
+
+            <button
+              type="button"
+              onClick={handleNext}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "0.5rem",
+                padding: "0.5rem 1.4rem",
+                borderRadius: "999px",
+                border: "none",
+                background: "linear-gradient(180deg, #ff9f43, #ff6b35)",
+                color: "white",
+                fontWeight: 800,
+                fontSize: "0.85rem",
+                cursor: "pointer",
+                boxShadow: "0 4px 0 #c44d00",
+                transition: "transform 0.1s, box-shadow 0.1s",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = "translateY(-1px)";
+                e.currentTarget.style.boxShadow = "0 5px 0 #c44d00";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = "none";
+                e.currentTarget.style.boxShadow = "0 4px 0 #c44d00";
+              }}
+            >
+              {isLastTopic ? "Start Quiz →" : "Next →"}
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -667,6 +1268,7 @@ function QuizCard({
   onScoreChange,
   onBackToLesson,
   transitionClass,
+  inviteToken,
 }: {
   lesson: Lesson;
   onBackToLesson: () => void;
@@ -674,6 +1276,7 @@ function QuizCard({
   questionIndex: number;
   onComplete: () => void;
   onScoreChange: (delta: number) => void;
+  inviteToken?: string;
 }) {
   const questions = lesson.quizQuestions;
   const question = questions[questionIndex];
@@ -681,21 +1284,61 @@ function QuizCard({
 
   const [selected, setSelected] = useState<number | null>(null);
   const [answered, setAnswered] = useState(false);
+  const [revealedCorrect, setRevealedCorrect] = useState<number | null>(null);
   const [showHint, setShowHint] = useState(false);
   const [hintText, setHintText] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const advancedRef = useRef(false);
 
-  const isCorrect = selected !== null && selected === question.correctIndex;
+  // Reset hint when moving to the next question
+  useEffect(() => {
+    setShowHint(false);
+    setHintText(null);
+    setSelected(null);
+    setAnswered(false);
+    setRevealedCorrect(null);
+    advancedRef.current = false;
+  }, [questionIndex, question.id]);
 
-  const handleSelect = (idx: number) => {
-    if (answered) return;
+  const correctIndex = revealedCorrect ?? question.correctIndex;
+  const isCorrect = selected !== null && selected === correctIndex;
+
+  const handleSelect = async (idx: number) => {
+    if (answered || submitting) return;
     setSelected(idx);
-    setAnswered(true);
-    if (idx === question.correctIndex) {
-      onScoreChange(10);
-    } else {
-      onScoreChange(-1);
+
+    if (inviteToken) {
+      setSubmitting(true);
+      try {
+        const res = await fetch(`/api/learn/${inviteToken}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "quiz_answer",
+            questionId: question.id,
+            selectedIndex: idx,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error ?? "Answer failed");
+        setRevealedCorrect(data.correctIndex);
+        setAnswered(true);
+        if (data.correct) onScoreChange(data.pointsEarned || 10);
+        else onScoreChange(-1);
+        if (data.explanation) question.explanation = data.explanation;
+        if (data.wrongExplanation) question.wrongExplanation = data.wrongExplanation;
+      } catch {
+        setAnswered(false);
+        setSelected(null);
+      } finally {
+        setSubmitting(false);
+      }
+      return;
     }
+
+    setAnswered(true);
+    if (idx === question.correctIndex) onScoreChange(10);
+    else onScoreChange(-1);
   };
 
   const handleNext = () => {
@@ -711,68 +1354,13 @@ function QuizCard({
     setShowHint(true);
   };
 
-  // Use question image if available, else fall back to the lesson image
-  const displayImage = question.imageUrl || lesson.imageUrl;
-
   return (
     <div
-      className={`${transitionClass} ${answered && !isCorrect ? "quiz-card-shake" : ""}`}
-      style={{
-        flex: 1,
-        display: "flex",
-        padding: "0.5rem 0",
-        minHeight: 0,
-        maxHeight: "480px",
-      }}
+      className={`mascot-card-wrapper ${transitionClass} ${answered && !isCorrect ? "quiz-card-shake" : ""}`}
     >
-      {/* Single unified card */}
-      <div style={{
-        flex: 1,
-        display: "flex",
-        borderRadius: "1.5rem",
-        overflow: "hidden",
-        border: "2px solid #e9e9f0",
-        boxShadow: "0 6px 0 #e0e0ea",
-        background: "white",
-        minHeight: 0,
-      }}>
-        {/* LEFT: Image panel */}
-        {displayImage && (
-          <div style={{
-            width: "38%",
-            flexShrink: 0,
-            background: "linear-gradient(145deg, #eff6ff, #dbeafe)",
-            borderRight: "2px solid #e9e9f0",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "1.5rem",
-          }}>
-            <img
-              src={displayImage}
-              alt="Question illustration"
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "contain",
-                maxHeight: "350px",
-                borderRadius: "0.75rem",
-                filter: "drop-shadow(0 4px 12px rgba(0,0,0,0.08))",
-              }}
-            />
-          </div>
-        )}
-
-        {/* RIGHT: Question + Options */}
-        <div style={{
-          flex: 1,
-          display: "flex",
-          flexDirection: "column",
-          gap: "0.6rem",
-          padding: "1.25rem 1.5rem",
-          minWidth: 0,
-          overflowY: "auto",
-        }}>
+      {/* Quiz card — question only, no left image */}
+      <div className="mascot-player-card">
+        <div className="mascot-player-right-quiz" style={{ width: "100%" }}>
           {/* Always show counter badge and progress dots inline at the top of right column */}
           <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexShrink: 0 }}>
             <span style={{
@@ -814,7 +1402,7 @@ function QuizCard({
             {question.options.map((opt, idx) => {
               let bg = "white", border = "#e5e7eb", shadow = "#e5e7eb", color = "#374151";
               if (answered) {
-                if (idx === question.correctIndex) {
+                if (idx === correctIndex) {
                   bg = "linear-gradient(135deg, #f0fdf4, #dcfce7)";
                   border = "#22c55e"; shadow = "#16a34a"; color = "#14532d";
                 } else if (idx === selected) {
@@ -826,29 +1414,29 @@ function QuizCard({
                 <button
                   key={idx}
                   type="button"
-                  disabled={answered}
-                  onClick={() => handleSelect(idx)}
+                  disabled={answered || submitting}
+                  onClick={() => void handleSelect(idx)}
                   style={{
                     display: "flex", alignItems: "center", gap: "0.7rem",
                     padding: "0.6rem 0.85rem",
                     borderRadius: "0.875rem",
                     border: `2.5px solid ${border}`,
                     background: bg,
-                    cursor: answered ? "default" : "pointer",
+                    cursor: answered || submitting ? "default" : "pointer",
                     textAlign: "left", width: "100%",
                     fontSize: "0.85rem", fontWeight: 700, color,
-                    boxShadow: answered && (idx === question.correctIndex || idx === selected)
+                    boxShadow: answered && (idx === correctIndex || idx === selected)
                       ? `0 4px 0 ${shadow}` : "0 3px 0 #e5e7eb",
                     transition: "all 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275)",
                   }}
                   onMouseEnter={e => {
-                    if (!answered) {
+                    if (!answered && !submitting) {
                       (e.currentTarget as HTMLButtonElement).style.borderColor = "#a78bfa";
                       (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)";
                     }
                   }}
                   onMouseLeave={e => {
-                    if (!answered) {
+                    if (!answered && !submitting) {
                       (e.currentTarget as HTMLButtonElement).style.borderColor = "#e5e7eb";
                       (e.currentTarget as HTMLButtonElement).style.transform = "none";
                     }
@@ -860,7 +1448,7 @@ function QuizCard({
                     background: "#f1f5f9", fontSize: "1.1rem", flexShrink: 0,
                   }}>{opt.emoji}</span>
                   <span style={{ flex: 1, fontWeight: 600 }}>{opt.text}</span>
-                  {answered && idx === question.correctIndex && (
+                  {answered && idx === correctIndex && (
                     <span style={{
                       width: 24, height: 24, borderRadius: "50%",
                       background: "#22c55e", color: "white",
@@ -868,7 +1456,7 @@ function QuizCard({
                       fontSize: "0.75rem", fontWeight: 800, flexShrink: 0,
                     }}>✓</span>
                   )}
-                  {answered && idx === selected && idx !== question.correctIndex && (
+                  {answered && idx === selected && idx !== correctIndex && (
                     <span style={{
                       width: 24, height: 24, borderRadius: "50%",
                       background: "#ef4444", color: "white",
@@ -923,38 +1511,66 @@ function QuizCard({
             </div>
           )}
 
-          {/* Hint section */}
-          <div style={{
-            display: "flex", alignItems: "center", gap: "0.65rem",
-            padding: "0.6rem 0.85rem",
-            borderRadius: "0.875rem",
-            background: "#fffbeb", border: "1.5px solid #fde68a",
-            flexShrink: 0,
-          }}>
-            <MascotSvg size={36} expression="hint" />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ fontSize: "0.8rem", fontWeight: 800, color: "#92400e", margin: "0 0 0.1rem" }}>💡 Need a hint?</p>
-              <p style={{ fontSize: "0.75rem", color: "#b45309", margin: 0, lineHeight: 1.4 }}>
-                {showHint && hintText ? hintText : "Stuck? I'll whisper a clue. Won't tell your parents."}
-              </p>
+          {/* Hint — blinking bulb tab; expands on tap */}
+          {question.hint && (
+            <div style={{ flexShrink: 0, alignSelf: "flex-start" }}>
+              {!showHint ? (
+                <button
+                  type="button"
+                  onClick={handleShowHint}
+                  className="hint-blink-tab"
+                  aria-label="Show hint"
+                >
+                  <span className="hint-blink-bulb" aria-hidden>
+                    💡
+                  </span>
+                  <span className="hint-blink-label">hint</span>
+                </button>
+              ) : (
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: "0.65rem",
+                    padding: "0.7rem 0.9rem",
+                    borderRadius: "0.875rem",
+                    background: "#fffbeb",
+                    border: "2px solid #fde68a",
+                    maxWidth: "100%",
+                  }}
+                >
+                  <span style={{ fontSize: "1.35rem", lineHeight: 1 }} aria-hidden>
+                    💡
+                  </span>
+                  <div style={{ minWidth: 0 }}>
+                    <p
+                      style={{
+                        fontSize: "0.75rem",
+                        fontWeight: 800,
+                        color: "#92400e",
+                        margin: "0 0 0.2rem",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.04em",
+                      }}
+                    >
+                      Hint
+                    </p>
+                    <p
+                      style={{
+                        fontSize: "0.85rem",
+                        color: "#b45309",
+                        margin: 0,
+                        lineHeight: 1.45,
+                        fontWeight: 600,
+                      }}
+                    >
+                      {hintText ?? question.hint}
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
-            {!showHint && (
-              <button
-                type="button"
-                onClick={handleShowHint}
-                style={{
-                  padding: "0.4rem 0.85rem", borderRadius: "0.625rem",
-                  border: "2px solid #d97706",
-                  background: "linear-gradient(180deg, #fbbf24 0%, #f59e0b 100%)",
-                  color: "white", fontSize: "0.8rem", fontWeight: 800,
-                  cursor: "pointer", whiteSpace: "nowrap",
-                  boxShadow: "0 3px 0 #d97706", flexShrink: 0,
-                }}
-              >
-                Show clue
-              </button>
-            )}
-          </div>
+          )}
         </div>
       </div>
     </div>
@@ -1067,48 +1683,206 @@ function JourneyCard({
 
 type ViewMode = "lesson" | "quiz";
 
-export function MascotQuizPlayer() {
-  const [activeLessonIndex, setActiveLessonIndex] = useState(0);
-  const lesson = ALL_MATH_LESSONS[activeLessonIndex];
+export function MascotQuizPlayer({
+  initialLessonId,
+  invite,
+}: {
+  initialLessonId?: string;
+  invite?: {
+    token: string;
+    lessons: InvitePlayLesson[];
+    score: number;
+    maxScore: number;
+    completedLessonIds: string[];
+    contentCompletedLessonIds: string[];
+    onExitToMap?: () => void;
+  };
+}) {
+  const [remoteLesson, setRemoteLesson] = useState<Lesson | null>(null);
+  const [remoteLoading, setRemoteLoading] = useState(
+    Boolean(initialLessonId) && !invite,
+  );
+  const [remoteError, setRemoteError] = useState("");
+  const [inviteScore, setInviteScore] = useState(invite?.score ?? 240);
+
+  useEffect(() => {
+    if (invite || !initialLessonId) {
+      setRemoteLoading(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/public/lessons/${encodeURIComponent(initialLessonId)}`);
+        const data = await res.json();
+        if (!res.ok) {
+          if (!cancelled) setRemoteLoading(false);
+          return;
+        }
+        if (cancelled) return;
+        const apiLesson = data.lesson;
+        setRemoteLesson({
+          id: apiLesson.id,
+          mongoId: apiLesson.mongoId,
+          title: apiLesson.title,
+          badgeText: apiLesson.badgeText,
+          mascotSpeech: apiLesson.mascotSpeech,
+          facts: apiLesson.facts ?? [],
+          ctaText: apiLesson.ctaText || "Next",
+          imageUrl: apiLesson.imageUrl,
+          pages: apiLesson.pages,
+          quizQuestions: (apiLesson.quizQuestions ?? []).map(
+            (q: {
+              id: string;
+              question: string;
+              subtitle?: string;
+              options: { emoji: string; text: string }[];
+              correctIndex: number;
+              explanation: string;
+              wrongExplanation?: string;
+              hint?: string;
+              imageUrl?: string;
+            }) => ({
+              id: q.id,
+              question: q.question,
+              subtitle: q.subtitle,
+              options: q.options,
+              correctIndex: q.correctIndex,
+              explanation: q.explanation,
+              wrongExplanation: q.wrongExplanation,
+              hint: q.hint,
+              imageUrl: q.imageUrl,
+            }),
+          ),
+        });
+      } catch {
+        if (!cancelled) setRemoteError("Could not load lesson");
+      } finally {
+        if (!cancelled) setRemoteLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [initialLessonId, invite]);
+
+  const lessonList: Lesson[] = invite
+    ? invite.lessons
+    : remoteLesson
+      ? [remoteLesson]
+      : ALL_MATH_LESSONS;
+
+  const startIdx = (() => {
+    if (invite && initialLessonId) {
+      const idx = invite.lessons.findIndex((l) => l.id === initialLessonId);
+      return idx >= 0 ? idx : 0;
+    }
+    if (remoteLesson) return 0;
+    if (!initialLessonId) return 0;
+    const idx = ALL_MATH_LESSONS.findIndex((l) => l.id === initialLessonId);
+    return idx >= 0 ? idx : 0;
+  })();
+
+  const [activeLessonIndex, setActiveLessonIndex] = useState(startIdx);
+  const lesson = lessonList[Math.min(activeLessonIndex, Math.max(lessonList.length - 1, 0))];
   const [viewMode, setViewMode] = useState<ViewMode>("lesson");
   const [hasStartedQuiz, setHasStartedQuiz] = useState(false);
   const [questionIndex, setQuestionIndex] = useState(0);
   const [lives, setLives] = useState(7);
-  const [score, setScore] = useState(240);
+  const [score, setScore] = useState(invite ? invite.score : 240);
   const [correctCount, setCorrectCount] = useState(0);
   const [quizDone, setQuizDone] = useState(false);
-  const [completedLessons, setCompletedLessons] = useState<Set<number>>(new Set());
+  const [completedLessons, setCompletedLessons] = useState<Set<number>>(() => {
+    const unlocked = new Set<number>();
+    for (let i = 0; i < startIdx; i++) unlocked.add(i);
+    return unlocked;
+  });
 
-  const totalLessons = ALL_MATH_LESSONS.length;
-  const progressPct = (questionIndex / lesson.quizQuestions.length) * 100;
+  useEffect(() => {
+    if (remoteLesson) {
+      setActiveLessonIndex(0);
+      setViewMode("lesson");
+      setHasStartedQuiz(false);
+      setQuestionIndex(0);
+      setCorrectCount(0);
+      setQuizDone(false);
+    }
+  }, [remoteLesson]);
 
-  // A lesson tab is unlocked if it's the first OR the previous lesson is completed
+  useEffect(() => {
+    if (invite && initialLessonId) {
+      const idx = invite.lessons.findIndex((l) => l.id === initialLessonId);
+      if (idx >= 0) {
+        setActiveLessonIndex(idx);
+        setViewMode("lesson");
+        setHasStartedQuiz(false);
+        setQuestionIndex(0);
+        setQuizDone(false);
+      }
+    }
+  }, [invite, initialLessonId]);
+
+  const [isTransitioning, setIsTransitioning] = useState(false);
+
+  const handleQuestionComplete = useCallback(() => {
+    if (!lesson) return;
+    const next = questionIndex + 1;
+    if (next >= lesson.quizQuestions.length) {
+      setQuizDone(true);
+      setCompletedLessons((prev) => new Set([...prev, activeLessonIndex]));
+    } else {
+      setQuestionIndex(next);
+    }
+  }, [questionIndex, lesson, activeLessonIndex]);
+
+  if (remoteLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#fff8f0] game-font text-lg font-bold text-[#6b5b8a]">
+        Loading your quest…
+      </div>
+    );
+  }
+
+  if (!lesson) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#fff8f0] game-font text-lg font-bold text-[#6b5b8a]">
+        {remoteError || "Lesson not found"}
+      </div>
+    );
+  }
+
+  const totalLessons = lessonList.length;
+  const progressPct = (questionIndex / Math.max(lesson.quizQuestions.length, 1)) * 100;
+
   const isLessonUnlocked = (idx: number) =>
     idx === 0 || completedLessons.has(idx - 1);
 
   const handleScoreChange = (delta: number) => {
     if (delta > 0) {
       setScore((s) => s + delta);
+      setInviteScore((s) => s + delta);
       setCorrectCount((c) => c + 1);
     } else {
       setLives((l) => Math.max(0, l - 1));
     }
   };
 
-  const handleQuestionComplete = useCallback(() => {
-    const next = questionIndex + 1;
-    if (next >= lesson.quizQuestions.length) {
-      setQuizDone(true);
-      // Mark this lesson as completed
-      setCompletedLessons((prev) => new Set([...prev, activeLessonIndex]));
-    } else {
-      setQuestionIndex(next);
+  const startQuiz = async () => {
+    if (invite?.token && lesson.mongoId) {
+      try {
+        const res = await fetch(`/api/learn/${invite.token}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "complete_lesson", lessonId: lesson.mongoId }),
+        });
+        const data = await res.json();
+        if (!res.ok && !String(data.error || "").includes("already")) {
+          console.warn("complete_lesson:", data.error);
+        }
+      } catch {
+        /* continue into quiz UI anyway if already content-completed */
+      }
     }
-  }, [questionIndex, lesson.quizQuestions.length, activeLessonIndex]);
-
-  const [isTransitioning, setIsTransitioning] = useState(false);
-
-  const startQuiz = () => {
     setHasStartedQuiz(true);
     setIsTransitioning(true);
     setTimeout(() => {
@@ -1133,16 +1907,23 @@ export function MascotQuizPlayer() {
   const goToNextLesson = () => {
     const next = activeLessonIndex + 1;
     if (next < totalLessons) switchLesson(next);
+    else invite?.onExitToMap?.();
   };
 
   return (
-    <div className="mascot-shell" style={{ height: "100dvh", overflow: "hidden", display: "flex", flexDirection: "column" }}>
+    <div className="mascot-shell mascot-shell-layout">
       {/* ── TOP HEADER ── */}
       <header className="mascot-header">
         <div className="mascot-header-inner" style={{ justifyContent: "space-between" }}>
           {/* Home link with Mascot Icon on the left and Brand Name on the right */}
           <Link
-            href="/"
+            href={invite ? "#" : "/subjects"}
+            onClick={(e) => {
+              if (invite?.onExitToMap) {
+                e.preventDefault();
+                invite.onExitToMap();
+              }
+            }}
             style={{
               display: "inline-flex",
               alignItems: "center",
@@ -1161,6 +1942,7 @@ export function MascotQuizPlayer() {
             }}
             onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.background = "#f9fafb"; (e.currentTarget as HTMLAnchorElement).style.transform = "translateY(-1px)"; }}
             onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.background = "white"; (e.currentTarget as HTMLAnchorElement).style.transform = "none"; }}
+            aria-label={invite ? "Back to quest map" : "Back to subjects"}
           >
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
               <MascotSvg size={24} animate={false} />
@@ -1217,69 +1999,11 @@ export function MascotQuizPlayer() {
       </header>
 
       {/* ── CONTENT — fills remaining height, scrolls internally ── */}
-      <main style={{
-        flex: 1,
-        overflow: "hidden",
-        display: "flex",
-        flexDirection: "column",
-        maxWidth: "1100px",
-        width: "100%",
-        margin: "0 auto",
-        padding: "0.75rem 1.5rem 0",
-        gap: "0.5rem",
-      }}>
+      <main className="mascot-main-content">
 
-        {/* Lesson selector tabs — fully unlocked, with directional progression arrows */}
-        <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", justifyContent: "center", flexShrink: 0, flexWrap: "wrap" }}>
-          {ALL_MATH_LESSONS.map((item, idx) => {
-            const done = completedLessons.has(idx);
-            const active = activeLessonIndex === idx;
-            return (
-              <React.Fragment key={item.id}>
-                <button
-                  onClick={() => switchLesson(idx)}
-                  style={{
-                    display: "inline-flex", alignItems: "center", gap: "0.35rem",
-                    padding: "0.4rem 1rem",
-                    borderRadius: "999px",
-                    border: `2px solid ${active ? "#a78bfa" : done ? "#6ee7b7" : "#e5e7eb"}`,
-                    background: active ? "#faf5ff" : done ? "#ecfdf5" : "#ffffff",
-                    fontSize: "0.85rem",
-                    fontWeight: 700,
-                    color: active ? "#7c3aed" : done ? "#065f46" : "#374151",
-                    cursor: "pointer",
-                    boxShadow: active ? "0 3px 0 #a78bfa" : done ? "0 3px 0 #6ee7b7" : "0 3px 0 #e5e7eb",
-                    transition: "all 0.15s",
-                  }}
-                >
-                  {done ? "✅" : `${idx + 1}.`}{" "}
-                  {item.id === "comparing-numbers" ? "Comparing" : item.id === "organising-data" ? "Data" : "Geometry"}
-                </button>
-                {idx < ALL_MATH_LESSONS.length - 1 && (
-                  <span style={{
-                    fontSize: "1.1rem",
-                    fontWeight: 900,
-                    color: "#cbd5e1",
-                    margin: "0 0.2rem",
-                    userSelect: "none",
-                  }}>
-                    ➔
-                  </span>
-                )}
-              </React.Fragment>
-            );
-          })}
-        </div>
 
         {/* Main content — fills remaining space using grid stacking for overlay animations */}
-        <div style={{
-          flex: 1,
-          overflow: "hidden",
-          paddingBottom: "0.5rem",
-          display: "grid",
-          gridTemplateColumns: "1fr",
-          gridTemplateRows: "1fr",
-        }}>
+        <div className="mascot-content-grid">
           {!quizDone ? (
             <>
               {/* LESSON CARD: Sits on top (z-index: 2) */}
@@ -1319,6 +2043,7 @@ export function MascotQuizPlayer() {
                   questionIndex={questionIndex}
                   onComplete={handleQuestionComplete}
                   onScoreChange={handleScoreChange}
+                  inviteToken={invite?.token}
                   onBackToLesson={() => {
                     setIsTransitioning(true);
                     setTimeout(() => {
@@ -1344,6 +2069,71 @@ export function MascotQuizPlayer() {
                 <p style={{ color: "#047857", fontSize: "1rem", margin: "0 0 1.25rem" }}>
                   You crushed <strong>{lesson.title.split(" (")[0]}</strong>!
                 </p>
+
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "center",
+                    gap: "0.75rem",
+                    flexWrap: "wrap",
+                    marginBottom: "1.5rem",
+                  }}
+                >
+                  <div
+                    style={{
+                      minWidth: 120,
+                      padding: "0.85rem 1.1rem",
+                      borderRadius: "1rem",
+                      background: "white",
+                      border: "2px solid #86efac",
+                      boxShadow: "0 3px 0 #4ade80",
+                    }}
+                  >
+                    <p style={{ margin: 0, fontSize: "0.7rem", fontWeight: 800, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                      Score
+                    </p>
+                    <p style={{ margin: "0.2rem 0 0", fontSize: "1.75rem", fontWeight: 900, color: "#065f46", fontFamily: "var(--font-game), Fredoka, system-ui, sans-serif" }}>
+                      {correctCount * 10}
+                      <span style={{ fontSize: "1rem", color: "#6b7280" }}> / {lesson.quizQuestions.length * 10}</span>
+                    </p>
+                  </div>
+                  <div
+                    style={{
+                      minWidth: 120,
+                      padding: "0.85rem 1.1rem",
+                      borderRadius: "1rem",
+                      background: "white",
+                      border: "2px solid #fcd34d",
+                      boxShadow: "0 3px 0 #fbbf24",
+                    }}
+                  >
+                    <p style={{ margin: 0, fontSize: "0.7rem", fontWeight: 800, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                      Correct
+                    </p>
+                    <p style={{ margin: "0.2rem 0 0", fontSize: "1.75rem", fontWeight: 900, color: "#92400e", fontFamily: "var(--font-game), Fredoka, system-ui, sans-serif" }}>
+                      {correctCount}
+                      <span style={{ fontSize: "1rem", color: "#6b7280" }}> / {lesson.quizQuestions.length}</span>
+                    </p>
+                  </div>
+                  <div
+                    style={{
+                      minWidth: 120,
+                      padding: "0.85rem 1.1rem",
+                      borderRadius: "1rem",
+                      background: "white",
+                      border: "2px solid #c4b5fd",
+                      boxShadow: "0 3px 0 #a78bfa",
+                    }}
+                  >
+                    <p style={{ margin: 0, fontSize: "0.7rem", fontWeight: 800, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                      Stars
+                    </p>
+                    <p style={{ margin: "0.2rem 0 0", fontSize: "1.75rem", fontWeight: 900, color: "#5b21b6", fontFamily: "var(--font-game), Fredoka, system-ui, sans-serif" }}>
+                      ⭐ {score}
+                    </p>
+                  </div>
+                </div>
+
                 {activeLessonIndex < totalLessons - 1 ? (
                   <button
                     onClick={goToNextLesson}

@@ -15,6 +15,34 @@ import { collectCourseMediaUrls, deleteCloudinaryUrls } from "@/lib/cloudinary";
 
 const router = Router();
 
+function serializeLesson(l: ILesson) {
+  return {
+    id: l._id.toString(),
+    type: l.type,
+    title: l.title,
+    content: l.content,
+    mediaUrl: l.mediaUrl,
+    mediaCaption: l.mediaCaption,
+    order: l.order,
+    slug: l.slug,
+    topicTitle: l.topicTitle,
+    topicEmoji: l.topicEmoji,
+    badgeText: l.badgeText,
+    mascotSpeech: l.mascotSpeech,
+    ctaText: l.ctaText,
+    imageUrl: l.imageUrl,
+    audioUrl: l.audioUrl,
+    audioText: l.audioText,
+    pages: (l.pages ?? []).map((p) => ({
+      title: p.title,
+      content: p.content,
+      imageUrl: p.imageUrl,
+      audioUrl: p.audioUrl,
+      audioText: p.audioText,
+    })),
+  };
+}
+
 function serializeQuestion(q: ICourseQuizQuestion) {
   return {
     id: q._id.toString(),
@@ -29,6 +57,12 @@ function serializeQuestion(q: ICourseQuizQuestion) {
     mediaCaption: q.mediaCaption,
     order: q.order,
     lessonId: q.lessonId?.toString(),
+    subtitle: q.subtitle,
+    hint: q.hint,
+    explanation: q.explanation,
+    wrongExplanation: q.wrongExplanation,
+    optionEmojis: q.optionEmojis,
+    imageUrl: q.imageUrl,
   };
 }
 
@@ -49,6 +83,10 @@ router.get("/", async (req: Request, res: Response) => {
       title: c.title,
       description: c.description,
       published: c.published,
+      emoji: c.emoji,
+      color: c.color,
+      accent: c.accent,
+      slug: c.slug,
       lessonCount: c.lessons.length,
       quizCount: c.quizQuestions.length,
       updatedAt: c.updatedAt,
@@ -104,17 +142,13 @@ router.get("/:id", async (req: Request, res: Response) => {
       title: course.title,
       description: course.description,
       published: course.published,
+      emoji: course.emoji,
+      color: course.color,
+      accent: course.accent,
+      slug: course.slug,
       lessons: course.lessons
         .sort((a: ILesson, b: ILesson) => a.order - b.order)
-        .map((l: ILesson) => ({
-          id: l._id.toString(),
-          type: l.type,
-          title: l.title,
-          content: l.content,
-          mediaUrl: l.mediaUrl,
-          mediaCaption: l.mediaCaption,
-          order: l.order,
-        })),
+        .map(serializeLesson),
       quizQuestions: course.quizQuestions
         .sort((a: ICourseQuizQuestion, b: ICourseQuizQuestion) => a.order - b.order)
         .map(serializeQuestion),
@@ -245,80 +279,161 @@ router.put("/:id", async (req: Request, res: Response) => {
     if (body.title !== undefined) course.title = body.title.trim();
     if (body.description !== undefined) course.description = body.description?.trim();
     if (body.published !== undefined) course.published = Boolean(body.published);
+    if (body.emoji !== undefined) course.emoji = String(body.emoji ?? "").trim();
+    if (body.color !== undefined) course.color = String(body.color ?? "").trim();
+    if (body.accent !== undefined) course.accent = String(body.accent ?? "").trim();
+    if (body.slug !== undefined) {
+      course.slug = String(body.slug ?? "")
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9-]+/g, "-")
+        .replace(/^-|-$/g, "");
+    }
 
     const previousMediaUrls = collectCourseMediaUrls(course);
+
+    const mapLessonInput = (
+      l: {
+        id?: string;
+        type: string;
+        title: string;
+        content?: string;
+        mediaUrl?: string;
+        mediaCaption?: string;
+        order: number;
+        slug?: string;
+        topicTitle?: string;
+        topicEmoji?: string;
+        badgeText?: string;
+        mascotSpeech?: string;
+        ctaText?: string;
+        imageUrl?: string;
+        audioUrl?: string;
+        audioText?: string;
+        pages?: {
+          title?: string;
+          content?: string;
+          imageUrl?: string;
+          audioUrl?: string;
+          audioText?: string;
+        }[];
+      },
+      idx: number,
+      lessonIdMap: Map<string, mongoose.Types.ObjectId>,
+    ) => {
+      const _id =
+        l.id && isValidObjectId(l.id)
+          ? new mongoose.Types.ObjectId(l.id)
+          : lessonIdMap.get(`idx-${idx}`)!;
+      const heroImage = l.imageUrl || l.mediaUrl;
+      const pages = (l.pages ?? []).map((p) => ({
+        title: p.title ?? "",
+        content: p.content,
+        imageUrl: p.imageUrl,
+        audioUrl: p.audioUrl,
+        audioText: p.audioText,
+      }));
+      const contentFromPages = pages
+        .map((p) => [p.title, p.content].filter(Boolean).join("\n"))
+        .filter(Boolean)
+        .join("\n\n");
+      return {
+        _id,
+        type: l.type || "text",
+        title: l.title,
+        content: l.content || contentFromPages,
+        mediaUrl: heroImage || l.mediaUrl,
+        mediaCaption: l.mediaCaption,
+        order: l.order ?? idx,
+        slug: l.slug,
+        topicTitle: l.topicTitle,
+        topicEmoji: l.topicEmoji,
+        badgeText: l.badgeText,
+        mascotSpeech: l.mascotSpeech,
+        ctaText: l.ctaText,
+        imageUrl: heroImage,
+        audioUrl: l.audioUrl,
+        audioText: l.audioText,
+        pages,
+      };
+    };
+
+    const mapQuestionInput = (
+      q: {
+        id?: string;
+        lessonId?: string;
+        type: string;
+        question: string;
+        examples?: string;
+        options: string[];
+        correctIndex: number;
+        points: number;
+        timeLimit: number;
+        mediaUrl?: string;
+        mediaCaption?: string;
+        order: number;
+        subtitle?: string;
+        hint?: string;
+        explanation?: string;
+        wrongExplanation?: string;
+        optionEmojis?: string[];
+        imageUrl?: string;
+      },
+      idx: number,
+      lessonObjectId: mongoose.Types.ObjectId | null,
+    ) => {
+      const options = [...(q.options ?? []), "", "", "", ""].slice(0, 4) as [
+        string,
+        string,
+        string,
+        string,
+      ];
+      const optionEmojis = q.optionEmojis?.length
+        ? ([...(q.optionEmojis ?? []), "", "", "", ""].slice(0, 4) as [
+            string,
+            string,
+            string,
+            string,
+          ])
+        : undefined;
+      return {
+        ...(q.id && isValidObjectId(q.id) ? { _id: new mongoose.Types.ObjectId(q.id) } : {}),
+        type: q.type || "text",
+        question: q.question,
+        examples: q.examples,
+        options,
+        correctIndex: q.correctIndex,
+        points: q.points ?? 10,
+        timeLimit: typeof q.timeLimit === "number" ? q.timeLimit : 30,
+        mediaUrl: q.imageUrl || q.mediaUrl,
+        mediaCaption: q.mediaCaption,
+        order: q.order ?? idx,
+        subtitle: q.subtitle,
+        hint: q.hint,
+        explanation: q.explanation,
+        wrongExplanation: q.wrongExplanation,
+        optionEmojis,
+        imageUrl: q.imageUrl || q.mediaUrl,
+        ...(lessonObjectId ? { lessonId: lessonObjectId } : {}),
+      };
+    };
 
     if (body.lessons !== undefined) {
       const lessonIdMap = buildLessonIdMap(body.lessons);
       const mappedLessons = body.lessons.map(
-        (
-          l: {
-            id?: string;
-            type: string;
-            title: string;
-            content?: string;
-            mediaUrl?: string;
-            mediaCaption?: string;
-            order: number;
-          },
-          idx: number,
-        ) => {
-          const _id =
-            l.id && isValidObjectId(l.id)
-              ? new mongoose.Types.ObjectId(l.id)
-              : lessonIdMap.get(`idx-${idx}`)!;
-          return {
-            _id,
-            type: l.type,
-            title: l.title,
-            content: l.content,
-            mediaUrl: l.mediaUrl,
-            mediaCaption: l.mediaCaption,
-            order: l.order ?? idx,
-          };
-        },
+        (l: Parameters<typeof mapLessonInput>[0], idx: number) =>
+          mapLessonInput(l, idx, lessonIdMap),
       );
       course.lessons.splice(0, course.lessons.length, ...mappedLessons);
 
       if (body.quizQuestions !== undefined) {
         const isQuizOnlySave = body.lessons.length === 0;
         const mappedQuestions = body.quizQuestions.map(
-          (
-            q: {
-              id?: string;
-              lessonId?: string;
-              type: string;
-              question: string;
-              examples?: string;
-              options: string[];
-              correctIndex: number;
-              points: number;
-              timeLimit: number;
-              mediaUrl?: string;
-              mediaCaption?: string;
-              order: number;
-            },
-            idx: number,
-          ) => {
+          (q: Parameters<typeof mapQuestionInput>[0], idx: number) => {
             const lessonObjectId = isQuizOnlySave
               ? null
-              : resolveLessonObjectId(q.lessonId, lessonIdMap);
-            return {
-              ...(q.id && isValidObjectId(q.id)
-                ? { _id: new mongoose.Types.ObjectId(q.id) }
-                : {}),
-              type: q.type,
-              question: q.question,
-              examples: q.examples,
-              options: q.options,
-              correctIndex: q.correctIndex,
-              points: q.points ?? 10,
-              timeLimit: typeof q.timeLimit === "number" ? q.timeLimit : 30,
-              mediaUrl: q.mediaUrl,
-              mediaCaption: q.mediaCaption,
-              order: q.order ?? idx,
-              ...(lessonObjectId ? { lessonId: lessonObjectId } : {}),
-            };
+              : resolveLessonObjectId(q.lessonId, lessonIdMap) ?? null;
+            return mapQuestionInput(q, idx, lessonObjectId);
           },
         );
         course.quizQuestions.splice(0, course.quizQuestions.length, ...mappedQuestions);
@@ -329,40 +444,11 @@ router.put("/:id", async (req: Request, res: Response) => {
       );
       const isQuizOnlySave = course.lessons.length === 0;
       const mappedQuestions = body.quizQuestions.map(
-        (
-          q: {
-            id?: string;
-            lessonId?: string;
-            type: string;
-            question: string;
-            examples?: string;
-            options: string[];
-            correctIndex: number;
-            points: number;
-            timeLimit: number;
-            mediaUrl?: string;
-            mediaCaption?: string;
-            order: number;
-          },
-          idx: number,
-        ) => {
+        (q: Parameters<typeof mapQuestionInput>[0], idx: number) => {
           const lessonObjectId = isQuizOnlySave
             ? null
-            : resolveLessonObjectId(q.lessonId, lessonIdMap);
-          return {
-            ...(q.id && isValidObjectId(q.id) ? { _id: new mongoose.Types.ObjectId(q.id) } : {}),
-            type: q.type,
-            question: q.question,
-            examples: q.examples,
-            options: q.options,
-            correctIndex: q.correctIndex,
-            points: q.points ?? 10,
-            timeLimit: typeof q.timeLimit === "number" ? q.timeLimit : 30,
-            mediaUrl: q.mediaUrl,
-            mediaCaption: q.mediaCaption,
-            order: q.order ?? idx,
-            ...(lessonObjectId ? { lessonId: lessonObjectId } : {}),
-          };
+            : resolveLessonObjectId(q.lessonId, lessonIdMap) ?? null;
+          return mapQuestionInput(q, idx, lessonObjectId);
         },
       );
       course.quizQuestions.splice(0, course.quizQuestions.length, ...mappedQuestions);

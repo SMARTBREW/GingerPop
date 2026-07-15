@@ -10,12 +10,12 @@ export function MarketingHeader() {
           <BrandName />
         </Link>
         <nav className="flex items-center gap-1 sm:gap-2">
-          <Link href="/play">
+          <Link href="/subjects">
             <Button variant="ghost" size="sm">
               Demo
             </Button>
           </Link>
-          <Link href="/admin/login">
+          <Link href="/login">
             <Button size="sm">Sign in</Button>
           </Link>
         </nav>

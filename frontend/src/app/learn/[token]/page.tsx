@@ -2,11 +2,31 @@
 
 import { useEffect, useState } from "react";
 import { useDynamicParam } from "@/lib/use-dynamic-param";
-import { CourseLearner } from "@/components/CourseLearner";
+import { InvitePlayLearner } from "@/components/InvitePlayLearner";
 import { KidZone } from "@/components/layout/KidZone";
-import { PlayQuestion } from "@/types/quiz";
-import { PublicLesson } from "@/types/course";
 import { Spinner } from "@/components/ui/Spinner";
+import type { InvitePlayLesson } from "@/components/MascotQuizPlayer";
+
+interface PlayLessonApi {
+  id: string;
+  mongoId: string;
+  title: string;
+  badgeText?: string;
+  mascotSpeech: string;
+  facts: string[];
+  ctaText?: string;
+  imageUrl?: string;
+  pages?: {
+    title: string;
+    content?: string;
+    imageUrl?: string;
+    audioUrl?: string;
+    audioText?: string;
+  }[];
+  quizQuestions: InvitePlayLesson["quizQuestions"];
+  topicTitle?: string;
+  topicEmoji?: string;
+}
 
 export default function LearnPage() {
   const token = useDynamicParam(1, "token");
@@ -15,17 +35,28 @@ export default function LearnPage() {
   const [data, setData] = useState<{
     courseTitle: string;
     courseDescription?: string;
-    lessons: PublicLesson[];
-    quizQuestions: PlayQuestion[];
-    phase: "learning" | "quiz" | "completed";
+    emoji?: string;
+    color?: string;
+    accent?: string;
+    topics: {
+      id: string;
+      title: string;
+      emoji: string;
+      subtopics: {
+        id: string;
+        title: string;
+        emoji: string;
+        lessonMongoId: string;
+        lessonSlug: string;
+      }[];
+    }[];
+    playLessons: InvitePlayLesson[];
+    phase: string;
     completedLessonIds: string[];
     contentCompletedLessonIds: string[];
-    pendingAssessmentLessonId?: string | null;
-    isQuizOnly: boolean;
     invitedBy?: { name: string; email?: string } | null;
     score: number;
     maxScore: number;
-    answeredQuestionIds: string[];
   } | null>(null);
 
   useEffect(() => {
@@ -37,20 +68,36 @@ export default function LearnPage() {
           setLoading(false);
           return;
         }
+
+        const playLessons: InvitePlayLesson[] = (res.course.playLessons ?? []).map(
+          (l: PlayLessonApi) => ({
+            id: l.id,
+            mongoId: l.mongoId,
+            title: l.title,
+            badgeText: l.badgeText,
+            mascotSpeech: l.mascotSpeech,
+            facts: l.facts ?? [],
+            ctaText: l.ctaText || "Next",
+            imageUrl: l.imageUrl,
+            pages: l.pages,
+            quizQuestions: l.quizQuestions ?? [],
+          }),
+        );
+
         setData({
           courseTitle: res.course.title,
           courseDescription: res.course.description,
-          lessons: res.course.lessons,
-          quizQuestions: res.course.quizQuestions ?? [],
+          emoji: res.course.emoji,
+          color: res.course.color,
+          accent: res.course.accent,
+          topics: res.course.topics ?? [],
+          playLessons,
           phase: res.invitation.phase,
           completedLessonIds: res.invitation.completedLessonIds,
           contentCompletedLessonIds: res.invitation.contentCompletedLessonIds ?? [],
-          pendingAssessmentLessonId: res.invitation.pendingAssessmentLessonId,
-          isQuizOnly: res.invitation.isQuizOnly ?? false,
           invitedBy: res.invitation.invitedBy ?? null,
           score: res.invitation.score,
           maxScore: res.invitation.maxScore,
-          answeredQuestionIds: res.answeredQuestionIds ?? [],
         });
         setLoading(false);
       })
@@ -91,22 +138,40 @@ export default function LearnPage() {
     );
   }
 
+  if (!data.playLessons.length) {
+    return (
+      <KidZone>
+        <div className="flex min-h-screen items-center justify-center px-4">
+          <div className="kid-card max-w-md p-8 text-center">
+            <p className="text-4xl">📚</p>
+            <p className="game-font mt-4 text-lg font-bold text-[var(--kid-text)]">
+              No lessons yet
+            </p>
+            <p className="mt-2 text-sm font-semibold text-[var(--kid-muted)]">
+              Ask your teacher to add topics and lessons, then publish the subject.
+            </p>
+          </div>
+        </div>
+      </KidZone>
+    );
+  }
+
   return (
-    <CourseLearner
+    <InvitePlayLearner
       token={token}
       courseTitle={data.courseTitle}
       courseDescription={data.courseDescription}
-      invitedBy={data.invitedBy}
-      lessons={data.lessons}
-      quizQuestions={data.quizQuestions}
-      initialPhase={data.phase}
+      emoji={data.emoji}
+      color={data.color}
+      accent={data.accent}
+      topics={data.topics}
+      playLessons={data.playLessons}
+      score={data.score}
+      maxScore={data.maxScore}
+      phase={data.phase}
       completedLessonIds={data.completedLessonIds}
       contentCompletedLessonIds={data.contentCompletedLessonIds}
-      pendingAssessmentLessonId={data.pendingAssessmentLessonId}
-      isQuizOnly={data.isQuizOnly}
-      initialScore={data.score}
-      maxScore={data.maxScore}
-      answeredQuestionIds={data.answeredQuestionIds}
+      invitedBy={data.invitedBy}
     />
   );
 }

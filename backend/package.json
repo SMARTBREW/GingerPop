@@ -7,6 +7,7 @@
     "build": "tsc && tsc-alias -p tsconfig.json",
     "start": "node --env-file=../.env dist/index.js",
     "seed:admin": "tsx --env-file=../.env scripts/seed-admin.ts",
+    "seed:student": "tsx --env-file=../.env scripts/seed-student.ts",
     "fix:invitation-indexes": "tsx --env-file=../.env scripts/fix-invitation-indexes.ts"
   },
   "dependencies": {

@@ -4,8 +4,9 @@ import { connectDB } from "@/lib/mongodb";
 import { jsonError, jsonOk } from "@/lib/api";
 import { isInvitationExpired, INVITE_EXPIRED_MESSAGE } from "@/lib/invitation-expiry";
 import { Invitation, IAnswerRecord } from "@/models/Invitation";
-import { Course, ICourseQuizQuestion, ILesson } from "@/models/Course";
+import { Course, ICourse, ICourseQuizQuestion, ILesson } from "@/models/Course";
 import { Admin } from "@/models/Admin";
+import { courseSlug, toPlayLesson, toPlayQuestion } from "@/lib/play-lesson";
 
 const router = Router();
 
@@ -101,6 +102,51 @@ router.get("/:token", async (req: Request, res: Response) => {
           ? sortedQuiz.filter((q: ICourseQuizQuestion) => !q.lessonId)
           : [];
 
+    const playLessons = sortedLessons.map((lesson) => {
+      const qs = getLessonQuestions(course, lesson._id.toString()).sort(
+        (a, b) => a.order - b.order,
+      );
+      return toPlayLesson(course as ICourse, lesson, qs, { includeCorrectIndex: true });
+    });
+
+    const topicMap = new Map<
+      string,
+      {
+        id: string;
+        title: string;
+        emoji: string;
+        subtopics: {
+          id: string;
+          title: string;
+          emoji: string;
+          lessonMongoId: string;
+          lessonSlug: string;
+        }[];
+      }
+    >();
+    for (const play of playLessons) {
+      const topicTitle = play.topicTitle || "Chapter";
+      const topicId = topicTitle
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "");
+      if (!topicMap.has(topicId)) {
+        topicMap.set(topicId, {
+          id: topicId,
+          title: topicTitle,
+          emoji: play.topicEmoji || "📖",
+          subtopics: [],
+        });
+      }
+      topicMap.get(topicId)!.subtopics.push({
+        id: play.id,
+        title: play.title,
+        emoji: "✨",
+        lessonMongoId: play.mongoId,
+        lessonSlug: play.id,
+      });
+    }
+
     return jsonOk(res, {
       invitation: {
         email: invitation.email,
@@ -114,13 +160,15 @@ router.get("/:token", async (req: Request, res: Response) => {
         completedAt: invitation.completedAt,
         pendingAssessmentLessonId,
         isQuizOnly,
-        invitedBy: inviter
-          ? { name: inviter.name, email: inviter.email }
-          : null,
+        invitedBy: inviter ? { name: inviter.name, email: inviter.email } : null,
       },
       course: {
         title: course.title,
         description: course.description,
+        emoji: course.emoji || "📚",
+        color: course.color || "#fff7ed",
+        accent: course.accent || "#ea580c",
+        slug: courseSlug(course as ICourse),
         lessons: sortedLessons.map((l: ILesson) => ({
           id: l._id.toString(),
           type: l.type,
@@ -130,10 +178,10 @@ router.get("/:token", async (req: Request, res: Response) => {
           mediaCaption: l.mediaCaption,
         })),
         quizQuestions: visibleQuestions.map(serializeQuestion),
+        playLessons,
+        topics: Array.from(topicMap.values()),
       },
-      answeredQuestionIds: invitation.answers.map((a: IAnswerRecord) =>
-        a.questionId.toString(),
-      ),
+      answeredQuestionIds: invitation.answers.map((a: IAnswerRecord) => a.questionId.toString()),
     });
   } catch (err) {
     console.error("Learn fetch error:", err);
@@ -185,7 +233,6 @@ router.post("/:token", async (req: Request, res: Response) => {
       }
 
       const lessonQuestions = getLessonQuestions(course, lessonId);
-
       if (lessonQuestions.length === 0) {
         return jsonError(res, "This lesson has no assessment configured", 400);
       }
@@ -199,10 +246,12 @@ router.post("/:token", async (req: Request, res: Response) => {
         contentCompletedLessonIds: invitation.contentCompletedLessonIds.map(
           (id: mongoose.Types.ObjectId) => id.toString(),
         ),
-        completedLessonIds: invitation.completedLessonIds.map(
-          (id: mongoose.Types.ObjectId) => id.toString(),
-        ),
-        assessmentQuestions: lessonQuestions.map(serializeQuestion),
+        assessmentQuestions: lessonQuestions
+          .sort((a, b) => a.order - b.order)
+          .map((q) => toPlayQuestion(q, { includeCorrectIndex: true })),
+        playLesson: toPlayLesson(course as ICourse, lesson, lessonQuestions, {
+          includeCorrectIndex: true,
+        }),
       });
     }
 
@@ -280,6 +329,8 @@ router.post("/:token", async (req: Request, res: Response) => {
         correct,
         pointsEarned,
         correctIndex: question.correctIndex,
+        explanation: question.explanation || "Great job!",
+        wrongExplanation: question.wrongExplanation,
         completed: invitation.phase === "completed",
         score: invitation.score,
         maxScore: invitation.maxScore,

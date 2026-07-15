@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { AdminRole } from "@/models/Admin";
 
 const COOKIE_NAME = "admin_token";
+const STUDENT_COOKIE_NAME = "student_token";
 
 function getSecret() {
   const secret = process.env.JWT_SECRET;
@@ -60,4 +61,47 @@ export async function getAdminSessionFromRequest(req: Request) {
   }
 }
 
-export { COOKIE_NAME };
+/* ── Student auth (parallel to admin) ───────────────────────────────────── */
+
+export async function createStudentToken(studentId: string, email: string) {
+  return new SignJWT({ studentId, email, role: "student" })
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime("7d")
+    .sign(getSecret());
+}
+
+export async function verifyStudentToken(token: string) {
+  const { payload } = await jwtVerify(token, getSecret());
+  return payload as { studentId: string; email: string; role?: string };
+}
+
+export function getStudentTokenFromRequest(req: Request) {
+  return req.cookies?.[STUDENT_COOKIE_NAME];
+}
+
+export function setStudentCookie(res: Response, token: string) {
+  res.cookie(STUDENT_COOKIE_NAME, token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 60 * 60 * 24 * 7 * 1000,
+  });
+}
+
+export function clearStudentCookie(res: Response) {
+  res.clearCookie(STUDENT_COOKIE_NAME, { path: "/" });
+}
+
+export async function getStudentSessionFromRequest(req: Request) {
+  const token = getStudentTokenFromRequest(req);
+  if (!token) return null;
+  try {
+    return await verifyStudentToken(token);
+  } catch {
+    return null;
+  }
+}
+
+export { COOKIE_NAME, STUDENT_COOKIE_NAME };

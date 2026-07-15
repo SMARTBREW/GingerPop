@@ -18,6 +18,7 @@
     "start": "concurrently \"npm run start -w backend\" \"npm run start -w frontend\"",
     "lint": "npm run lint -w frontend",
     "seed:admin": "npm run seed:admin -w backend",
+    "seed:student": "npm run seed:student -w backend",
     "deploy:backend": "bash scripts/deploy-backend-ec2.sh"
   },
   "devDependencies": {
