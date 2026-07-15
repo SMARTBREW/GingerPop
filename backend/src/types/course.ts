@@ -47,4 +47,6 @@ export interface CourseQuizQuestion {
   wrongExplanation?: string;
   optionEmojis?: [string, string, string, string];
   imageUrl?: string;
+  audioUrl?: string;
+  audioText?: string;
 }

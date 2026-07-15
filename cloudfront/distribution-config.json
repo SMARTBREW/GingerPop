@@ -4,7 +4,10 @@
   "Enabled": true,
   "Aliases": {
     "Quantity": 2,
-    "Items": ["gingerpop.in", "www.gingerpop.in"]
+    "Items": [
+      "gingerpop.in",
+      "www.gingerpop.in"
+    ]
   },
   "DefaultRootObject": "index.html",
   "Origins": {
@@ -14,34 +17,44 @@
         "Id": "gingerpop-s3",
         "DomainName": "gingerpop-website.s3.ap-south-1.amazonaws.com",
         "OriginPath": "",
-        "CustomHeaders": { "Quantity": 0 },
+        "CustomHeaders": {
+          "Quantity": 0
+        },
         "S3OriginConfig": {
           "OriginAccessIdentity": ""
         },
         "ConnectionAttempts": 3,
         "ConnectionTimeout": 10,
-        "OriginShield": { "Enabled": false },
+        "OriginShield": {
+          "Enabled": false
+        },
         "OriginAccessControlId": "E3HOM963UCYP34"
       },
       {
         "Id": "gingerpop-api",
         "DomainName": "api.gingerpop.in",
         "OriginPath": "",
-        "CustomHeaders": { "Quantity": 0 },
+        "CustomHeaders": {
+          "Quantity": 0
+        },
         "CustomOriginConfig": {
           "HTTPPort": 80,
           "HTTPSPort": 443,
           "OriginProtocolPolicy": "http-only",
           "OriginSslProtocols": {
             "Quantity": 1,
-            "Items": ["TLSv1.2"]
+            "Items": [
+              "TLSv1.2"
+            ]
           },
           "OriginReadTimeout": 30,
           "OriginKeepaliveTimeout": 5
         },
         "ConnectionAttempts": 3,
         "ConnectionTimeout": 10,
-        "OriginShield": { "Enabled": false }
+        "OriginShield": {
+          "Enabled": false
+        }
       }
     ]
   },
@@ -50,10 +63,16 @@
     "ViewerProtocolPolicy": "redirect-to-https",
     "AllowedMethods": {
       "Quantity": 2,
-      "Items": ["GET", "HEAD"],
+      "Items": [
+        "GET",
+        "HEAD"
+      ],
       "CachedMethods": {
         "Quantity": 2,
-        "Items": ["GET", "HEAD"]
+        "Items": [
+          "GET",
+          "HEAD"
+        ]
       }
     },
     "Compress": true,
@@ -77,10 +96,21 @@
         "ViewerProtocolPolicy": "redirect-to-https",
         "AllowedMethods": {
           "Quantity": 7,
-          "Items": ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"],
+          "Items": [
+            "GET",
+            "HEAD",
+            "OPTIONS",
+            "PUT",
+            "POST",
+            "PATCH",
+            "DELETE"
+          ],
           "CachedMethods": {
             "Quantity": 2,
-            "Items": ["GET", "HEAD"]
+            "Items": [
+              "GET",
+              "HEAD"
+            ]
           }
         },
         "Compress": true,
@@ -90,21 +120,7 @@
     ]
   },
   "CustomErrorResponses": {
-    "Quantity": 2,
-    "Items": [
-      {
-        "ErrorCode": 403,
-        "ResponsePagePath": "/index.html",
-        "ResponseCode": "200",
-        "ErrorCachingMinTTL": 10
-      },
-      {
-        "ErrorCode": 404,
-        "ResponsePagePath": "/index.html",
-        "ResponseCode": "200",
-        "ErrorCachingMinTTL": 10
-      }
-    ]
+    "Quantity": 0
   },
   "ViewerCertificate": {
     "ACMCertificateArn": "arn:aws:acm:us-east-1:663666504874:certificate/e50debba-d458-46d0-a413-2d434aaf23b2",

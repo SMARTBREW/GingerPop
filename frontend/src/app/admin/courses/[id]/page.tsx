@@ -31,6 +31,8 @@ interface InvitationRow {
   expiresAt?: string;
   completedAt?: string;
   invitedByName?: string | null;
+  inviteLink?: string;
+  token?: string;
 }
 
 type LessonRow = Lesson & { id: string };
@@ -55,12 +57,13 @@ export default function CourseEditorPage() {
   const [invitations, setInvitations] = useState<InvitationRow[]>([]);
   const [emailInput, setEmailInput] = useState("");
   const [inviteResults, setInviteResults] = useState<
-    { email: string; sent: boolean; inviteLink: string }[]
+    { email: string; sent: boolean; inviteLink: string; reset?: boolean }[]
   >([]);
   const [tab, setTab] = useState<"content" | "invites">("content");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [inviting, setInviting] = useState(false);
+  const [reinvitingEmail, setReinvitingEmail] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [editorReady, setEditorReady] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
@@ -292,14 +295,8 @@ export default function CourseEditorPage() {
     setPublished(checked);
   };
 
-  const handleInvite = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const emails = emailInput
-      .split(/[\n,;]+/)
-      .map((s) => s.trim())
-      .filter(Boolean);
+  const sendInvitesToEmails = async (emails: string[]) => {
     if (emails.length === 0) return;
-
     setInviting(true);
     setInviteResults([]);
     setMessage(null);
@@ -311,19 +308,42 @@ export default function CourseEditorPage() {
     });
     const data = await res.json();
     setInviting(false);
+    setReinvitingEmail(null);
 
     if (res.ok) {
       setInviteResults(data.results);
       setEmailInput("");
+      const resetCount = (data.results as { reset?: boolean }[]).filter((r) => r.reset).length;
       setMessage({
         type: "success",
-        text: `Invitations processed for ${data.results.length} recipient(s).`,
+        text:
+          resetCount > 0
+            ? `Processed ${data.results.length} invite(s). ${resetCount} existing learner(s) were reset for a fresh attempt.`
+            : `Invitations processed for ${data.results.length} recipient(s).`,
       });
       const refresh = await fetch(`/api/courses/${id}`).then((r) => r.json());
       setInvitations(refresh.invitations ?? []);
     } else {
       setMessage({ type: "error", text: data.error ?? "Failed to send invitations." });
     }
+  };
+
+  const handleInvite = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const emails = emailInput
+      .split(/[\n,;]+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    await sendInvitesToEmails(emails);
+  };
+
+  const handleReinvite = async (email: string) => {
+    const ok = window.confirm(
+      `Re-invite ${email}?\n\nThis clears their progress, generates a new link, and emails them again.`,
+    );
+    if (!ok) return;
+    setReinvitingEmail(email);
+    await sendInvitesToEmails([email]);
   };
 
   if (loading) {
@@ -448,8 +468,8 @@ export default function CourseEditorPage() {
                 title="Invite learners"
                 description={
                   admin
-                    ? `Invitations are valid for 2 weeks. They will be sent by ${admin.name} (${admin.email}). Each lesson includes its own assessment.`
-                    : "Invitation links expire after 2 weeks. Re-send to issue a fresh link."
+                    ? `Invitations are valid for 2 weeks. Sent by ${admin.name} (${admin.email}). Re-sending the same email resets that learner’s progress and emails a fresh link.`
+                    : "Invitation links expire after 2 weeks. Re-send the same email to reset progress and issue a fresh link."
                 }
               />
               <form onSubmit={handleInvite} className="space-y-4">
@@ -457,12 +477,12 @@ export default function CourseEditorPage() {
                   label="Email addresses"
                   value={emailInput}
                   onChange={(e) => setEmailInput(e.target.value)}
-                  placeholder="member@company.com"
+                  placeholder="student@school.com"
                   rows={4}
-                  hint="Separate multiple addresses with commas or new lines."
+                  hint="Separate multiple addresses with commas or new lines. Same email = re-invite (reset + new link)."
                 />
                 <Button type="submit" disabled={inviting || !published || !publishCheck.valid}>
-                  {inviting ? "Sending..." : "Send invitations"}
+                  {inviting && !reinvitingEmail ? "Sending..." : "Send / re-invite"}
                 </Button>
                 {!published && (
                   <p className="text-sm text-amber-700">Publish the subject before inviting.</p>
@@ -481,9 +501,12 @@ export default function CourseEditorPage() {
                     <div key={r.email} className="rounded-md border border-gray-100 bg-gray-50 p-4">
                       <div className="flex items-center justify-between gap-2">
                         <p className="text-sm font-medium text-gray-900">{r.email}</p>
-                        <Badge variant={r.sent ? "success" : "warning"}>
-                          {r.sent ? "Email sent" : "Link generated"}
-                        </Badge>
+                        <div className="flex flex-wrap gap-2">
+                          {r.reset && <Badge variant="warning">Progress reset</Badge>}
+                          <Badge variant={r.sent ? "success" : "warning"}>
+                            {r.sent ? "Email sent" : "Link generated"}
+                          </Badge>
+                        </div>
                       </div>
                       <p className="mt-2 break-all font-mono text-xs text-gray-500">
                         {r.inviteLink}
@@ -517,12 +540,22 @@ export default function CourseEditorPage() {
                       <th className="hidden px-4 py-3 text-left text-sm font-medium uppercase tracking-wide text-gray-500 md:table-cell sm:px-6">
                         Expires
                       </th>
+                      <th className="px-4 py-3 text-right text-sm font-medium uppercase tracking-wide text-gray-500 sm:px-6">
+                        Actions
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {invitations.map((inv) => (
                       <tr key={inv.id} className="hover:bg-gray-50/80">
-                        <td className="px-4 py-4 text-base text-gray-900 sm:px-6">{inv.email}</td>
+                        <td className="px-4 py-4 text-base text-gray-900 sm:px-6">
+                          <div>{inv.email}</div>
+                          {inv.inviteLink && (
+                            <p className="mt-1 max-w-[220px] truncate font-mono text-xs text-gray-400" title={inv.inviteLink}>
+                              {inv.inviteLink}
+                            </p>
+                          )}
+                        </td>
                         <td className="px-4 py-4 text-base text-gray-600 sm:px-6">
                           {inv.invitedByName ?? "—"}
                         </td>
@@ -540,7 +573,7 @@ export default function CourseEditorPage() {
                           </Badge>
                         </td>
                         <td className="px-4 py-4 text-base tabular-nums text-gray-600 sm:px-6">
-                          {inv.phase === "completed" ? `${inv.score}/${inv.maxScore}` : "—"}
+                          {inv.maxScore > 0 ? `${inv.score}/${inv.maxScore}` : "—"}
                         </td>
                         <td className="hidden px-4 py-4 text-base text-gray-600 md:table-cell sm:px-6">
                           {inv.expiresAt
@@ -550,6 +583,35 @@ export default function CourseEditorPage() {
                                 year: "numeric",
                               })
                             : "—"}
+                        </td>
+                        <td className="px-4 py-4 text-right sm:px-6">
+                          <div className="flex flex-wrap items-center justify-end gap-2">
+                            {inv.inviteLink && (
+                              <Button
+                                type="button"
+                                variant="secondary"
+                                size="sm"
+                                onClick={async () => {
+                                  try {
+                                    await navigator.clipboard.writeText(inv.inviteLink!);
+                                    setMessage({ type: "success", text: `Copied link for ${inv.email}` });
+                                  } catch {
+                                    setMessage({ type: "error", text: "Could not copy link" });
+                                  }
+                                }}
+                              >
+                                Copy link
+                              </Button>
+                            )}
+                            <Button
+                              type="button"
+                              size="sm"
+                              disabled={inviting || !published || !publishCheck.valid}
+                              onClick={() => void handleReinvite(inv.email)}
+                            >
+                              {reinvitingEmail === inv.email ? "Re-inviting…" : "Re-invite"}
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     ))}

@@ -17,7 +17,7 @@ type LessonRow = Lesson & { id: string };
 type QuestionRow = CourseQuizQuestion & { id: string };
 type View = "topics" | "lessons" | "play" | "quiz";
 
-const OPTION_LABELS = ["A", "B", "C"] as const;
+const OPTION_LABELS = ["A", "B", "C", "D"] as const;
 
 interface SubjectMeta {
   emoji: string;
@@ -123,10 +123,14 @@ function QuizCardEditor({
   onChange: (updated: QuestionRow) => void;
   onRemove: () => void;
 }) {
-  const emojis = q.optionEmojis ?? ["🐊", "🐊", "😐", ""];
+  const emojis = q.optionEmojis ?? ["🐊", "🐊", "🐊", "😐"];
+  const filledOptions = q.options
+    .map((text, i) => ({ text: stripHtml(text || "").trim(), i }))
+    .filter((o) => o.text.length > 0);
+  const previewImage = q.imageUrl || q.mediaUrl;
 
   return (
-    <div className="kid-card mx-auto w-full max-w-2xl p-6 sm:p-8">
+    <div className="kid-card mx-auto w-full max-w-3xl p-6 sm:p-8">
       <div className="mb-5 flex items-center justify-between gap-3">
         <span className="kid-pill border border-[#fde68a] bg-[#fef9c3] text-[#92400e]">
           Q{idx + 1} OF {total}
@@ -149,62 +153,114 @@ function QuizCardEditor({
         className="mt-2 text-base font-semibold text-[var(--kid-muted)]"
       />
 
-      <div className="mt-4">
+      <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <MediaUploader
           type="image"
-          value={q.imageUrl || q.mediaUrl}
-          onChange={(url) => onChange({ ...q, imageUrl: url, mediaUrl: url, type: "image" })}
-          label="Question image (optional)"
+          value={previewImage}
+          onChange={(url) =>
+            onChange({
+              ...q,
+              imageUrl: url,
+              mediaUrl: url,
+              type: url ? "image" : q.audioUrl ? "audio" : "text",
+            })
+          }
+          label="Question image (left panel, optional)"
         />
+        <div className="space-y-3">
+          <MediaUploader
+            type="audio"
+            value={q.audioUrl}
+            onChange={(url) =>
+              onChange({
+                ...q,
+                audioUrl: url,
+                type: url ? "audio" : previewImage ? "image" : "text",
+              })
+            }
+            onTranscript={(audioText) => onChange({ ...q, audioText })}
+            label="Question audio (optional)"
+          />
+          <Editable
+            value={q.audioText ?? ""}
+            onChange={(audioText) => onChange({ ...q, audioText })}
+            placeholder="Spoken text if no audio file (optional)"
+            multiline
+            rows={3}
+            className="text-sm font-semibold"
+          />
+        </div>
       </div>
 
-      <div className="mt-6 space-y-3">
-        {OPTION_LABELS.map((label, oIdx) => (
-          <div
-            key={label}
-            className={`flex items-center gap-3 rounded-2xl border-2 px-4 py-3 ${
-              q.correctIndex === oIdx
-                ? "border-[#86efac] bg-[#f0fdf4]"
-                : "border-gray-200 bg-white"
-            }`}
-          >
-            <input
-              value={emojis[oIdx] ?? ""}
-              onChange={(e) => {
-                const next = [...(q.optionEmojis ?? ["🐊", "🐊", "😐", ""])] as [
-                  string,
-                  string,
-                  string,
-                  string,
-                ];
-                next[oIdx] = e.target.value;
-                onChange({ ...q, optionEmojis: next });
-              }}
-              className="w-12 rounded-lg border border-gray-200 bg-white px-1 py-1 text-center text-2xl"
-              aria-label={`Emoji ${label}`}
-            />
-            <input
-              value={stripHtml(q.options[oIdx] ?? "")}
-              onChange={(e) => {
-                const options = [...q.options] as [string, string, string, string];
-                options[oIdx] = e.target.value;
-                onChange({ ...q, options });
-              }}
-              placeholder={
-                oIdx === 0 ? "< (Less Than)" : oIdx === 1 ? "> (Greater Than)" : "= (Equal To)"
-              }
-              className="flex-1 bg-transparent text-lg font-bold text-[var(--kid-text)] outline-none"
-            />
-            <button
-              type="button"
-              onClick={() => onChange({ ...q, correctIndex: oIdx })}
-              className="shrink-0 text-xs font-extrabold text-[var(--kid-purple)]"
+      <p className="mt-5 text-xs font-extrabold uppercase tracking-wide text-[var(--kid-muted)]">
+        Answer options (empty slots stay hidden on play — fill 2–4)
+      </p>
+      <div className="mt-2 space-y-3">
+        {OPTION_LABELS.map((label, oIdx) => {
+          const isEmpty = !stripHtml(q.options[oIdx] ?? "").trim();
+          return (
+            <div
+              key={label}
+              className={`flex items-center gap-3 rounded-2xl border-2 px-4 py-3 ${
+                q.correctIndex === oIdx
+                  ? "border-[#86efac] bg-[#f0fdf4]"
+                  : isEmpty
+                    ? "border-dashed border-gray-200 bg-gray-50/80"
+                    : "border-gray-200 bg-white"
+              }`}
             >
-              {q.correctIndex === oIdx ? "✓ Correct" : "Set correct"}
-            </button>
-          </div>
-        ))}
+              <span className="w-6 text-center text-xs font-extrabold text-[var(--kid-muted)]">
+                {label}
+              </span>
+              <input
+                value={emojis[oIdx] ?? ""}
+                onChange={(e) => {
+                  const next = [...(q.optionEmojis ?? ["🐊", "🐊", "🐊", "😐"])] as [
+                    string,
+                    string,
+                    string,
+                    string,
+                  ];
+                  next[oIdx] = e.target.value;
+                  onChange({ ...q, optionEmojis: next });
+                }}
+                className="w-12 rounded-lg border border-gray-200 bg-white px-1 py-1 text-center text-2xl"
+                aria-label={`Emoji ${label}`}
+              />
+              <input
+                value={stripHtml(q.options[oIdx] ?? "")}
+                onChange={(e) => {
+                  const options = [...q.options] as [string, string, string, string];
+                  options[oIdx] = e.target.value;
+                  onChange({ ...q, options });
+                }}
+                placeholder={
+                  oIdx === 0
+                    ? "< (Less Than)"
+                    : oIdx === 1
+                      ? "> (Greater Than)"
+                      : oIdx === 2
+                        ? "= (Equal To)"
+                        : "Optional 4th answer…"
+                }
+                className="flex-1 bg-transparent text-lg font-bold text-[var(--kid-text)] outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => onChange({ ...q, correctIndex: oIdx })}
+                className="shrink-0 text-xs font-extrabold text-[var(--kid-purple)]"
+              >
+                {q.correctIndex === oIdx ? "✓ Correct" : "Set correct"}
+              </button>
+            </div>
+          );
+        })}
       </div>
+      <p className="mt-2 text-xs font-semibold text-[var(--kid-muted)]">
+        Kids see {filledOptions.length} option{filledOptions.length === 1 ? "" : "s"}
+        {previewImage ? " · with image" : ""}
+        {q.audioUrl || q.audioText ? " · with audio" : ""}.
+      </p>
 
       <div className="mt-6 grid gap-3 sm:grid-cols-2">
         <label className="block">
@@ -868,7 +924,7 @@ export function SubjectContentEditor({
                   lessonId: activeLesson.id,
                   order: lessonQuestions.length,
                   options: ["", "", "", ""],
-                  optionEmojis: ["🐊", "🐊", "😐", ""],
+                  optionEmojis: ["🐊", "🐊", "🐊", "😐"],
                 };
                 onQuestionsChange([...quizQuestions, next]);
                 setQuizIndex(lessonQuestions.length);

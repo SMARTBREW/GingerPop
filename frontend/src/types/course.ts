@@ -48,6 +48,8 @@ export interface CourseQuizQuestion {
   wrongExplanation?: string;
   optionEmojis?: [string, string, string, string];
   imageUrl?: string;
+  audioUrl?: string;
+  audioText?: string;
 }
 
 export interface PublicLesson {
@@ -111,4 +113,6 @@ export const EMPTY_QUIZ_QUESTION: Omit<CourseQuizQuestion, "id"> = {
   wrongExplanation: "",
   optionEmojis: ["🐊", "🐊", "🐊", "😐"],
   imageUrl: "",
+  audioUrl: "",
+  audioText: "",
 };

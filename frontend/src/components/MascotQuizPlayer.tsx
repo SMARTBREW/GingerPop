@@ -9,6 +9,8 @@ import { BrandName } from "@/components/BrandName";
 interface QuizOption {
   emoji: string;
   text: string;
+  /** Original admin-slot index (0–3) after empty options are filtered */
+  originalIndex?: number;
 }
 
 interface QuizQuestion {
@@ -21,6 +23,8 @@ interface QuizQuestion {
   wrongExplanation?: string; // shown when wrong
   hint?: string;
   imageUrl?: string;
+  audioUrl?: string;
+  audioText?: string;
 }
 
 interface Lesson {
@@ -1158,7 +1162,7 @@ function LessonPage({
             </span>
           )}
 
-          {safeIndex === 0 && (
+          {lesson.mascotSpeech && (
             <div style={{ display: "flex", alignItems: "flex-start", gap: "0.65rem" }}>
               <MascotSvg size={44} animate />
               <div
@@ -1269,6 +1273,7 @@ function QuizCard({
   onBackToLesson,
   transitionClass,
   inviteToken,
+  reviewMode = false,
 }: {
   lesson: Lesson;
   onBackToLesson: () => void;
@@ -1277,10 +1282,14 @@ function QuizCard({
   onComplete: () => void;
   onScoreChange: (delta: number) => void;
   inviteToken?: string;
+  reviewMode?: boolean;
 }) {
   const questions = lesson.quizQuestions;
   const question = questions[questionIndex];
   const total = questions.length;
+  const visibleOptions = question.options.filter((o) => (o.text || "").trim().length > 0);
+  const hasImage = Boolean(question.imageUrl);
+  const hasAudio = Boolean(question.audioUrl || question.audioText);
 
   const [selected, setSelected] = useState<number | null>(null);
   const [answered, setAnswered] = useState(false);
@@ -1290,7 +1299,6 @@ function QuizCard({
   const [submitting, setSubmitting] = useState(false);
   const advancedRef = useRef(false);
 
-  // Reset hint when moving to the next question
   useEffect(() => {
     setShowHint(false);
     setHintText(null);
@@ -1300,14 +1308,22 @@ function QuizCard({
     advancedRef.current = false;
   }, [questionIndex, question.id]);
 
+  const toDisplayCorrect = (raw: number | undefined | null) => {
+    if (raw === undefined || raw === null) return question.correctIndex;
+    const byOrig = visibleOptions.findIndex((o) => (o.originalIndex ?? -1) === raw);
+    if (byOrig >= 0) return byOrig;
+    return raw;
+  };
+
   const correctIndex = revealedCorrect ?? question.correctIndex;
   const isCorrect = selected !== null && selected === correctIndex;
 
   const handleSelect = async (idx: number) => {
     if (answered || submitting) return;
     setSelected(idx);
+    const originalIndex = visibleOptions[idx]?.originalIndex ?? idx;
 
-    if (inviteToken) {
+    if (inviteToken && !reviewMode) {
       setSubmitting(true);
       try {
         const res = await fetch(`/api/learn/${inviteToken}`, {
@@ -1316,20 +1332,35 @@ function QuizCard({
           body: JSON.stringify({
             action: "quiz_answer",
             questionId: question.id,
-            selectedIndex: idx,
+            selectedIndex: originalIndex,
           }),
         });
-        const data = await res.json();
+        const raw = await res.text();
+        let data: {
+          error?: string;
+          correctIndex?: number;
+          correct?: boolean;
+          pointsEarned?: number;
+          explanation?: string;
+          wrongExplanation?: string;
+        } = {};
+        try {
+          data = JSON.parse(raw) as typeof data;
+        } catch {
+          throw new Error("Quiz API returned a non-JSON response. Please refresh and try again.");
+        }
         if (!res.ok) throw new Error(data.error ?? "Answer failed");
-        setRevealedCorrect(data.correctIndex);
+        setRevealedCorrect(toDisplayCorrect(data.correctIndex ?? originalIndex));
         setAnswered(true);
         if (data.correct) onScoreChange(data.pointsEarned || 10);
         else onScoreChange(-1);
         if (data.explanation) question.explanation = data.explanation;
         if (data.wrongExplanation) question.wrongExplanation = data.wrongExplanation;
-      } catch {
+      } catch (err) {
+        console.error("quiz_answer failed:", err);
         setAnswered(false);
         setSelected(null);
+        window.alert(err instanceof Error ? err.message : "Could not submit answer. Please try again.");
       } finally {
         setSubmitting(false);
       }
@@ -1348,44 +1379,66 @@ function QuizCard({
   };
 
   const handleShowHint = () => {
-    if (question.hint) {
-      setHintText(question.hint);
-    }
+    if (question.hint) setHintText(question.hint);
     setShowHint(true);
   };
+
+  const progressHeader = (
+    <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexShrink: 0 }}>
+      <span style={{
+        display: "inline-flex", alignItems: "center", gap: "0.3rem",
+        padding: "0.25rem 0.75rem", borderRadius: "999px",
+        border: "1.5px solid #fcd34d",
+        background: "linear-gradient(135deg, #fffbeb, #fef3c7)",
+        fontSize: "0.65rem", fontWeight: 800, color: "#92400e",
+        textTransform: "uppercase",
+      }}>
+        ⏱ Q{questionIndex + 1} of {total}
+      </span>
+      <div style={{ display: "flex", gap: "0.3rem" }}>
+        {Array.from({ length: total }, (_, i) => (
+          <span key={i} style={{
+            width: i === questionIndex ? 20 : 10, height: 10,
+            borderRadius: "999px",
+            background: i < questionIndex ? "#22c55e" : i === questionIndex ? "#6366f1" : "#e2e8f0",
+            transition: "all 0.3s",
+          }} />
+        ))}
+      </div>
+    </div>
+  );
 
   return (
     <div
       className={`mascot-card-wrapper ${transitionClass} ${answered && !isCorrect ? "quiz-card-shake" : ""}`}
     >
-      {/* Quiz card — question only, no left image */}
       <div className="mascot-player-card">
-        <div className="mascot-player-right-quiz" style={{ width: "100%" }}>
-          {/* Always show counter badge and progress dots inline at the top of right column */}
-          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexShrink: 0 }}>
-            <span style={{
-              display: "inline-flex", alignItems: "center", gap: "0.3rem",
-              padding: "0.25rem 0.75rem", borderRadius: "999px",
-              border: "1.5px solid #fcd34d",
-              background: "linear-gradient(135deg, #fffbeb, #fef3c7)",
-              fontSize: "0.65rem", fontWeight: 800, color: "#92400e",
-              textTransform: "uppercase",
-            }}>
-              ⏱ Q{questionIndex + 1} of {total}
-            </span>
-            <div style={{ display: "flex", gap: "0.3rem" }}>
-              {Array.from({ length: total }, (_, i) => (
-                <span key={i} style={{
-                  width: i === questionIndex ? 20 : 10, height: 10,
-                  borderRadius: "999px",
-                  background: i < questionIndex ? "#22c55e" : i === questionIndex ? "#6366f1" : "#e2e8f0",
-                  transition: "all 0.3s",
-                }} />
-              ))}
-            </div>
+        {hasImage && (
+          <div className="mascot-player-left-quiz" style={{ flexDirection: "column", gap: "0.75rem" }}>
+            <img
+              src={question.imageUrl}
+              alt=""
+              style={{
+                width: "100%",
+                height: "auto",
+                objectFit: "contain",
+                maxHeight: "300px",
+                borderRadius: "0.75rem",
+                filter: "drop-shadow(0 4px 12px rgba(0,0,0,0.08))",
+              }}
+            />
+            <p style={{ margin: "auto 0 0", fontSize: "0.75rem", fontWeight: 700, color: "#6b7280", alignSelf: "flex-start" }}>
+              Question {questionIndex + 1} of {total}
+            </p>
           </div>
+        )}
 
-          {/* Question */}
+        <div
+          className="mascot-player-right-quiz"
+          style={{ width: hasImage ? undefined : "100%", flex: 1 }}
+        >
+          {progressHeader}
+
           <div style={{ flexShrink: 0 }}>
             <h2 style={{ fontSize: "1.1rem", fontWeight: 900, color: "#111827", margin: "0 0 0.25rem", lineHeight: 1.3 }}>
               {question.question}
@@ -1397,9 +1450,16 @@ function QuizCard({
             )}
           </div>
 
-          {/* Options */}
+          {hasAudio && (
+            <TopicAudioBar
+              audioUrl={question.audioUrl}
+              audioText={question.audioText || question.question}
+              resetKey={`${question.id}-audio`}
+            />
+          )}
+
           <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem", flex: 1 }}>
-            {question.options.map((opt, idx) => {
+            {visibleOptions.map((opt, idx) => {
               let bg = "white", border = "#e5e7eb", shadow = "#e5e7eb", color = "#374151";
               if (answered) {
                 if (idx === correctIndex) {
@@ -1412,7 +1472,7 @@ function QuizCard({
               }
               return (
                 <button
-                  key={idx}
+                  key={`${opt.originalIndex ?? idx}-${opt.text}`}
                   type="button"
                   disabled={answered || submitting}
                   onClick={() => void handleSelect(idx)}
@@ -1469,7 +1529,6 @@ function QuizCard({
             })}
           </div>
 
-          {/* Feedback banner */}
           {answered && (
             <div
               className="mascot-animate-up"
@@ -1511,7 +1570,6 @@ function QuizCard({
             </div>
           )}
 
-          {/* Hint — blinking bulb tab; expands on tap */}
           {question.hint && (
             <div style={{ flexShrink: 0, alignSelf: "flex-start" }}>
               {!showHint ? (
@@ -1521,9 +1579,7 @@ function QuizCard({
                   className="hint-blink-tab"
                   aria-label="Show hint"
                 >
-                  <span className="hint-blink-bulb" aria-hidden>
-                    💡
-                  </span>
+                  <span className="hint-blink-bulb" aria-hidden>💡</span>
                   <span className="hint-blink-label">hint</span>
                 </button>
               ) : (
@@ -1539,31 +1595,15 @@ function QuizCard({
                     maxWidth: "100%",
                   }}
                 >
-                  <span style={{ fontSize: "1.35rem", lineHeight: 1 }} aria-hidden>
-                    💡
-                  </span>
+                  <span style={{ fontSize: "1.35rem", lineHeight: 1 }} aria-hidden>💡</span>
                   <div style={{ minWidth: 0 }}>
-                    <p
-                      style={{
-                        fontSize: "0.75rem",
-                        fontWeight: 800,
-                        color: "#92400e",
-                        margin: "0 0 0.2rem",
-                        textTransform: "uppercase",
-                        letterSpacing: "0.04em",
-                      }}
-                    >
+                    <p style={{
+                      fontSize: "0.75rem", fontWeight: 800, color: "#92400e",
+                      margin: "0 0 0.2rem", textTransform: "uppercase", letterSpacing: "0.04em",
+                    }}>
                       Hint
                     </p>
-                    <p
-                      style={{
-                        fontSize: "0.85rem",
-                        color: "#b45309",
-                        margin: 0,
-                        lineHeight: 1.45,
-                        fontWeight: 600,
-                      }}
-                    >
+                    <p style={{ fontSize: "0.85rem", color: "#b45309", margin: 0, lineHeight: 1.45, fontWeight: 600 }}>
                       {hintText ?? question.hint}
                     </p>
                   </div>
@@ -1695,6 +1735,7 @@ export function MascotQuizPlayer({
     maxScore: number;
     completedLessonIds: string[];
     contentCompletedLessonIds: string[];
+    reviewMode?: boolean;
     onExitToMap?: () => void;
   };
 }) {
@@ -1736,22 +1777,32 @@ export function MascotQuizPlayer({
               id: string;
               question: string;
               subtitle?: string;
-              options: { emoji: string; text: string }[];
+              options: { emoji: string; text: string; originalIndex?: number }[];
               correctIndex: number;
               explanation: string;
               wrongExplanation?: string;
               hint?: string;
               imageUrl?: string;
+              audioUrl?: string;
+              audioText?: string;
             }) => ({
               id: q.id,
               question: q.question,
               subtitle: q.subtitle,
-              options: q.options,
+              options: (q.options ?? [])
+                .map((o, i) => ({
+                  emoji: o.emoji || "⭐",
+                  text: o.text,
+                  originalIndex: o.originalIndex ?? i,
+                }))
+                .filter((o) => (o.text || "").trim().length > 0),
               correctIndex: q.correctIndex,
               explanation: q.explanation,
               wrongExplanation: q.wrongExplanation,
               hint: q.hint,
               imageUrl: q.imageUrl,
+              audioUrl: q.audioUrl,
+              audioText: q.audioText,
             }),
           ),
         });
@@ -1868,19 +1919,29 @@ export function MascotQuizPlayer({
   };
 
   const startQuiz = async () => {
-    if (invite?.token && lesson.mongoId) {
+    if (invite?.token && lesson.mongoId && !invite.reviewMode) {
       try {
         const res = await fetch(`/api/learn/${invite.token}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action: "complete_lesson", lessonId: lesson.mongoId }),
         });
-        const data = await res.json();
-        if (!res.ok && !String(data.error || "").includes("already")) {
-          console.warn("complete_lesson:", data.error);
+        const raw = await res.text();
+        let data: { error?: string } = {};
+        try {
+          data = JSON.parse(raw) as { error?: string };
+        } catch {
+          window.alert("Could not start the quiz (API error). Please refresh and try again.");
+          return;
+        }
+        const errMsg = String(data.error || "");
+        if (!res.ok && !errMsg.toLowerCase().includes("already")) {
+          window.alert(errMsg || "Could not start the quiz. Please try again.");
+          return;
         }
       } catch {
-        /* continue into quiz UI anyway if already content-completed */
+        window.alert("Could not start the quiz. Check your connection and try again.");
+        return;
       }
     }
     setHasStartedQuiz(true);
@@ -2044,6 +2105,7 @@ export function MascotQuizPlayer({
                   onComplete={handleQuestionComplete}
                   onScoreChange={handleScoreChange}
                   inviteToken={invite?.token}
+                  reviewMode={Boolean(invite?.reviewMode)}
                   onBackToLesson={() => {
                     setIsTransitioning(true);
                     setTimeout(() => {
@@ -2150,7 +2212,28 @@ export function MascotQuizPlayer({
                     Next Lesson →
                   </button>
                 ) : (
-                  <p style={{ fontSize: "1.1rem", fontWeight: 700, color: "#065f46" }}>🏆 All lessons complete! You&apos;re a legend!</p>
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.75rem" }}>
+                    <p style={{ fontSize: "1.1rem", fontWeight: 700, color: "#065f46", margin: 0 }}>
+                      🏆 All lessons complete! You&apos;re a legend!
+                    </p>
+                    {invite?.onExitToMap && (
+                      <button
+                        type="button"
+                        onClick={() => invite.onExitToMap?.()}
+                        style={{
+                          display: "inline-flex", alignItems: "center", gap: "0.5rem",
+                          padding: "0.75rem 1.75rem", borderRadius: "999px",
+                          border: "3px solid #059669",
+                          background: "linear-gradient(180deg, #34d399, #10b981)",
+                          color: "white", fontWeight: 800, fontSize: "1.05rem",
+                          cursor: "pointer",
+                          boxShadow: "0 6px 0 #047857",
+                        }}
+                      >
+                        See your score & topics →
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
@@ -2163,15 +2246,14 @@ export function MascotQuizPlayer({
         <InteractiveMascot
           mode={viewMode}
           onClick={() => {
-            if (isTransitioning) return; // avoid double click issues
+            if (isTransitioning) return;
+            if (viewMode === "lesson") {
+              void startQuiz();
+              return;
+            }
             setIsTransitioning(true);
             setTimeout(() => {
-              if (viewMode === "lesson") {
-                setHasStartedQuiz(true);
-                setViewMode("quiz");
-              } else {
-                setViewMode("lesson");
-              }
+              setViewMode("lesson");
               setIsTransitioning(false);
             }, 450);
           }}

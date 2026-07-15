@@ -227,7 +227,7 @@ export default function StudentDashboardPage() {
                         href={item.learnUrl}
                         className="kid-btn-primary inline-flex !px-4 !py-2 !text-sm"
                       >
-                        {item.phase === "completed" ? "View again →" : "Continue quest →"}
+                        {item.phase === "completed" ? "Review quest →" : "Continue quest →"}
                       </Link>
                     ) : (
                       <p className="text-sm font-bold text-[#b45309]">Ask your teacher for a new invite</p>

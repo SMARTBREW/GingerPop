@@ -31,6 +31,7 @@ interface PlayLessonApi {
 export default function LearnPage() {
   const token = useDynamicParam(1, "token");
   const [loading, setLoading] = useState(true);
+  const [reloadKey, setReloadKey] = useState(0);
   const [error, setError] = useState("");
   const [data, setData] = useState<{
     courseTitle: string;
@@ -60,9 +61,14 @@ export default function LearnPage() {
   } | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError("");
+
     fetch(`/api/learn/${token}`)
       .then((r) => r.json())
       .then((res) => {
+        if (cancelled) return;
         if (res.error) {
           setError(res.error);
           setLoading(false);
@@ -102,10 +108,17 @@ export default function LearnPage() {
         setLoading(false);
       })
       .catch(() => {
+        if (cancelled) return;
         setError("Failed to load course");
         setLoading(false);
       });
-  }, [token]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [token, reloadKey]);
+
+  const reloadInvite = () => setReloadKey((k) => k + 1);
 
   if (loading) {
     return (
@@ -172,6 +185,7 @@ export default function LearnPage() {
       completedLessonIds={data.completedLessonIds}
       contentCompletedLessonIds={data.contentCompletedLessonIds}
       invitedBy={data.invitedBy}
+      onProgressReset={reloadInvite}
     />
   );
 }

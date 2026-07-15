@@ -7,6 +7,7 @@ import { Invitation, IAnswerRecord } from "@/models/Invitation";
 import { Course, ICourse, ICourseQuizQuestion, ILesson } from "@/models/Course";
 import { Admin } from "@/models/Admin";
 import { courseSlug, toPlayLesson, toPlayQuestion } from "@/lib/play-lesson";
+import { resetInvitationForRetake } from "@/lib/invitation-reset";
 
 const router = Router();
 
@@ -198,9 +199,9 @@ router.post("/:token", async (req: Request, res: Response) => {
 
     const invitation = await Invitation.findOne({ token });
     if (!invitation) return jsonError(res, "Invalid invite link", 404);
-    if (isInvitationExpired(invitation)) return jsonError(res, INVITE_EXPIRED_MESSAGE, 410);
-    if (invitation.phase === "completed") {
-      return jsonError(res, "Course already completed", 400);
+    // Completed invites stay open for review / try-again; other expired links are blocked.
+    if (invitation.phase !== "completed" && isInvitationExpired(invitation)) {
+      return jsonError(res, INVITE_EXPIRED_MESSAGE, 410);
     }
 
     const course = await Course.findById(invitation.courseId);
@@ -208,12 +209,41 @@ router.post("/:token", async (req: Request, res: Response) => {
 
     const isQuizOnly = course.lessons.length === 0;
 
+    if (body.action === "reset_attempt") {
+      const maxScore = course.quizQuestions.reduce(
+        (sum: number, q: ICourseQuizQuestion) => sum + q.points,
+        0,
+      );
+      resetInvitationForRetake(invitation, {
+        maxScore,
+        isQuizOnly,
+        rotateToken: false,
+      });
+      await invitation.save();
+      return jsonOk(res, {
+        phase: invitation.phase,
+        score: invitation.score,
+        maxScore: invitation.maxScore,
+        completedLessonIds: [],
+        contentCompletedLessonIds: [],
+        reset: true,
+      });
+    }
+
+    if (invitation.phase === "completed") {
+      return jsonError(res, "Course already completed", 400);
+    }
+    if (isInvitationExpired(invitation)) {
+      return jsonError(res, INVITE_EXPIRED_MESSAGE, 410);
+    }
+
     if (body.action === "complete_lesson") {
       const { lessonId } = body;
       if (!lessonId) return jsonError(res, "Lesson ID required");
 
       const lesson = course.lessons.find((l: ILesson) => l._id.toString() === lessonId);
-      if (!lesson) return jsonError(res, "Lesson not found", 404);
+      // Use 400 (not 404) so CloudFront SPA custom errors never rewrite API JSON to HTML.
+      if (!lesson) return jsonError(res, "Lesson not found", 400);
 
       const lessonObjectId = new mongoose.Types.ObjectId(lessonId);
       const alreadyFullyDone = invitation.completedLessonIds.some(
@@ -262,7 +292,8 @@ router.post("/:token", async (req: Request, res: Response) => {
       const question = course.quizQuestions.find(
         (q: ICourseQuizQuestion) => q._id.toString() === questionId,
       );
-      if (!question) return jsonError(res, "Question not found", 404);
+      // Use 400 (not 404) so CloudFront SPA custom errors never rewrite API JSON to HTML.
+      if (!question) return jsonError(res, "Question not found", 400);
 
       const alreadyAnswered = invitation.answers.some(
         (a: IAnswerRecord) => a.questionId.toString() === questionId,

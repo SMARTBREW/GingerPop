@@ -33,6 +33,7 @@ interface InvitePlayLearnerProps {
   completedLessonIds: string[];
   contentCompletedLessonIds: string[];
   invitedBy?: { name: string; email?: string } | null;
+  onProgressReset?: () => void;
 }
 
 type Level = "topics" | "lessons" | "play";
@@ -52,48 +53,55 @@ export function InvitePlayLearner({
   completedLessonIds,
   contentCompletedLessonIds,
   invitedBy,
+  onProgressReset,
 }: InvitePlayLearnerProps) {
-  const [level, setLevel] = useState<Level>(
-    playLessons.length === 1 ? "play" : "topics",
-  );
-  const [topicId, setTopicId] = useState<string | null>(
-    playLessons.length === 1 ? topics[0]?.id ?? null : null,
-  );
-  const [activeSlug, setActiveSlug] = useState<string | undefined>(
-    playLessons.length === 1 ? playLessons[0]?.id : undefined,
-  );
+  const [level, setLevel] = useState<Level>("topics");
+  const [topicId, setTopicId] = useState<string | null>(null);
+  const [activeSlug, setActiveSlug] = useState<string | undefined>(undefined);
+  const [resetting, setResetting] = useState(false);
 
   const activeTopic = useMemo(
     () => topics.find((t) => t.id === topicId) ?? null,
     [topics, topicId],
   );
 
-  if (phase === "completed") {
-    return (
-      <KidZone className="relative min-h-screen overflow-hidden">
-        <div className="page-shell flex min-h-screen items-center justify-center py-12">
-          <div className="kid-card max-w-lg p-8 text-center sm:p-10">
-            <p className="text-5xl" aria-hidden>
-              🏆
-            </p>
-            <h1 className="game-font mt-4 text-3xl font-bold text-[var(--kid-text)]">
-              Quest complete!
-            </h1>
-            <p className="mt-2 font-semibold text-[var(--kid-muted)]">{courseTitle}</p>
-            <p className="game-font mt-6 text-4xl font-bold tabular-nums text-[var(--kid-text)]">
-              {score}
-              <span className="text-xl font-semibold text-[var(--kid-muted)]"> / {maxScore}</span>
-            </p>
-            {invitedBy && (
-              <p className="mt-3 text-sm text-[var(--kid-muted)]">
-                Invited by {invitedBy.name}
-              </p>
-            )}
-          </div>
-        </div>
-      </KidZone>
-    );
-  }
+  const isCompleted = phase === "completed";
+  const hasProgress =
+    isCompleted ||
+    score > 0 ||
+    completedLessonIds.length > 0 ||
+    contentCompletedLessonIds.length > 0;
+  const reviewMode = isCompleted;
+
+  const handleReset = async (mode: "try_again" | "reset") => {
+    const message =
+      mode === "try_again"
+        ? "Start a fresh graded attempt? Your saved score will be cleared and you can earn stars again."
+        : "Reset all progress on this invite? Score, answers, and lesson completion will be cleared.";
+    if (!window.confirm(message)) return;
+
+    setResetting(true);
+    try {
+      const res = await fetch(`/api/learn/${token}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reset_attempt" }),
+      });
+      const raw = await res.text();
+      let data: { error?: string } = {};
+      try {
+        data = JSON.parse(raw) as { error?: string };
+      } catch {
+        throw new Error("Could not reset. Please refresh and try again.");
+      }
+      if (!res.ok) throw new Error(data.error ?? "Could not reset progress");
+      onProgressReset?.();
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : "Could not reset progress");
+    } finally {
+      setResetting(false);
+    }
+  };
 
   if (level === "play" && activeSlug) {
     return (
@@ -106,7 +114,11 @@ export function InvitePlayLearner({
           maxScore,
           completedLessonIds,
           contentCompletedLessonIds,
-          onExitToMap: playLessons.length > 1 ? () => setLevel("topics") : undefined,
+          reviewMode,
+          onExitToMap: () => {
+            setLevel("topics");
+            setActiveSlug(undefined);
+          },
         }}
       />
     );
@@ -130,8 +142,64 @@ export function InvitePlayLearner({
 
       <main className="page-shell relative py-8 sm:py-12">
         <p className="kid-pill mb-3 border-2 border-[#fcd34d] bg-[#fef9c3] text-[#92400e]">
-          📖 Your invited quest
+          {isCompleted ? "🏆 Quest complete — review or try again" : "📖 Your invited quest"}
         </p>
+
+        {isCompleted && level === "topics" && (
+          <div className="kid-card mb-8 border-2 border-[#86efac] bg-[#f0fdf4] p-5 sm:p-6">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <h2 className="game-font text-2xl font-bold text-[#065f46]">Quest complete!</h2>
+                <p className="mt-1 text-sm font-semibold text-[#047857]">
+                  You finished {courseTitle}. Review below, or start a new graded attempt.
+                </p>
+                {invitedBy && (
+                  <p className="mt-1 text-xs font-semibold text-[var(--kid-muted)]">
+                    Invited by {invitedBy.name}
+                  </p>
+                )}
+              </div>
+              <p className="game-font text-4xl font-bold tabular-nums text-[#065f46]">
+                {score}
+                <span className="text-lg font-semibold text-[#047857]"> / {maxScore}</span>
+              </p>
+            </div>
+            <div className="mt-5 flex flex-wrap gap-3">
+              <button
+                type="button"
+                disabled={resetting}
+                onClick={() => void handleReset("try_again")}
+                className="kid-btn-primary !px-5 !py-2.5 !text-sm"
+              >
+                {resetting ? "Starting…" : "Try again →"}
+              </button>
+              <button
+                type="button"
+                disabled={resetting}
+                onClick={() => void handleReset("reset")}
+                className="kid-btn-secondary !px-5 !py-2.5 !text-sm"
+              >
+                Reset progress
+              </button>
+            </div>
+          </div>
+        )}
+
+        {!isCompleted && hasProgress && level === "topics" && (
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border-2 border-[#e9d5ff] bg-[#faf5ff]/80 px-4 py-3">
+            <p className="text-sm font-semibold text-[var(--kid-muted)]">
+              Progress saved. You can wipe it and start over anytime.
+            </p>
+            <button
+              type="button"
+              disabled={resetting}
+              onClick={() => void handleReset("reset")}
+              className="kid-btn-secondary !px-4 !py-2 !text-sm"
+            >
+              {resetting ? "Resetting…" : "Reset progress"}
+            </button>
+          </div>
+        )}
 
         {level === "topics" && (
           <>
@@ -144,9 +212,11 @@ export function InvitePlayLearner({
             <p className="mt-2 max-w-xl text-base font-semibold text-[var(--kid-muted)]">
               {courseDescription
                 ? courseDescription.replace(/<[^>]*>/g, " ").trim()
-                : "Open a chapter, then a lesson — same as Subjects & Play."}
+                : isCompleted
+                  ? "Open any chapter to review — or tap Try again for a new graded run."
+                  : "Open a chapter, then a lesson — same as Subjects & Play."}
             </p>
-            {invitedBy && (
+            {invitedBy && !isCompleted && (
               <p className="mt-2 text-sm font-semibold text-[var(--kid-muted)]">
                 From {invitedBy.name}
               </p>
@@ -187,7 +257,9 @@ export function InvitePlayLearner({
               <span>{activeTopic.emoji}</span> {activeTopic.title}
             </h1>
             <p className="mt-2 text-base font-semibold text-[var(--kid-muted)]">
-              Tap a lesson to learn, then open the quiz — same as the play page.
+              {isCompleted
+                ? "Tap a lesson to review the content and practice the quiz (no new score)."
+                : "Tap a lesson to learn, then open the quiz — same as the play page."}
             </p>
             <nav className="mb-6 mt-4 text-sm font-bold text-[var(--kid-muted)]">
               <button
@@ -221,7 +293,7 @@ export function InvitePlayLearner({
                           {sub.title}
                         </h2>
                         <p className="mt-3 text-sm font-extrabold text-[#ea580c]">
-                          {done ? "View again →" : "Start lesson →"}
+                          {done || isCompleted ? "Review →" : "Start lesson →"}
                         </p>
                       </div>
                     </div>

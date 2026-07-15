@@ -8,6 +8,7 @@ import { validateCourseStructure, canSendInvites } from "@/lib/course-rules";
 import { buildLessonIdMap, isValidObjectId, resolveLessonObjectId } from "@/lib/course-id-map";
 import { sendCourseInviteEmail } from "@/lib/email";
 import { inviteExpiresAt } from "@/lib/invitation-expiry";
+import { resetInvitationForRetake } from "@/lib/invitation-reset";
 import { Course, ICourseQuizQuestion, ILesson } from "@/models/Course";
 import { Invitation } from "@/models/Invitation";
 import { Admin } from "@/models/Admin";
@@ -63,6 +64,8 @@ function serializeQuestion(q: ICourseQuizQuestion) {
     wrongExplanation: q.wrongExplanation,
     optionEmojis: q.optionEmojis,
     imageUrl: q.imageUrl,
+    audioUrl: q.audioUrl,
+    audioText: q.audioText,
   };
 }
 
@@ -164,6 +167,8 @@ router.get("/:id", async (req: Request, res: Response) => {
       expiresAt: inv.expiresAt,
       completedAt: inv.completedAt,
       invitedByName: adminNameById.get(inv.adminId.toString()) ?? null,
+      inviteLink: `${getAppUrl()}/learn/${inv.token}`,
+      token: inv.token,
     })),
   });
 });
@@ -378,6 +383,8 @@ router.put("/:id", async (req: Request, res: Response) => {
         wrongExplanation?: string;
         optionEmojis?: string[];
         imageUrl?: string;
+        audioUrl?: string;
+        audioText?: string;
       },
       idx: number,
       lessonObjectId: mongoose.Types.ObjectId | null,
@@ -396,13 +403,26 @@ router.put("/:id", async (req: Request, res: Response) => {
             string,
           ])
         : undefined;
+      const filledCount = options.filter((t) => String(t || "").trim().length > 0).length;
+      let correctIndex = typeof q.correctIndex === "number" ? q.correctIndex : 0;
+      if (
+        correctIndex < 0 ||
+        correctIndex > 3 ||
+        !String(options[correctIndex] || "").trim() ||
+        filledCount === 0
+      ) {
+        correctIndex = Math.max(
+          0,
+          options.findIndex((t) => String(t || "").trim().length > 0),
+        );
+      }
       return {
         ...(q.id && isValidObjectId(q.id) ? { _id: new mongoose.Types.ObjectId(q.id) } : {}),
-        type: q.type || "text",
+        type: q.audioUrl ? "audio" : q.imageUrl || q.mediaUrl ? "image" : q.type || "text",
         question: q.question,
         examples: q.examples,
         options,
-        correctIndex: q.correctIndex,
+        correctIndex,
         points: q.points ?? 10,
         timeLimit: typeof q.timeLimit === "number" ? q.timeLimit : 30,
         mediaUrl: q.imageUrl || q.mediaUrl,
@@ -414,6 +434,8 @@ router.put("/:id", async (req: Request, res: Response) => {
         wrongExplanation: q.wrongExplanation,
         optionEmojis,
         imageUrl: q.imageUrl || q.mediaUrl,
+        audioUrl: q.audioUrl,
+        audioText: q.audioText,
         ...(lessonObjectId ? { lessonId: lessonObjectId } : {}),
       };
     };
@@ -537,10 +559,11 @@ router.post("/:id/invitations", async (req: Request, res: Response) => {
       0,
     );
     const isQuizOnly = course.lessons.length === 0;
-    const results: { email: string; sent: boolean; inviteLink: string }[] = [];
+    const results: { email: string; sent: boolean; inviteLink: string; reset: boolean }[] = [];
 
     for (const email of emailList) {
       let invitation = await Invitation.findOne({ courseId: id, email });
+      let wasReset = false;
 
       if (!invitation) {
         const now = new Date();
@@ -554,20 +577,19 @@ router.post("/:id/invitations", async (req: Request, res: Response) => {
           sentAt: now,
           expiresAt: inviteExpiresAt(now),
         });
-      } else if (invitation.phase === "completed") {
-        results.push({
-          email,
-          sent: false,
-          inviteLink: `${getAppUrl()}/learn/${invitation.token}`,
-        });
-        continue;
       } else {
-        invitation.maxScore = maxScore;
-        invitation.token = crypto.randomBytes(32).toString("hex");
-        if (isQuizOnly) invitation.phase = "quiz";
-        const now = new Date();
-        invitation.sentAt = now;
-        invitation.expiresAt = inviteExpiresAt(now);
+        // Same email again = re-invite: reset progress + new token + email
+        wasReset =
+          invitation.phase === "completed" ||
+          invitation.answers.length > 0 ||
+          invitation.completedLessonIds.length > 0 ||
+          (invitation.contentCompletedLessonIds?.length ?? 0) > 0;
+        resetInvitationForRetake(invitation, {
+          maxScore,
+          isQuizOnly,
+          rotateToken: true,
+        });
+        invitation.adminId = new mongoose.Types.ObjectId(auth.admin.id);
         await invitation.save();
       }
 
@@ -582,7 +604,12 @@ router.post("/:id/invitations", async (req: Request, res: Response) => {
         expiresAt: invitation.expiresAt,
       });
 
-      results.push({ email, sent: mailResult.sent, inviteLink });
+      results.push({
+        email,
+        sent: mailResult.sent,
+        inviteLink,
+        reset: wasReset,
+      });
     }
 
     return jsonOk(res, { results });

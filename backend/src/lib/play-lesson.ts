@@ -34,8 +34,9 @@ export function toPlayQuestion(
   const emojis = q.optionEmojis ?? ["🐊", "🐊", "🐊", "😐"];
   const mapped = q.options
     .map((text, i) => ({
-      emoji: emojis[i] || "⭐",
+      emoji: (emojis[i] || "⭐").trim() || "⭐",
       text: stripHtml(text || ""),
+      originalIndex: i,
     }))
     .filter((o) => o.text.trim().length > 0);
 
@@ -43,20 +44,29 @@ export function toPlayQuestion(
     mapped.length >= 2
       ? mapped
       : q.options.map((text, i) => ({
-          emoji: emojis[i] || "⭐",
+          emoji: (emojis[i] || "⭐").trim() || "⭐",
           text: stripHtml(text || `Option ${i + 1}`),
+          originalIndex: i,
         }));
+
+  const remappedCorrect = optionsOut.findIndex((o) => o.originalIndex === q.correctIndex);
+  const correctIndex =
+    remappedCorrect >= 0 ? remappedCorrect : Math.min(q.correctIndex, optionsOut.length - 1);
 
   return {
     id: q._id.toString(),
     question: stripHtml(q.question),
     subtitle: q.subtitle,
     options: optionsOut,
-    ...(includeCorrect ? { correctIndex: q.correctIndex } : {}),
+    ...(includeCorrect ? { correctIndex } : {}),
+    /** Original schema index — used when submitting invite answers */
+    correctOriginalIndex: q.correctIndex,
     explanation: q.explanation || "Great job!",
     wrongExplanation: q.wrongExplanation,
     hint: q.hint,
     imageUrl: q.imageUrl || q.mediaUrl,
+    audioUrl: q.audioUrl,
+    audioText: q.audioText,
     points: q.points,
     lessonId: q.lessonId?.toString(),
   };

@@ -50,6 +50,8 @@ export interface ICourseQuizQuestion {
   wrongExplanation?: string;
   optionEmojis?: [string, string, string, string];
   imageUrl?: string;
+  audioUrl?: string;
+  audioText?: string;
 }
 
 export interface ICourse {
@@ -127,6 +129,8 @@ const CourseQuizQuestionSchema = new Schema<ICourseQuizQuestion>({
     },
   },
   imageUrl: String,
+  audioUrl: String,
+  audioText: String,
 });
 
 const CourseSchema = new Schema<ICourse>(
