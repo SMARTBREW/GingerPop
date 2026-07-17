@@ -5,6 +5,7 @@ import Link from "next/link";
 import { KidZone } from "@/components/layout/KidZone";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { SiteHeader } from "@/components/layout/SiteHeader";
+import { PaginatedList } from "@/components/ui/PaginatedList";
 
 interface StudentCourseItem {
   invitationId: string;
@@ -190,20 +191,33 @@ export default function StudentDashboardPage() {
             </div>
           )}
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            {courses.map((item) => {
+          <PaginatedList
+            items={courses}
+            pageSize={5}
+            keyExtractor={(item) => item.invitationId}
+            renderItem={(item) => {
               const colors = phaseColor(item.phase, item.expired);
               return (
-                <div key={item.invitationId} className="kid-card flex flex-col p-5 sm:p-6">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <span
-                        className="kid-pill"
-                        style={{ background: colors.bg, color: colors.text }}
-                      >
-                        {phaseLabel(item.phase, item.expired)}
-                      </span>
-                      <h3 className="game-font mt-3 text-xl font-bold text-[var(--kid-text)]">
+                <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:p-5">
+                  <div className="flex min-w-0 flex-1 items-start gap-3">
+                    <span className="hidden text-2xl sm:inline" aria-hidden>
+                      🗺️
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span
+                          className="kid-pill !text-xs"
+                          style={{ background: colors.bg, color: colors.text }}
+                        >
+                          {phaseLabel(item.phase, item.expired)}
+                        </span>
+                        {item.maxScore > 0 && (
+                          <p className="text-sm font-extrabold text-[var(--kid-purple)]">
+                            Score {item.score}/{item.maxScore}
+                          </p>
+                        )}
+                      </div>
+                      <h3 className="game-font mt-1.5 text-lg font-bold text-[var(--kid-text)] sm:text-xl">
                         {item.course?.title ?? "Course"}
                       </h3>
                       {item.course?.description && (
@@ -211,18 +225,9 @@ export default function StudentDashboardPage() {
                           {item.course.description}
                         </p>
                       )}
-                      {item.maxScore > 0 && (
-                        <p className="mt-2 text-sm font-extrabold text-[var(--kid-purple)]">
-                          Score {item.score}/{item.maxScore}
-                        </p>
-                      )}
                     </div>
-                    <span className="text-3xl" aria-hidden>
-                      🗺️
-                    </span>
                   </div>
-
-                  <div className="mt-auto pt-5">
+                  <div className="shrink-0 sm:text-right">
                     {!item.expired ? (
                       <Link
                         href={item.learnUrl}
@@ -236,8 +241,8 @@ export default function StudentDashboardPage() {
                   </div>
                 </div>
               );
-            })}
-          </div>
+            }}
+          />
         </section>
       </main>
 

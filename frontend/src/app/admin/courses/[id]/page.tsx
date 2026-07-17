@@ -9,12 +9,13 @@ import { Tabs } from "@/components/ui/Tabs";
 import { Card, CardHeader } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Textarea } from "@/components/ui/Textarea";
-import { RichTextEditor } from "@/components/editor/RichTextEditor";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Spinner } from "@/components/ui/Spinner";
 import { SubjectContentEditor } from "@/components/admin/SubjectContentEditor";
+import { SubjectSetupStep } from "@/components/admin/SubjectSetupStep";
 import { canPublishCourse } from "@/lib/course-rules";
+import { usePagination } from "@/lib/use-pagination";
 import {
   CourseQuizQuestion,
   Lesson,
@@ -37,6 +38,7 @@ interface InvitationRow {
 
 type LessonRow = Lesson & { id: string };
 type QuestionRow = CourseQuizQuestion & { id: string };
+type SetupPhase = "subject" | "build" | "invites";
 
 export default function CourseEditorPage() {
   const id = useDynamicParam(2, "id");
@@ -60,6 +62,7 @@ export default function CourseEditorPage() {
     { email: string; sent: boolean; inviteLink: string; reset?: boolean }[]
   >([]);
   const [tab, setTab] = useState<"content" | "invites">("content");
+  const [setupPhase, setSetupPhase] = useState<SetupPhase>("subject");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [inviting, setInviting] = useState(false);
@@ -346,6 +349,8 @@ export default function CourseEditorPage() {
     await sendInvitesToEmails([email]);
   };
 
+  const invitationPages = usePagination(invitations, 5);
+
   if (loading) {
     return (
       <AdminShell>
@@ -358,65 +363,69 @@ export default function CourseEditorPage() {
 
   return (
     <AdminShell flush>
-      <div className="sticky top-14 z-20 border-b border-gray-200 bg-white/95 px-4 py-4 backdrop-blur-sm sm:px-6 lg:top-0 lg:px-8">
-        <PageHeader
-          breadcrumbs={[
-            { label: "Subjects", href: "/teacher/dashboard" },
-            { label: title || "Untitled subject" },
-          ]}
-          title=""
-          actions={
-            <div className="flex items-center gap-3">
-              <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-600">
-                <input
-                  type="checkbox"
-                  checked={published}
-                  onChange={(e) => handlePublishToggle(e.target.checked)}
-                  className="rounded border-gray-300 text-[var(--primary)] focus:ring-[var(--primary)]"
-                />
-                Published
-              </label>
-              {tab === "content" && (
-                <Button onClick={handleSave} disabled={saving}>
-                  {saving ? "Saving..." : "Save changes"}
-                </Button>
-              )}
-            </div>
-          }
-        />
-        <p className="mt-2 text-xs font-semibold text-gray-500">
-          Draft autosaves in this browser on every edit
-          {lastSavedAt ? ` · last saved to server ${lastSavedAt}` : " · click Save changes to store on server"}
-        </p>
-        <div className="mt-2 space-y-3">
-          <input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Subject title (e.g. Maths)"
-            className="w-full border-0 bg-transparent text-2xl font-semibold tracking-tight text-gray-900 placeholder:text-gray-300 focus:outline-none sm:text-3xl"
+      <div className="sticky top-14 z-20 border-b border-gray-200 bg-white/95 px-4 py-3 backdrop-blur-sm sm:px-6 lg:top-0 lg:px-8">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <PageHeader
+            breadcrumbs={[
+              { label: "Subjects", href: "/teacher/dashboard" },
+              { label: title || "Untitled subject" },
+            ]}
+            title=""
           />
-          <RichTextEditor
-            value={description}
-            onChange={setDescription}
-            placeholder="Add a brief description… (bold, lists, or dictate)"
-            minHeight={72}
-            enableDictate
-          />
-
           <div className="flex flex-wrap items-center gap-3">
-            <Badge variant={published ? "success" : "neutral"}>
-              {published ? "Published" : "Draft"}
-            </Badge>
-            <span className="text-sm text-gray-500">
-              {lessons.length} lessons · {quizQuestions.length} quiz questions
-            </span>
-            {subjectMeta.slug && (
-              <span className="text-sm font-semibold text-[var(--kid-muted)]">
-                /subjects → {subjectMeta.slug}
-              </span>
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-600">
+              <input
+                type="checkbox"
+                checked={published}
+                onChange={(e) => handlePublishToggle(e.target.checked)}
+                className="rounded border-gray-300 text-[var(--primary)] focus:ring-[var(--primary)]"
+              />
+              Published
+            </label>
+            {tab === "content" && setupPhase !== "invites" && (
+              <Button onClick={handleSave} disabled={saving}>
+                {saving ? "Saving..." : "Save changes"}
+              </Button>
             )}
           </div>
         </div>
+
+        <div className="mt-3 flex flex-wrap gap-2">
+          {(
+            [
+              { id: "subject" as const, label: "1. Subject" },
+              { id: "build" as const, label: "2. Chapters & lessons" },
+              { id: "invites" as const, label: `3. Learners (${invitations.length})` },
+            ] as const
+          ).map((step) => (
+            <button
+              key={step.id}
+              type="button"
+              onClick={() => {
+                if (step.id === "invites") {
+                  setTab("invites");
+                  setSetupPhase("invites");
+                } else {
+                  setTab("content");
+                  setSetupPhase(step.id);
+                }
+              }}
+              className={`rounded-full px-3 py-1.5 text-sm font-bold transition ${
+                (step.id === "invites" && tab === "invites") ||
+                (step.id !== "invites" && tab === "content" && setupPhase === step.id)
+                  ? "bg-[#ffedd5] text-[#c2410c]"
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+              }`}
+            >
+              {step.label}
+            </button>
+          ))}
+        </div>
+
+        <p className="mt-2 text-xs font-semibold text-gray-500">
+          Step by step like Subjects → chapter → lesson → play → quiz
+          {lastSavedAt ? ` · last saved ${lastSavedAt}` : ""}
+        </p>
       </div>
 
       <div className="px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
@@ -444,11 +453,29 @@ export default function CourseEditorPage() {
             { id: "invites" as const, label: `Learners (${invitations.length})` },
           ]}
           active={tab}
-          onChange={setTab}
-          className="mb-8"
+          onChange={(t) => {
+            setTab(t);
+            if (t === "invites") setSetupPhase("invites");
+            else if (setupPhase === "invites") setSetupPhase("build");
+          }}
+          className="mb-8 hidden"
         />
 
-        {tab === "content" && (
+        {tab === "content" && setupPhase === "subject" && (
+          <SubjectSetupStep
+            title={title}
+            description={description}
+            meta={subjectMeta}
+            onTitleChange={setTitle}
+            onDescriptionChange={setDescription}
+            onMetaChange={setSubjectMeta}
+            onSave={handleSave}
+            saving={saving}
+            onNext={() => setSetupPhase("build")}
+          />
+        )}
+
+        {tab === "content" && setupPhase === "build" && (
           <SubjectContentEditor
             subjectTitle={title}
             subjectDescription={description}
@@ -458,6 +485,9 @@ export default function CourseEditorPage() {
             quizQuestions={quizQuestions}
             onLessonsChange={setLessons}
             onQuestionsChange={setQuizQuestions}
+            onSave={handleSave}
+            saving={saving}
+            onBackToSubject={() => setSetupPhase("subject")}
           />
         )}
 
@@ -546,7 +576,7 @@ export default function CourseEditorPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {invitations.map((inv) => (
+                    {invitationPages.pageItems.map((inv) => (
                       <tr key={inv.id} className="hover:bg-gray-50/80">
                         <td className="px-4 py-4 text-base text-gray-900 sm:px-6">
                           <div>{inv.email}</div>
@@ -617,6 +647,35 @@ export default function CourseEditorPage() {
                     ))}
                   </tbody>
                 </table>
+                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 bg-gray-50 px-4 py-3 sm:px-6">
+                  <p className="text-sm text-gray-600">
+                    Showing {invitationPages.rangeStart}–{invitationPages.rangeEnd} of{" "}
+                    {invitationPages.totalItems}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      disabled={!invitationPages.hasPrev}
+                      onClick={invitationPages.goPrev}
+                    >
+                      ← Prev
+                    </Button>
+                    <span className="text-sm font-medium text-gray-700">
+                      Page {invitationPages.page} of {invitationPages.totalPages}
+                    </span>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      disabled={!invitationPages.hasNext}
+                      onClick={invitationPages.goNext}
+                    >
+                      Next →
+                    </Button>
+                  </div>
+                </div>
               </div>
             ) : (
               <EmptyState

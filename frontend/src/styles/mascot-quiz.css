@@ -1348,3 +1348,27 @@
     animation: collapse-to-animal 0.35s cubic-bezier(0.19, 1, 0.22, 1) forwards;
   }
 }
+
+/* Admin course editor — play/quiz preview (not inside mascot-shell) */
+.admin-play-editor .admin-mascot-preview.mascot-card-wrapper,
+.admin-quiz-editor .admin-mascot-preview.mascot-card-wrapper {
+  display: block;
+  flex: none;
+  max-height: none;
+  min-height: 0;
+  padding: 0;
+  width: 100%;
+}
+
+.admin-play-editor .admin-mascot-preview .mascot-player-card,
+.admin-quiz-editor .admin-mascot-preview .mascot-player-card {
+  min-height: 520px;
+  max-height: none;
+  width: 100%;
+}
+
+.admin-play-editor .admin-mascot-preview .mascot-player-right,
+.admin-quiz-editor .admin-mascot-preview .mascot-player-right-quiz {
+  max-height: none;
+  overflow: visible;
+}

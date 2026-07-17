@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AdminShell } from "@/components/layout/AdminShell";
+import { PaginatedList } from "@/components/ui/PaginatedList";
 
 interface ManagedAdmin {
   id: string;
@@ -165,13 +166,19 @@ export default function SuperAdminsPage() {
                 </p>
               </div>
             ) : (
-              <div className="grid gap-4 sm:grid-cols-2">
-                {admins.map((a) => (
-                  <div key={a.id} className="kid-card flex flex-col p-5 sm:p-6">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
+              <PaginatedList
+                items={admins}
+                pageSize={5}
+                keyExtractor={(a) => a.id}
+                renderItem={(a) => (
+                  <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:p-5">
+                    <div className="flex min-w-0 flex-1 items-start gap-3">
+                      <span className="hidden text-2xl sm:inline" aria-hidden>
+                        👩‍🏫
+                      </span>
+                      <div className="min-w-0 flex-1">
                         <span
-                          className="kid-pill"
+                          className="kid-pill !text-xs"
                           style={{
                             background: a.active ? "#dcfce7" : "#fef3c7",
                             color: a.active ? "#166534" : "#92400e",
@@ -179,14 +186,13 @@ export default function SuperAdminsPage() {
                         >
                           {a.active ? "Active" : "Inactive"}
                         </span>
-                        <h3 className="game-font mt-3 text-xl font-bold text-[var(--kid-text)]">{a.name}</h3>
+                        <h3 className="game-font mt-1.5 text-lg font-bold text-[var(--kid-text)] sm:text-xl">
+                          {a.name}
+                        </h3>
                         <p className="mt-1 break-all text-sm font-semibold text-[var(--kid-muted)]">{a.email}</p>
                       </div>
-                      <span className="text-3xl" aria-hidden>
-                        👩‍🏫
-                      </span>
                     </div>
-                    <div className="mt-auto pt-5">
+                    <div className="shrink-0">
                       <button
                         type="button"
                         onClick={() => toggleActive(a.id, a.active)}
@@ -196,8 +202,8 @@ export default function SuperAdminsPage() {
                       </button>
                     </div>
                   </div>
-                ))}
-              </div>
+                )}
+              />
             )}
           </section>
         </>

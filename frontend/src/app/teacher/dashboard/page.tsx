@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AdminShell } from "@/components/layout/AdminShell";
+import { PaginatedList } from "@/components/ui/PaginatedList";
 
 interface CourseSummary {
   id: string;
@@ -133,12 +134,6 @@ export default function TeacherDashboardPage() {
               <a href="#create-course" className="kid-btn-primary !px-5 !py-2.5 !text-sm">
                 Create a subject →
               </a>
-              <Link href="/teacher/students" className="kid-btn-secondary !px-5 !py-2.5 !text-sm">
-                Manage students
-              </Link>
-              <a href="#all-courses" className="kid-btn-secondary !px-5 !py-2.5 !text-sm">
-                My subjects
-              </a>
             </div>
           </section>
 
@@ -213,36 +208,42 @@ export default function TeacherDashboardPage() {
               </div>
             )}
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              {courses.map((course) => (
-                <div key={course.id} className="kid-card flex flex-col p-5 sm:p-6">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <span
-                        className="kid-pill"
-                        style={{
-                          background: course.published ? "#dcfce7" : "#fef3c7",
-                          color: course.published ? "#166534" : "#92400e",
-                        }}
-                      >
-                        {course.published ? "Published" : "Draft"}
-                      </span>
-                      <h3 className="game-font mt-3 text-xl font-bold text-[var(--kid-text)]">{course.title}</h3>
+            <PaginatedList
+              items={courses}
+              pageSize={5}
+              keyExtractor={(course) => course.id}
+              renderItem={(course) => (
+                <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:p-5">
+                  <div className="flex min-w-0 flex-1 items-start gap-3">
+                    <span className="hidden text-2xl sm:inline" aria-hidden>
+                      🗺️
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span
+                          className="kid-pill !text-xs"
+                          style={{
+                            background: course.published ? "#dcfce7" : "#fef3c7",
+                            color: course.published ? "#166534" : "#92400e",
+                          }}
+                        >
+                          {course.published ? "Published" : "Draft"}
+                        </span>
+                        <p className="text-sm font-extrabold text-[var(--kid-purple)]">
+                          {course.lessonCount} lessons · {course.quizCount} questions
+                        </p>
+                      </div>
+                      <h3 className="game-font mt-1.5 text-lg font-bold text-[var(--kid-text)] sm:text-xl">
+                        {course.title}
+                      </h3>
                       {course.description && (
                         <p className="mt-1 line-clamp-2 text-sm font-semibold text-[var(--kid-muted)]">
                           {course.description}
                         </p>
                       )}
-                      <p className="mt-2 text-sm font-extrabold text-[var(--kid-purple)]">
-                        {course.lessonCount} lessons · {course.quizCount} questions
-                      </p>
                     </div>
-                    <span className="text-3xl" aria-hidden>
-                      🗺️
-                    </span>
                   </div>
-
-                  <div className="mt-auto flex flex-wrap items-center gap-2 pt-5">
+                  <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
                     <Link
                       href={`/admin/courses/${course.id}`}
                       className="kid-btn-primary inline-flex !px-4 !py-2 !text-sm"
@@ -258,8 +259,8 @@ export default function TeacherDashboardPage() {
                     </button>
                   </div>
                 </div>
-              ))}
-            </div>
+              )}
+            />
           </section>
         </>
       )}
