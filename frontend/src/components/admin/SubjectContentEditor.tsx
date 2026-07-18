@@ -382,14 +382,15 @@ function PlayLayoutEditor({
     : [{ ...EMPTY_LESSON_PAGE, title: "Lesson page 1" }];
   const page = pages[Math.min(pageIndex, pages.length - 1)] ?? pages[0];
 
-  const updatePage = (patch: Partial<LessonPage>) => {
+  const updatePage = (patch: Partial<LessonPage>, lessonPatch: Partial<LessonRow> = {}) => {
     const next = pages.map((p, i) => (i === pageIndex ? { ...p, ...patch } : p));
     onLessonChange({
       ...lesson,
+      ...lessonPatch,
       pages: next,
       content: next.map((p) => `${p.title}\n${p.content ?? ""}`).join("\n\n"),
-      imageUrl: lesson.imageUrl || next[0]?.imageUrl,
-      mediaUrl: lesson.imageUrl || next[0]?.imageUrl || lesson.mediaUrl,
+      imageUrl: next[0]?.imageUrl || "",
+      mediaUrl: next[0]?.imageUrl || "",
     });
   };
 
@@ -422,52 +423,28 @@ function PlayLayoutEditor({
             />
           </FieldHint>
 
-          <div className="mt-3 flex min-h-[200px] flex-1 flex-col rounded-2xl border-2 border-dashed border-[#fdba74] bg-[#fff7ed]/50 p-3">
+          <div className="mt-3 flex min-h-[200px] w-full flex-1 items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-[#fdba74] bg-[#fff7ed]/50 p-3">
             {(page.videoUrl || lesson.videoUrl) && (
               <video
                 src={page.videoUrl || lesson.videoUrl}
                 controls
                 playsInline
-                className="mb-3 max-h-64 w-full rounded-xl bg-black"
+                className="max-h-64 w-full rounded-xl bg-black object-contain"
               />
             )}
-            {(lesson.imageUrl || page.imageUrl || lesson.mediaUrl) && (
+            {!(page.videoUrl || lesson.videoUrl) && (lesson.imageUrl || page.imageUrl || lesson.mediaUrl) && (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={lesson.imageUrl || page.imageUrl || lesson.mediaUrl}
                 alt=""
-                className="mb-3 max-h-56 w-full rounded-xl object-contain"
+                className="max-h-64 w-full rounded-xl object-contain"
               />
             )}
-            <MediaUploader
-              type="image"
-              value={lesson.imageUrl || page.imageUrl || lesson.mediaUrl}
-              onChange={(url) => {
-                onLessonChange({
-                  ...lesson,
-                  imageUrl: url,
-                  mediaUrl: url,
-                  type: "image",
-                });
-                updatePage({ imageUrl: url });
-              }}
-              label="Lesson image — left panel poster kids see"
-            />
-            <div className="mt-3">
-              <MediaUploader
-                type="video"
-                value={page.videoUrl || lesson.videoUrl}
-                onChange={(videoUrl) => {
-                  onLessonChange({
-                    ...lesson,
-                    videoUrl,
-                    type: videoUrl ? "video" : lesson.imageUrl ? "image" : lesson.audioUrl ? "audio" : "text",
-                  });
-                  updatePage({ videoUrl });
-                }}
-                label="Lesson video — record or upload (optional)"
-              />
-            </div>
+            {!(page.videoUrl || lesson.videoUrl || lesson.imageUrl || page.imageUrl || lesson.mediaUrl) && (
+              <p className="px-4 text-center text-sm font-bold text-[var(--kid-muted)]">
+                Your lesson image or video preview appears here.
+              </p>
+            )}
           </div>
           <p className="mt-3 text-sm font-extrabold text-[var(--kid-muted)]">
             Lesson page {pageIndex + 1} of {pages.length}
@@ -602,6 +579,36 @@ function PlayLayoutEditor({
           </div>
         </div>
       </div>
+      </div>
+
+      <div className="kid-card grid items-start gap-4 p-4 lg:grid-cols-2 sm:p-5">
+        <MediaUploader
+          type="image"
+          value={page.imageUrl || lesson.imageUrl || lesson.mediaUrl}
+          onChange={(imageUrl) =>
+            updatePage(
+              { imageUrl },
+              {
+                type: imageUrl ? "image" : page.videoUrl ? "video" : page.audioUrl ? "audio" : "text",
+              },
+            )
+          }
+          label="Lesson image — upload or remove the left-panel poster"
+        />
+        <MediaUploader
+          type="video"
+          value={page.videoUrl || lesson.videoUrl}
+          onChange={(videoUrl) =>
+            updatePage(
+              { videoUrl },
+              {
+                videoUrl,
+                type: videoUrl ? "video" : page.imageUrl ? "image" : page.audioUrl ? "audio" : "text",
+              },
+            )
+          }
+          label="Lesson video — record, upload, or remove (optional)"
+        />
       </div>
 
       <div className="kid-card grid gap-4 p-4 sm:grid-cols-2 sm:p-5">
