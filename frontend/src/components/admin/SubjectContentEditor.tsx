@@ -60,7 +60,8 @@ function plainPreview(html: string) {
 }
 
 function topicKey(lesson: LessonRow) {
-  return (lesson.topicTitle || "Numbers").trim() || "Numbers";
+  const title = lesson.topicTitle ?? "";
+  return title.trim() ? title : "Numbers";
 }
 
 function Editable({
@@ -130,39 +131,28 @@ function QuizCardEditor({
 }) {
   const emojis = q.optionEmojis ?? ["🐊", "🐊", "🐊", "😐"];
   const previewImage = q.imageUrl || q.mediaUrl;
+  const previewVideo = q.videoUrl;
+  const hasVisual = Boolean(previewImage || previewVideo);
 
   return (
     <div className="admin-quiz-editor">
       <div className="admin-mascot-preview mascot-card-wrapper">
         <div className="mascot-player-card">
-        {previewImage && (
+        {hasVisual && (
           <div className="mascot-player-left-quiz" style={{ flexDirection: "column", gap: "0.75rem" }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={previewImage}
-              alt=""
-              className="max-h-56 w-full rounded-xl object-contain"
-            />
+            {previewVideo ? (
+              <video src={previewVideo} controls playsInline className="max-h-56 w-full rounded-xl bg-black" />
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={previewImage} alt="" className="max-h-56 w-full rounded-xl object-contain" />
+            )}
             <p className="text-xs font-bold text-[var(--kid-muted)]">
               Question {idx + 1} of {total}
             </p>
-            <MediaUploader
-              type="image"
-              value={previewImage}
-              onChange={(url) =>
-                onChange({
-                  ...q,
-                  imageUrl: url,
-                  mediaUrl: url,
-                  type: url ? "image" : q.audioUrl ? "audio" : "text",
-                })
-              }
-              label="Quiz image — left panel (optional)"
-            />
           </div>
         )}
 
-        <div className="mascot-player-right-quiz" style={{ width: previewImage ? undefined : "100%", flex: 1 }}>
+        <div className="mascot-player-right-quiz" style={{ width: hasVisual ? undefined : "100%", flex: 1 }}>
           <div className="mb-4 flex items-center justify-between gap-3">
             <span className="kid-pill border border-[#fde68a] bg-[#fef9c3] text-[#92400e]">
               Q{idx + 1} OF {total}
@@ -172,7 +162,7 @@ function QuizCardEditor({
             </button>
           </div>
 
-          {!previewImage && (
+          <div className="grid gap-3 sm:grid-cols-2">
             <MediaUploader
               type="image"
               value={previewImage}
@@ -181,12 +171,24 @@ function QuizCardEditor({
                   ...q,
                   imageUrl: url,
                   mediaUrl: url,
-                  type: url ? "image" : q.audioUrl ? "audio" : "text",
+                  type: q.videoUrl ? "video" : url ? "image" : q.audioUrl ? "audio" : "text",
                 })
               }
               label="Quiz image — left panel (optional)"
             />
-          )}
+            <MediaUploader
+              type="video"
+              value={previewVideo}
+              onChange={(videoUrl) =>
+                onChange({
+                  ...q,
+                  videoUrl,
+                  type: videoUrl ? "video" : previewImage ? "image" : q.audioUrl ? "audio" : "text",
+                })
+              }
+              label="Quiz video — record or upload (optional)"
+            />
+          </div>
 
           <FieldHint
             label="Question text"
@@ -215,6 +217,41 @@ function QuizCardEditor({
             />
           </FieldHint>
 
+          <div className="mt-3 rounded-2xl border-2 border-[#e9d5ff] bg-[#faf5ff] p-3">
+            <label className="flex cursor-pointer items-center justify-between gap-3">
+              <span>
+                <span className="block text-sm font-bold text-[var(--kid-text)]">Question timer</span>
+                <span className="block text-xs font-semibold text-[var(--kid-muted)]">
+                  Turn it off when learners should have unlimited time.
+                </span>
+              </span>
+              <input
+                type="checkbox"
+                checked={(q.timeLimit ?? 0) > 0}
+                onChange={(e) => onChange({ ...q, timeLimit: e.target.checked ? 30 : 0 })}
+                className="h-5 w-5 rounded border-gray-300 text-[var(--kid-purple)]"
+              />
+            </label>
+            {(q.timeLimit ?? 0) > 0 && (
+              <label className="mt-3 block">
+                <span className="text-xs font-bold text-[var(--kid-muted)]">Seconds allowed</span>
+                <input
+                  type="number"
+                  min={5}
+                  max={600}
+                  value={q.timeLimit}
+                  onChange={(e) =>
+                    onChange({
+                      ...q,
+                      timeLimit: Math.max(5, Math.min(600, Number(e.target.value) || 30)),
+                    })
+                  }
+                  className="mt-1 w-32 rounded-xl border-2 border-[#e9d5ff] bg-white px-3 py-2 font-bold outline-none focus:border-[#a78bfa]"
+                />
+              </label>
+            )}
+          </div>
+
           <div className="mt-3">
             <MediaUploader
               type="audio"
@@ -223,7 +260,7 @@ function QuizCardEditor({
                 onChange({
                   ...q,
                   audioUrl: url,
-                  type: url ? "audio" : previewImage ? "image" : "text",
+                  type: q.videoUrl ? "video" : url ? "audio" : previewImage ? "image" : "text",
                 })
               }
               onTranscript={(audioText) => onChange({ ...q, audioText })}
@@ -340,7 +377,9 @@ function PlayLayoutEditor({
   onPageIndex: (idx: number) => void;
   onOpenQuiz: () => void;
 }) {
-  const pages = lesson.pages?.length ? lesson.pages : [{ ...EMPTY_LESSON_PAGE, title: "1. Topic" }];
+  const pages = lesson.pages?.length
+    ? lesson.pages
+    : [{ ...EMPTY_LESSON_PAGE, title: "Lesson page 1" }];
   const page = pages[Math.min(pageIndex, pages.length - 1)] ?? pages[0];
 
   const updatePage = (patch: Partial<LessonPage>) => {
@@ -384,6 +423,14 @@ function PlayLayoutEditor({
           </FieldHint>
 
           <div className="mt-3 flex min-h-[200px] flex-1 flex-col rounded-2xl border-2 border-dashed border-[#fdba74] bg-[#fff7ed]/50 p-3">
+            {(page.videoUrl || lesson.videoUrl) && (
+              <video
+                src={page.videoUrl || lesson.videoUrl}
+                controls
+                playsInline
+                className="mb-3 max-h-64 w-full rounded-xl bg-black"
+              />
+            )}
             {(lesson.imageUrl || page.imageUrl || lesson.mediaUrl) && (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -406,9 +453,24 @@ function PlayLayoutEditor({
               }}
               label="Lesson image — left panel poster kids see"
             />
+            <div className="mt-3">
+              <MediaUploader
+                type="video"
+                value={page.videoUrl || lesson.videoUrl}
+                onChange={(videoUrl) => {
+                  onLessonChange({
+                    ...lesson,
+                    videoUrl,
+                    type: videoUrl ? "video" : lesson.imageUrl ? "image" : lesson.audioUrl ? "audio" : "text",
+                  });
+                  updatePage({ videoUrl });
+                }}
+                label="Lesson video — record or upload (optional)"
+              />
+            </div>
           </div>
           <p className="mt-3 text-sm font-extrabold text-[var(--kid-muted)]">
-            Topic {pageIndex + 1} of {pages.length}
+            Lesson page {pageIndex + 1} of {pages.length}
           </p>
         </div>
 
@@ -447,7 +509,7 @@ function PlayLayoutEditor({
           </div>
 
           <FieldHint
-            label="Topic heading"
+            label="Lesson page heading"
             hint="Bold heading under the mascot — like “1. What is Compare in Maths?”"
             example="1. What is Compare in Maths?"
           >
@@ -527,13 +589,13 @@ function PlayLayoutEditor({
                       ...lesson,
                       pages: [
                         ...pages,
-                        { ...EMPTY_LESSON_PAGE, title: `${pages.length + 1}. New topic` },
+                        { ...EMPTY_LESSON_PAGE, title: `Lesson page ${pages.length + 1}` },
                       ],
                     })
                   }
                   className="kid-btn-secondary !px-4 !py-2 !text-sm"
                 >
-                  + Topic page
+                  + Lesson page
                 </button>
               )}
             </div>
@@ -545,7 +607,7 @@ function PlayLayoutEditor({
       <div className="kid-card grid gap-4 p-4 sm:grid-cols-2 sm:p-5">
         <FieldHint
           label="Play URL slug"
-          hint="Link on /play?lesson=…"
+          hint="Readable lesson name. If another lesson uses it, GingerPop adds a short unique ID when you save."
           example="comparing-numbers"
         >
           <Editable
@@ -562,6 +624,144 @@ function PlayLayoutEditor({
         </div>
       </div>
     </div>
+  );
+}
+
+export function StandaloneQuizEditor({
+  lessons,
+  quizQuestions,
+  onLessonsChange,
+  onQuestionsChange,
+  onSave,
+  saving,
+  onBack,
+  onNext,
+}: {
+  lessons: LessonRow[];
+  quizQuestions: QuestionRow[];
+  onLessonsChange: (lessons: LessonRow[]) => void;
+  onQuestionsChange: (questions: QuestionRow[]) => void;
+  onSave: () => void;
+  saving?: boolean;
+  onBack: () => void;
+  onNext: () => void;
+}) {
+  const standaloneQuestions = quizQuestions.filter((q) => !q.lessonId);
+  const [questionIndex, setQuestionIndex] = useState(0);
+
+  const addQuestion = () => {
+    const next: QuestionRow = {
+      ...EMPTY_QUIZ_QUESTION,
+      id: `new-q-${Date.now()}`,
+      order: standaloneQuestions.length,
+      options: ["", "", "", ""],
+      optionEmojis: ["🐊", "🐊", "🐊", "😐"],
+      timeLimit: 0,
+    };
+    onQuestionsChange([...quizQuestions, next]);
+    setQuestionIndex(standaloneQuestions.length);
+  };
+
+  return (
+    <SubjectWizardChrome
+      title="🎯 Standalone quiz"
+      subtitle="An alternative to chapters and lessons. Learners open the quiz directly."
+      breadcrumbs={[{ label: "Subject", onClick: onBack }, { label: "Standalone quiz" }]}
+      footer={
+        <WizardStepFooter
+          onBack={onBack}
+          backLabel="← Chapters & lessons"
+          onSave={onSave}
+          saving={saving}
+          onNext={onNext}
+          nextLabel="Next: Learners →"
+          nextDisabled={lessons.length > 0 || standaloneQuestions.length === 0}
+        />
+      }
+    >
+      {lessons.length > 0 ? (
+        <div className="kid-card border-amber-200 bg-amber-50 p-6">
+          <h2 className="game-font text-xl font-bold text-amber-900">Choose one course format</h2>
+          <p className="mt-2 text-sm font-semibold text-amber-800">
+            This subject already has chapters and lessons. A standalone quiz has no lessons, so it
+            cannot be combined with that format.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              const ok = window.confirm(
+                "Remove every chapter, lesson, and lesson-linked quiz question and switch to a standalone quiz?",
+              );
+              if (!ok) return;
+              onLessonsChange([]);
+              onQuestionsChange(quizQuestions.filter((q) => !q.lessonId));
+            }}
+            className="mt-4 rounded-full border-2 border-red-200 bg-white px-4 py-2 text-sm font-extrabold text-red-700 hover:bg-red-50"
+          >
+            Remove lessons and use standalone quiz
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm font-semibold text-[var(--kid-muted)]">
+              {standaloneQuestions.length} standalone question
+              {standaloneQuestions.length === 1 ? "" : "s"}
+            </p>
+            <button type="button" onClick={addQuestion} className="kid-btn-primary !px-4 !py-2 !text-sm">
+              + Add quiz question
+            </button>
+          </div>
+
+          {standaloneQuestions.length === 0 ? (
+            <div className="kid-card p-8 text-center">
+              <p className="text-5xl">🎯</p>
+              <h2 className="game-font mt-3 text-2xl font-bold">No standalone questions yet</h2>
+              <p className="mt-2 text-sm font-semibold text-[var(--kid-muted)]">
+                Add a question to create a quiz learners can play without opening a lesson.
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="flex flex-wrap gap-2">
+                {standaloneQuestions.map((question, index) => (
+                  <button
+                    key={question.id}
+                    type="button"
+                    onClick={() => setQuestionIndex(index)}
+                    className={`kid-pill border-2 ${
+                      questionIndex === index
+                        ? "border-[#ea580c] bg-[#ffedd5] text-[#c2410c]"
+                        : "border-gray-200 bg-white text-[var(--kid-muted)]"
+                    }`}
+                  >
+                    Q{index + 1}
+                  </button>
+                ))}
+              </div>
+              <QuizCardEditor
+                q={standaloneQuestions[Math.min(questionIndex, standaloneQuestions.length - 1)]}
+                idx={Math.min(questionIndex, standaloneQuestions.length - 1)}
+                total={standaloneQuestions.length}
+                onChange={(updated) =>
+                  onQuestionsChange(
+                    quizQuestions.map((question) =>
+                      question.id === updated.id ? updated : question,
+                    ),
+                  )
+                }
+                onRemove={() => {
+                  const current =
+                    standaloneQuestions[Math.min(questionIndex, standaloneQuestions.length - 1)];
+                  onQuestionsChange(quizQuestions.filter((question) => question.id !== current.id));
+                  setQuestionIndex((index) => Math.max(0, index - 1));
+                }}
+              />
+            </>
+          )}
+        </div>
+      )}
+    </SubjectWizardChrome>
   );
 }
 
@@ -585,13 +785,17 @@ export function SubjectContentEditor({
   const [quizIndex, setQuizIndex] = useState(0);
 
   const topics = useMemo(() => {
-    const map = new Map<string, { title: string; emoji: string; lessons: LessonRow[] }>();
+    const map = new Map<
+      string,
+      { title: string; emoji: string; description: string; lessons: LessonRow[] }
+    >();
     for (const lesson of lessons) {
       const title = topicKey(lesson);
       if (!map.has(title)) {
         map.set(title, {
           title,
           emoji: lesson.topicEmoji || "🐊",
+          description: lesson.topicDescription || "",
           lessons: [],
         });
       }
@@ -615,6 +819,7 @@ export function SubjectContentEditor({
         id,
         topicTitle: name,
         topicEmoji: "📖",
+        topicDescription: "",
         title: "New lesson",
         slug: `lesson-${Date.now()}`,
         order: lessons.length,
@@ -626,6 +831,8 @@ export function SubjectContentEditor({
 
   const addLesson = (topicTitle: string, topicEmoji: string) => {
     const id = `new-${Date.now()}`;
+    const topicDescription =
+      lessons.find((lesson) => topicKey(lesson) === topicTitle)?.topicDescription || "";
     onLessonsChange([
       ...lessons,
       {
@@ -633,7 +840,8 @@ export function SubjectContentEditor({
         id,
         topicTitle,
         topicEmoji,
-        title: "New subtopic",
+        topicDescription,
+        title: "New lesson",
         slug: `lesson-${Date.now()}`,
         badgeText: "1. NEW LESSON",
         mascotSpeech: "Hey there! Let's start this lesson.",
@@ -670,7 +878,7 @@ export function SubjectContentEditor({
 
   const deleteLesson = (lesson: LessonRow) => {
     const ok = window.confirm(
-      `Delete subtopic “${lesson.title || "Untitled lesson"}”?\n\nThis removes the lesson and its quiz questions. Save changes to store on the server.`,
+      `Delete lesson “${lesson.title || "Untitled lesson"}”?\n\nThis removes the lesson and its quiz questions. Save changes to store on the server.`,
     );
     if (!ok) return;
 
@@ -682,11 +890,11 @@ export function SubjectContentEditor({
     }
   };
 
-  /* ─────────── TOPICS (like Maths topics page) ─────────── */
+  /* ─────────── CHAPTERS ─────────── */
   if (view === "topics") {
     return (
       <SubjectWizardChrome
-        title={`${meta.emoji || "📚"} ${subjectTitle || "Subject"} topics`}
+        title={`${meta.emoji || "📚"} ${subjectTitle || "Subject"} chapters`}
         subtitle="Open a chapter to see the lessons inside — same cards kids see on Subjects."
         breadcrumbs={[
           { label: "Subjects", onClick: onBackToSubject },
@@ -711,7 +919,7 @@ export function SubjectContentEditor({
         <div className="grid gap-4 sm:grid-cols-2">
           {topics.map((t) => (
             <div
-              key={t.title}
+              key={t.lessons[0]?.id ?? t.title}
               className="kid-card relative p-5 text-left transition-transform hover:-translate-y-1"
             >
               <button
@@ -724,33 +932,25 @@ export function SubjectContentEditor({
               >
                 Delete
               </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveTopic(t.title);
-                  setView("lessons");
-                }}
-                className="w-full text-left"
-              >
-                <div className="flex items-start gap-3 pr-16">
-                  <input
-                    value={t.emoji}
-                    onClick={(e) => e.stopPropagation()}
-                    onChange={(e) => {
-                      const emoji = e.target.value;
-                      onLessonsChange(
-                        lessons.map((l) =>
-                          topicKey(l) === t.title ? { ...l, topicEmoji: emoji } : l,
-                        ),
-                      );
-                    }}
-                    className="w-12 rounded-lg border border-transparent bg-transparent text-center text-3xl outline-none focus:border-[#fed7aa] focus:bg-white"
-                    aria-label="Chapter emoji — shows on chapter card"
-                  />
-                  <div className="min-w-0 flex-1">
+              <div className="flex items-start gap-3 pr-16">
+                <input
+                  value={t.emoji}
+                  onChange={(e) => {
+                    const emoji = e.target.value;
+                    onLessonsChange(
+                      lessons.map((l) =>
+                        topicKey(l) === t.title ? { ...l, topicEmoji: emoji } : l,
+                      ),
+                    );
+                  }}
+                  className="w-12 rounded-lg border border-transparent bg-transparent text-center text-3xl outline-none focus:border-[#fed7aa] focus:bg-white"
+                  aria-label="Chapter emoji"
+                />
+                <div className="min-w-0 flex-1 space-y-2">
+                  <label className="block">
+                    <span className="text-xs font-bold text-[var(--kid-muted)]">Chapter name</span>
                     <input
                       value={t.title}
-                      onClick={(e) => e.stopPropagation()}
                       onChange={(e) => {
                         const nextName = e.target.value;
                         onLessonsChange(
@@ -760,16 +960,41 @@ export function SubjectContentEditor({
                         );
                         if (activeTopic === t.title) setActiveTopic(nextName);
                       }}
-                      className="game-font w-full bg-transparent text-xl font-bold text-[var(--kid-text)] outline-none"
-                      placeholder="Numbers"
-                      aria-label="Chapter name — e.g. Numbers, Geometry"
+                      className="game-font mt-1 w-full rounded-lg border border-[#e9d5ff] bg-white px-2 py-1.5 text-xl font-bold text-[var(--kid-text)] outline-none focus:border-[#a78bfa]"
+                      placeholder="Example: Numbers"
                     />
-                    <p className="mt-3 text-sm font-extrabold text-[var(--kid-purple)]">
-                      {t.lessons.length} lesson{t.lessons.length === 1 ? "" : "s"} →
-                    </p>
-                  </div>
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-bold text-[var(--kid-muted)]">
+                      Chapter description
+                    </span>
+                    <textarea
+                      value={t.description}
+                      onChange={(e) => {
+                        const topicDescription = e.target.value;
+                        onLessonsChange(
+                          lessons.map((l) =>
+                            topicKey(l) === t.title ? { ...l, topicDescription } : l,
+                          ),
+                        );
+                      }}
+                      rows={2}
+                      className="mt-1 w-full resize-y rounded-lg border border-[#e9d5ff] bg-white px-2 py-1.5 text-sm font-semibold text-[var(--kid-muted)] outline-none focus:border-[#a78bfa]"
+                      placeholder="Example: Compare, count and play with numbers"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveTopic(t.title);
+                      setView("lessons");
+                    }}
+                    className="text-sm font-extrabold text-[var(--kid-purple)]"
+                  >
+                    Edit {t.lessons.length} lesson{t.lessons.length === 1 ? "" : "s"} →
+                  </button>
                 </div>
-              </button>
+              </div>
             </div>
           ))}
 
@@ -779,7 +1004,7 @@ export function SubjectContentEditor({
             className="kid-card border-dashed p-5 text-left text-[var(--kid-muted)] transition-transform hover:-translate-y-1"
           >
             <span className="text-3xl">＋</span>
-            <p className="game-font mt-3 text-xl font-bold">Add topic / chapter</p>
+            <p className="game-font mt-3 text-xl font-bold">Add chapter</p>
             <p className="mt-1 text-sm font-semibold">Like Numbers, Data Handling, Geometry</p>
           </button>
         </div>
@@ -857,7 +1082,7 @@ export function SubjectContentEditor({
             className="kid-card border-dashed p-5 text-left transition-transform hover:-translate-y-1"
           >
             <span className="text-3xl">＋</span>
-            <p className="game-font mt-3 text-xl font-bold text-[var(--kid-text)]">Add subtopic lesson</p>
+            <p className="game-font mt-3 text-xl font-bold text-[var(--kid-text)]">Add lesson</p>
             <p className="mt-1 text-sm font-semibold text-[var(--kid-muted)]">
               Like Comparing Numbers — opens the play-page editor
             </p>
@@ -877,7 +1102,7 @@ export function SubjectContentEditor({
           className="kid-btn-secondary mt-4 !px-4 !py-2 !text-sm"
           onClick={() => setView("topics")}
         >
-          ← Back to topics
+          ← Back to chapters
         </button>
       </div>
     );

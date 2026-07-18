@@ -19,6 +19,8 @@ export interface IQuiz {
   title: string;
   description?: string;
   adminId: mongoose.Types.ObjectId;
+  referenceCourseId?: mongoose.Types.ObjectId;
+  referenceLessonId?: mongoose.Types.ObjectId;
   questions: IQuizQuestion[];
   createdAt: Date;
   updatedAt: Date;
@@ -41,6 +43,8 @@ const QuizSchema = new Schema<IQuiz>(
     title: { type: String, required: true },
     description: String,
     adminId: { type: Schema.Types.ObjectId, ref: "Admin", required: true },
+    referenceCourseId: { type: Schema.Types.ObjectId, ref: "Course" },
+    referenceLessonId: Schema.Types.ObjectId,
     questions: { type: [QuizQuestionSchema], default: [] },
   },
   { timestamps: true },

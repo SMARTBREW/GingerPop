@@ -65,6 +65,7 @@ export function toPlayQuestion(
     wrongExplanation: q.wrongExplanation,
     hint: q.hint,
     imageUrl: q.imageUrl || q.mediaUrl,
+    videoUrl: q.videoUrl,
     audioUrl: q.audioUrl,
     audioText: q.audioText,
     points: q.points,
@@ -84,6 +85,7 @@ export function toPlayLesson(
           title: p.title || lesson.title,
           content: p.content || "",
           imageUrl: p.imageUrl || lesson.imageUrl || lesson.mediaUrl,
+          videoUrl: p.videoUrl || lesson.videoUrl,
           audioUrl: p.audioUrl || lesson.audioUrl,
           audioText: p.audioText || p.content || lesson.audioText,
         }))
@@ -92,6 +94,7 @@ export function toPlayLesson(
             title: lesson.title,
             content: lesson.content || "",
             imageUrl: lesson.imageUrl || lesson.mediaUrl,
+            videoUrl: lesson.videoUrl,
             audioUrl: lesson.audioUrl,
             audioText: lesson.audioText || stripHtml(lesson.content || ""),
           },
@@ -117,5 +120,6 @@ export function toPlayLesson(
     quizQuestions: questions.map((q) => toPlayQuestion(q, options)),
     topicTitle: lesson.topicTitle || "Chapter",
     topicEmoji: lesson.topicEmoji || "📖",
+    topicDescription: lesson.topicDescription,
   };
 }

@@ -5,6 +5,7 @@ import { isInvitationExpired, INVITE_EXPIRED_MESSAGE } from "@/lib/invitation-ex
 import { Invitation, IAnswerRecord } from "@/models/Invitation";
 import { Quiz, IQuizQuestion } from "@/models/Quiz";
 import { Admin } from "@/models/Admin";
+import { Course, ILesson } from "@/models/Course";
 
 const router = Router();
 
@@ -22,6 +23,15 @@ router.get("/:token", async (req: Request, res: Response) => {
     if (!quiz) return jsonError(res, "Quiz not found", 404);
 
     const inviter = await Admin.findById(invitation.adminId);
+    const referenceCourse = quiz.referenceCourseId
+      ? await Course.findById(quiz.referenceCourseId).select("title lessons.title")
+      : null;
+    const referenceLesson =
+      referenceCourse && quiz.referenceLessonId
+        ? referenceCourse.lessons.find((lesson: ILesson) =>
+            lesson._id.equals(quiz.referenceLessonId!),
+          )
+        : null;
     const sortedQuestions = [...quiz.questions].sort((a, b) => a.order - b.order);
 
     return jsonOk(res, {
@@ -38,6 +48,12 @@ router.get("/:token", async (req: Request, res: Response) => {
       quiz: {
         title: quiz.title,
         description: quiz.description,
+        reference: referenceCourse && referenceLesson
+          ? {
+              subjectTitle: referenceCourse.title,
+              lessonTitle: referenceLesson.title,
+            }
+          : null,
         questions: sortedQuestions.map((q) => ({
           id: q._id.toString(),
           type: q.type,

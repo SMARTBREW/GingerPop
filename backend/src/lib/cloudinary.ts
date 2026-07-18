@@ -125,24 +125,29 @@ export function collectCourseMediaUrls(course: {
   lessons?: {
     mediaUrl?: string;
     imageUrl?: string;
+    videoUrl?: string;
     audioUrl?: string;
-    pages?: { imageUrl?: string; audioUrl?: string }[];
+    pages?: { imageUrl?: string; videoUrl?: string; audioUrl?: string }[];
   }[];
-  quizQuestions?: { mediaUrl?: string; imageUrl?: string }[];
+  quizQuestions?: { mediaUrl?: string; imageUrl?: string; videoUrl?: string; audioUrl?: string }[];
 }): string[] {
   const urls: string[] = [];
   for (const lesson of course.lessons ?? []) {
     if (lesson.mediaUrl) urls.push(lesson.mediaUrl);
     if (lesson.imageUrl) urls.push(lesson.imageUrl);
+    if (lesson.videoUrl) urls.push(lesson.videoUrl);
     if (lesson.audioUrl) urls.push(lesson.audioUrl);
     for (const page of lesson.pages ?? []) {
       if (page.imageUrl) urls.push(page.imageUrl);
+      if (page.videoUrl) urls.push(page.videoUrl);
       if (page.audioUrl) urls.push(page.audioUrl);
     }
   }
   for (const question of course.quizQuestions ?? []) {
     if (question.mediaUrl) urls.push(question.mediaUrl);
     if (question.imageUrl) urls.push(question.imageUrl);
+    if (question.videoUrl) urls.push(question.videoUrl);
+    if (question.audioUrl) urls.push(question.audioUrl);
   }
   return urls;
 }

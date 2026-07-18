@@ -4,6 +4,7 @@ export interface LessonPage {
   title: string;
   content?: string;
   imageUrl?: string;
+  videoUrl?: string;
   audioUrl?: string;
   audioText?: string;
 }
@@ -19,10 +20,12 @@ export interface Lesson {
   slug?: string;
   topicTitle?: string;
   topicEmoji?: string;
+  topicDescription?: string;
   badgeText?: string;
   mascotSpeech?: string;
   ctaText?: string;
   imageUrl?: string;
+  videoUrl?: string;
   audioUrl?: string;
   audioText?: string;
   pages?: LessonPage[];
@@ -48,6 +51,7 @@ export interface CourseQuizQuestion {
   wrongExplanation?: string;
   optionEmojis?: [string, string, string, string];
   imageUrl?: string;
+  videoUrl?: string;
   audioUrl?: string;
   audioText?: string;
 }
@@ -77,6 +81,7 @@ export const EMPTY_LESSON_PAGE: LessonPage = {
   title: "",
   content: "",
   imageUrl: "",
+  videoUrl: "",
   audioUrl: "",
   audioText: "",
 };
@@ -89,13 +94,15 @@ export const EMPTY_LESSON: Omit<Lesson, "id"> = {
   slug: "",
   topicTitle: "",
   topicEmoji: "📚",
+  topicDescription: "",
   badgeText: "",
   mascotSpeech: "",
   ctaText: "Next",
   imageUrl: "",
+  videoUrl: "",
   audioUrl: "",
   audioText: "",
-  pages: [{ ...EMPTY_LESSON_PAGE, title: "Topic 1" }],
+  pages: [{ ...EMPTY_LESSON_PAGE, title: "Lesson page 1" }],
 };
 
 export const EMPTY_QUIZ_QUESTION: Omit<CourseQuizQuestion, "id"> = {

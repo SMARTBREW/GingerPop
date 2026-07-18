@@ -4,6 +4,7 @@ export interface LessonPage {
   title: string;
   content?: string;
   imageUrl?: string;
+    videoUrl?: string;
   audioUrl?: string;
   audioText?: string;
 }
@@ -19,10 +20,12 @@ export interface Lesson {
   slug?: string;
   topicTitle?: string;
   topicEmoji?: string;
+  topicDescription?: string;
   badgeText?: string;
   mascotSpeech?: string;
   ctaText?: string;
   imageUrl?: string;
+  videoUrl?: string;
   audioUrl?: string;
   audioText?: string;
   pages?: LessonPage[];
@@ -47,6 +50,7 @@ export interface CourseQuizQuestion {
   wrongExplanation?: string;
   optionEmojis?: [string, string, string, string];
   imageUrl?: string;
+  videoUrl?: string;
   audioUrl?: string;
   audioText?: string;
 }

@@ -31,6 +31,7 @@ interface CourseLearnerProps {
   initialScore: number;
   maxScore: number;
   answeredQuestionIds: string[];
+  apiBase?: "learn" | "invite";
 }
 
 export function CourseLearner({
@@ -48,6 +49,7 @@ export function CourseLearner({
   initialScore,
   maxScore,
   answeredQuestionIds,
+  apiBase = "learn",
 }: CourseLearnerProps) {
   const [mode, setMode] = useState<LearnerMode>(() => {
     if (initialPhase === "completed") return "completed";
@@ -103,7 +105,7 @@ export function CourseLearner({
     setMarking(true);
 
     try {
-      const res = await fetch(`/api/learn/${token}`, {
+      const res = await fetch(`/api/${apiBase}/${token}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -125,7 +127,7 @@ export function CourseLearner({
 
   const handleQuizAnswer = useCallback(
     async (questionId: string, selectedIndex: number | null): Promise<AnswerResult> => {
-      const res = await fetch(`/api/learn/${token}`, {
+      const res = await fetch(`/api/${apiBase}/${token}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -155,7 +157,7 @@ export function CourseLearner({
 
       return data;
     },
-    [token, isQuizOnly, activeLessonQuizId, lessons, answeredIds.length, initialQuizQuestions.length],
+    [token, apiBase, isQuizOnly, activeLessonQuizId, lessons, answeredIds.length, initialQuizQuestions.length],
   );
 
   const lessonQuizTitle = activeLessonQuizId

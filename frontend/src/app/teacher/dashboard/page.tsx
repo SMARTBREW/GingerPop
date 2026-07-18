@@ -23,12 +23,24 @@ interface TeacherSession {
   role: string;
 }
 
+interface StandaloneQuizSummary {
+  id: string;
+  title: string;
+  description?: string;
+  questionCount: number;
+  referenceCourseTitle?: string;
+  referenceLessonTitle?: string;
+}
+
 export default function TeacherDashboardPage() {
   const router = useRouter();
   const [teacher, setTeacher] = useState<TeacherSession | null>(null);
   const [courses, setCourses] = useState<CourseSummary[]>([]);
+  const [standaloneQuizzes, setStandaloneQuizzes] = useState<StandaloneQuizSummary[]>([]);
   const [creating, setCreating] = useState(false);
+  const [creatingQuiz, setCreatingQuiz] = useState(false);
   const [newTitle, setNewTitle] = useState("");
+  const [newQuizTitle, setNewQuizTitle] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -50,6 +62,11 @@ export default function TeacherDashboardPage() {
         const coursesData = await coursesRes.json();
         if (!coursesRes.ok) throw new Error(coursesData.error ?? "Failed to load courses");
         if (!cancelled) setCourses(coursesData.courses ?? []);
+
+        const quizzesRes = await fetch("/api/quizzes", { credentials: "include" });
+        const quizzesData = await quizzesRes.json();
+        if (!quizzesRes.ok) throw new Error(quizzesData.error ?? "Failed to load quizzes");
+        if (!cancelled) setStandaloneQuizzes(quizzesData.quizzes ?? []);
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : "Something went wrong");
       } finally {
@@ -91,6 +108,27 @@ export default function TeacherDashboardPage() {
     }
   };
 
+  const handleCreateQuiz = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newQuizTitle.trim()) return;
+    setCreatingQuiz(true);
+    setError("");
+    try {
+      const res = await fetch("/api/quizzes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ title: newQuizTitle }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to create standalone quiz");
+      router.push(`/admin/quizzes/${data.quiz.id}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create standalone quiz");
+      setCreatingQuiz(false);
+    }
+  };
+
   const firstName = teacher?.name?.split(" ")[0] ?? "Teacher";
 
   const handleDeleteSubject = async (course: CourseSummary) => {
@@ -113,6 +151,23 @@ export default function TeacherDashboardPage() {
     }
   };
 
+  const handleDeleteQuiz = async (quiz: StandaloneQuizSummary) => {
+    const ok = window.confirm(
+      `Delete standalone quiz “${quiz.title}”? This also removes its share links and cannot be undone.`,
+    );
+    if (!ok) return;
+    const res = await fetch(`/api/quizzes/${quiz.id}`, {
+      method: "DELETE",
+      credentials: "include",
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setError(data.error ?? "Failed to delete standalone quiz");
+      return;
+    }
+    setStandaloneQuizzes((current) => current.filter((item) => item.id !== quiz.id));
+  };
+
   return (
     <AdminShell>
       {loading ? (
@@ -128,7 +183,7 @@ export default function TeacherDashboardPage() {
               Hi {firstName}! 👋
             </h1>
             <p className="mt-2 max-w-xl text-base font-semibold text-[var(--kid-muted)]">
-              Build subjects like the kid Subjects page — topics, lessons, images, audio, and quizzes.
+              Build subjects with chapters and lessons, or create a standalone quiz to reference and share.
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
               <a href="#create-course" className="kid-btn-primary !px-5 !py-2.5 !text-sm">
@@ -177,13 +232,35 @@ export default function TeacherDashboardPage() {
                 {creating ? "Creating..." : "Create subject"}
               </button>
             </form>
+            <div className="my-6 border-t border-[#fed7aa]" />
+            <h3 className="game-font text-xl font-bold text-[var(--kid-text)]">
+              Create standalone quiz
+            </h3>
+            <p className="mt-1 text-sm font-semibold text-[var(--kid-muted)]">
+              Create questions, select a lesson as the reference, then share the quiz independently.
+            </p>
+            <form onSubmit={handleCreateQuiz} className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
+              <label className="block flex-1">
+                <span className="mb-1.5 block text-sm font-bold text-[var(--kid-text)]">Quiz title</span>
+                <input
+                  value={newQuizTitle}
+                  onChange={(e) => setNewQuizTitle(e.target.value)}
+                  required
+                  placeholder="e.g. Comparing Numbers Check"
+                  className="w-full rounded-xl border-2 border-[#e9d5ff] bg-white px-4 py-3 text-base font-semibold outline-none focus:border-[#a78bfa]"
+                />
+              </label>
+              <button type="submit" disabled={creatingQuiz} className="kid-btn-secondary shrink-0 !px-5 !py-3 !text-sm">
+                {creatingQuiz ? "Creating..." : "Create standalone quiz"}
+              </button>
+            </form>
           </section>
 
           <section id="all-courses">
             <div className="mb-4">
               <h2 className="game-font text-2xl font-bold text-[var(--kid-text)]">Your subjects</h2>
               <p className="mt-1 text-sm font-semibold text-[var(--kid-muted)]">
-                Open a subject to edit topics and play lessons
+                Open a subject to edit chapters and lessons
               </p>
             </div>
 
@@ -254,6 +331,58 @@ export default function TeacherDashboardPage() {
                       type="button"
                       onClick={() => void handleDeleteSubject(course)}
                       className="rounded-full border-2 border-red-200 bg-red-50 px-4 py-2 text-sm font-extrabold text-red-700 transition hover:bg-red-100"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              )}
+            />
+          </section>
+
+          <section className="mt-10" id="standalone-quizzes">
+            <div className="mb-4">
+              <h2 className="game-font text-2xl font-bold text-[var(--kid-text)]">
+                Standalone quizzes
+              </h2>
+              <p className="mt-1 text-sm font-semibold text-[var(--kid-muted)]">
+                Independent quizzes that can reference a lesson and be shared directly
+              </p>
+            </div>
+            <PaginatedList
+              items={standaloneQuizzes}
+              pageSize={5}
+              keyExtractor={(quiz) => quiz.id}
+              empty={
+                <div className="kid-card p-8 text-center">
+                  <p className="text-4xl">🎯</p>
+                  <p className="game-font mt-3 text-xl font-bold">No standalone quizzes yet</p>
+                </div>
+              }
+              renderItem={(quiz) => (
+                <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="kid-pill bg-[#ede9fe] text-[#5b21b6]">Standalone quiz</span>
+                      <span className="text-sm font-bold text-[var(--kid-muted)]">
+                        {quiz.questionCount} question{quiz.questionCount === 1 ? "" : "s"}
+                      </span>
+                    </div>
+                    <h3 className="game-font mt-2 text-xl font-bold">{quiz.title}</h3>
+                    {quiz.referenceLessonTitle && (
+                      <p className="mt-1 text-sm font-semibold text-[var(--kid-muted)]">
+                        Reference: {quiz.referenceCourseTitle} → {quiz.referenceLessonTitle}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <Link href={`/admin/quizzes/${quiz.id}`} className="kid-btn-primary !px-4 !py-2 !text-sm">
+                      Edit & share →
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => void handleDeleteQuiz(quiz)}
+                      className="rounded-full border-2 border-red-200 bg-red-50 px-4 py-2 text-sm font-extrabold text-red-700"
                     >
                       Delete
                     </button>

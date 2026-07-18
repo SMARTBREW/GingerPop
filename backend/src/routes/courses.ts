@@ -13,8 +13,27 @@ import { Course, ICourseQuizQuestion, ILesson } from "@/models/Course";
 import { Invitation } from "@/models/Invitation";
 import { Admin } from "@/models/Admin";
 import { collectCourseMediaUrls, deleteCloudinaryUrls } from "@/lib/cloudinary";
+import { courseSlug, lessonSlug } from "@/lib/play-lesson";
 
 const router = Router();
+
+function normalizeSlug(value: unknown) {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+function uniqueSlug(base: unknown, used: Set<string>, stableSuffix: string) {
+  const normalized = normalizeSlug(base) || stableSuffix;
+  let candidate = normalized;
+  if (used.has(candidate)) candidate = `${normalized}-${stableSuffix}`;
+  let counter = 2;
+  while (used.has(candidate)) candidate = `${normalized}-${stableSuffix}-${counter++}`;
+  used.add(candidate);
+  return candidate;
+}
 
 function serializeLesson(l: ILesson) {
   return {
@@ -28,16 +47,19 @@ function serializeLesson(l: ILesson) {
     slug: l.slug,
     topicTitle: l.topicTitle,
     topicEmoji: l.topicEmoji,
+    topicDescription: l.topicDescription,
     badgeText: l.badgeText,
     mascotSpeech: l.mascotSpeech,
     ctaText: l.ctaText,
     imageUrl: l.imageUrl,
+    videoUrl: l.videoUrl,
     audioUrl: l.audioUrl,
     audioText: l.audioText,
     pages: (l.pages ?? []).map((p) => ({
       title: p.title,
       content: p.content,
       imageUrl: p.imageUrl,
+      videoUrl: p.videoUrl,
       audioUrl: p.audioUrl,
       audioText: p.audioText,
     })),
@@ -64,6 +86,7 @@ function serializeQuestion(q: ICourseQuizQuestion) {
     wrongExplanation: q.wrongExplanation,
     optionEmojis: q.optionEmojis,
     imageUrl: q.imageUrl,
+    videoUrl: q.videoUrl,
     audioUrl: q.audioUrl,
     audioText: q.audioText,
   };
@@ -287,13 +310,23 @@ router.put("/:id", async (req: Request, res: Response) => {
     if (body.emoji !== undefined) course.emoji = String(body.emoji ?? "").trim();
     if (body.color !== undefined) course.color = String(body.color ?? "").trim();
     if (body.accent !== undefined) course.accent = String(body.accent ?? "").trim();
-    if (body.slug !== undefined) {
-      course.slug = String(body.slug ?? "")
-        .trim()
-        .toLowerCase()
-        .replace(/[^a-z0-9-]+/g, "-")
-        .replace(/^-|-$/g, "");
-    }
+
+    const otherCourses = await Course.find({ _id: { $ne: course._id } }).select(
+      "title slug lessons.title lessons.slug",
+    );
+    const usedCourseSlugs = new Set(
+      otherCourses.map((other) => courseSlug(other)).filter(Boolean),
+    );
+    course.slug = uniqueSlug(
+      body.slug ?? course.slug ?? course.title,
+      usedCourseSlugs,
+      course._id.toString().slice(-6),
+    );
+    const usedLessonSlugs = new Set(
+      otherCourses.flatMap((other) =>
+        other.lessons.map((lesson: ILesson) => lessonSlug(lesson)),
+      ),
+    );
 
     const previousMediaUrls = collectCourseMediaUrls(course);
 
@@ -309,16 +342,19 @@ router.put("/:id", async (req: Request, res: Response) => {
         slug?: string;
         topicTitle?: string;
         topicEmoji?: string;
+        topicDescription?: string;
         badgeText?: string;
         mascotSpeech?: string;
         ctaText?: string;
         imageUrl?: string;
+        videoUrl?: string;
         audioUrl?: string;
         audioText?: string;
         pages?: {
           title?: string;
           content?: string;
           imageUrl?: string;
+          videoUrl?: string;
           audioUrl?: string;
           audioText?: string;
         }[];
@@ -330,11 +366,17 @@ router.put("/:id", async (req: Request, res: Response) => {
         l.id && isValidObjectId(l.id)
           ? new mongoose.Types.ObjectId(l.id)
           : lessonIdMap.get(`idx-${idx}`)!;
+      const slug = uniqueSlug(
+        l.slug || l.title,
+        usedLessonSlugs,
+        _id.toString().slice(-6),
+      );
       const heroImage = l.imageUrl || l.mediaUrl;
       const pages = (l.pages ?? []).map((p) => ({
         title: p.title ?? "",
         content: p.content,
         imageUrl: p.imageUrl,
+        videoUrl: p.videoUrl,
         audioUrl: p.audioUrl,
         audioText: p.audioText,
       }));
@@ -350,13 +392,15 @@ router.put("/:id", async (req: Request, res: Response) => {
         mediaUrl: heroImage || l.mediaUrl,
         mediaCaption: l.mediaCaption,
         order: l.order ?? idx,
-        slug: l.slug,
+        slug,
         topicTitle: l.topicTitle,
         topicEmoji: l.topicEmoji,
+        topicDescription: l.topicDescription,
         badgeText: l.badgeText,
         mascotSpeech: l.mascotSpeech,
         ctaText: l.ctaText,
         imageUrl: heroImage,
+        videoUrl: l.videoUrl,
         audioUrl: l.audioUrl,
         audioText: l.audioText,
         pages,
@@ -383,6 +427,7 @@ router.put("/:id", async (req: Request, res: Response) => {
         wrongExplanation?: string;
         optionEmojis?: string[];
         imageUrl?: string;
+        videoUrl?: string;
         audioUrl?: string;
         audioText?: string;
       },
@@ -418,7 +463,7 @@ router.put("/:id", async (req: Request, res: Response) => {
       }
       return {
         ...(q.id && isValidObjectId(q.id) ? { _id: new mongoose.Types.ObjectId(q.id) } : {}),
-        type: q.audioUrl ? "audio" : q.imageUrl || q.mediaUrl ? "image" : q.type || "text",
+        type: q.videoUrl ? "video" : q.audioUrl ? "audio" : q.imageUrl || q.mediaUrl ? "image" : q.type || "text",
         question: q.question,
         examples: q.examples,
         options,
@@ -434,6 +479,7 @@ router.put("/:id", async (req: Request, res: Response) => {
         wrongExplanation: q.wrongExplanation,
         optionEmojis,
         imageUrl: q.imageUrl || q.mediaUrl,
+        videoUrl: q.videoUrl,
         audioUrl: q.audioUrl,
         audioText: q.audioText,
         ...(lessonObjectId ? { lessonId: lessonObjectId } : {}),

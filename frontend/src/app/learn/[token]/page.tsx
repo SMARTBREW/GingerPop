@@ -7,7 +7,9 @@ import { KidZone } from "@/components/layout/KidZone";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { Spinner } from "@/components/ui/Spinner";
+import { CourseLearner } from "@/components/CourseLearner";
 import type { InvitePlayLesson } from "@/components/MascotQuizPlayer";
+import type { PlayQuestion } from "@/types/quiz";
 
 interface PlayLessonApi {
   id: string;
@@ -22,6 +24,7 @@ interface PlayLessonApi {
     title: string;
     content?: string;
     imageUrl?: string;
+    videoUrl?: string;
     audioUrl?: string;
     audioText?: string;
   }[];
@@ -54,6 +57,9 @@ export default function LearnPage() {
       }[];
     }[];
     playLessons: InvitePlayLesson[];
+    quizQuestions: PlayQuestion[];
+    isQuizOnly: boolean;
+    answeredQuestionIds: string[];
     phase: string;
     completedLessonIds: string[];
     contentCompletedLessonIds: string[];
@@ -118,6 +124,9 @@ export default function LearnPage() {
           accent: res.course.accent,
           topics: res.course.topics ?? [],
           playLessons,
+          quizQuestions: res.course.quizQuestions ?? [],
+          isQuizOnly: Boolean(res.invitation.isQuizOnly),
+          answeredQuestionIds: res.answeredQuestionIds ?? [],
           phase: res.invitation.phase,
           completedLessonIds: res.invitation.completedLessonIds ?? [],
           contentCompletedLessonIds: res.invitation.contentCompletedLessonIds ?? [],
@@ -182,6 +191,26 @@ export default function LearnPage() {
         </div>
         <SiteFooter />
       </KidZone>
+    );
+  }
+
+  if (data.isQuizOnly) {
+    return (
+      <CourseLearner
+        token={token}
+        courseTitle={data.courseTitle}
+        courseDescription={data.courseDescription}
+        invitedBy={data.invitedBy}
+        lessons={[]}
+        quizQuestions={data.quizQuestions}
+        initialPhase={data.phase as "learning" | "quiz" | "completed"}
+        completedLessonIds={[]}
+        contentCompletedLessonIds={[]}
+        isQuizOnly
+        initialScore={data.score}
+        maxScore={data.maxScore}
+        answeredQuestionIds={data.answeredQuestionIds}
+      />
     );
   }
 

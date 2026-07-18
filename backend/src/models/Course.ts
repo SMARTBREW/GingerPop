@@ -5,6 +5,7 @@ export interface ILessonPage {
   title: string;
   content?: string;
   imageUrl?: string;
+  videoUrl?: string;
   audioUrl?: string;
   audioText?: string;
 }
@@ -21,10 +22,12 @@ export interface ILesson {
   slug?: string;
   topicTitle?: string;
   topicEmoji?: string;
+  topicDescription?: string;
   badgeText?: string;
   mascotSpeech?: string;
   ctaText?: string;
   imageUrl?: string;
+  videoUrl?: string;
   audioUrl?: string;
   audioText?: string;
   pages?: ILessonPage[];
@@ -50,6 +53,7 @@ export interface ICourseQuizQuestion {
   wrongExplanation?: string;
   optionEmojis?: [string, string, string, string];
   imageUrl?: string;
+  videoUrl?: string;
   audioUrl?: string;
   audioText?: string;
 }
@@ -76,6 +80,7 @@ const LessonPageSchema = new Schema<ILessonPage>(
     title: { type: String, default: "" },
     content: String,
     imageUrl: String,
+    videoUrl: String,
     audioUrl: String,
     audioText: String,
   },
@@ -92,10 +97,12 @@ const LessonSchema = new Schema<ILesson>({
   slug: String,
   topicTitle: String,
   topicEmoji: String,
+  topicDescription: String,
   badgeText: String,
   mascotSpeech: String,
   ctaText: String,
   imageUrl: String,
+  videoUrl: String,
   audioUrl: String,
   audioText: String,
   pages: { type: [LessonPageSchema], default: [] },
@@ -129,6 +136,7 @@ const CourseQuizQuestionSchema = new Schema<ICourseQuizQuestion>({
     },
   },
   imageUrl: String,
+  videoUrl: String,
   audioUrl: String,
   audioText: String,
 });

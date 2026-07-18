@@ -23,6 +23,7 @@ interface QuizQuestion {
   wrongExplanation?: string; // shown when wrong
   hint?: string;
   imageUrl?: string;
+  videoUrl?: string;
   audioUrl?: string;
   audioText?: string;
 }
@@ -37,10 +38,12 @@ interface Lesson {
   ctaText: string;
   quizQuestions: QuizQuestion[];
   imageUrl?: string;
+  videoUrl?: string;
   pages?: {
     title: string;
     content?: string;
     imageUrl?: string;
+    videoUrl?: string;
     audioUrl?: string;
     audioText?: string;
   }[];
@@ -638,6 +641,7 @@ function InteractiveFactCard({ fact, index }: { fact: string; index: number }) {
 interface LessonTopic {
   title: string;
   imageUrl?: string;
+  videoUrl?: string;
   audioUrl?: string;
   /** Spoken aloud when no audioUrl is set */
   audioText?: string;
@@ -857,6 +861,7 @@ function getLessonTopics(lesson: Lesson): LessonTopic[] {
     return lesson.pages.map((page) => ({
       title: page.title,
       imageUrl: page.imageUrl || lesson.imageUrl,
+      videoUrl: page.videoUrl || lesson.videoUrl,
       audioUrl: page.audioUrl,
       audioText: page.audioText || page.content || page.title,
       body: (
@@ -1059,7 +1064,7 @@ function getLessonTopics(lesson: Lesson): LessonTopic[] {
     .filter((fact) => !fact.trim().startsWith("💡"))
     .map((fact, i) => {
       const [titlePart, ...rest] = fact.split(" : ");
-      const title = rest.length ? `${i + 1}. ${titlePart}` : `Topic ${i + 1}`;
+      const title = rest.length ? `${i + 1}. ${titlePart}` : `Lesson page ${i + 1}`;
       const text = rest.length ? rest.join(" : ") : fact;
       return {
         title,
@@ -1090,7 +1095,7 @@ function LessonPage({
   const safeIndex = Math.min(topicIndex, Math.max(topics.length - 1, 0));
   const topic = topics[safeIndex];
   const isLastTopic = safeIndex >= topics.length - 1;
-  const hasImage = Boolean(topic?.imageUrl);
+  const hasImage = Boolean(topic?.imageUrl || topic?.videoUrl);
 
   const handleNext = () => {
     if (isLastTopic) {
@@ -1124,7 +1129,14 @@ function LessonPage({
           >
             {lesson.title}
           </h2>
-          {hasImage && (
+          {topic.videoUrl ? (
+            <video
+              src={topic.videoUrl}
+              controls
+              playsInline
+              style={{ width: "100%", maxHeight: "300px", borderRadius: "0.75rem", background: "#000" }}
+            />
+          ) : hasImage && (
             <img
               src={topic.imageUrl}
               alt={lesson.title}
@@ -1150,7 +1162,7 @@ function LessonPage({
               width: "100%",
             }}
           >
-            Topic {safeIndex + 1} of {topics.length}
+            Lesson page {safeIndex + 1} of {topics.length}
           </p>
         </div>
 
@@ -1295,7 +1307,7 @@ function QuizCard({
   const question = questions[questionIndex];
   const total = questions.length;
   const visibleOptions = question.options.filter((o) => (o.text || "").trim().length > 0);
-  const hasImage = Boolean(question.imageUrl);
+  const hasImage = Boolean(question.imageUrl || question.videoUrl);
   const hasAudio = Boolean(question.audioUrl || question.audioText);
 
   const [selected, setSelected] = useState<number | null>(null);
@@ -1439,18 +1451,27 @@ function QuizCard({
       <div className="mascot-player-card">
         {hasImage && (
           <div className="mascot-player-left-quiz" style={{ flexDirection: "column", gap: "0.75rem" }}>
-            <img
-              src={question.imageUrl}
-              alt=""
-              style={{
-                width: "100%",
-                height: "auto",
-                objectFit: "contain",
-                maxHeight: "300px",
-                borderRadius: "0.75rem",
-                filter: "drop-shadow(0 4px 12px rgba(0,0,0,0.08))",
-              }}
-            />
+            {question.videoUrl ? (
+              <video
+                src={question.videoUrl}
+                controls
+                playsInline
+                style={{ width: "100%", maxHeight: "300px", borderRadius: "0.75rem", background: "#000" }}
+              />
+            ) : (
+              <img
+                src={question.imageUrl}
+                alt=""
+                style={{
+                  width: "100%",
+                  height: "auto",
+                  objectFit: "contain",
+                  maxHeight: "300px",
+                  borderRadius: "0.75rem",
+                  filter: "drop-shadow(0 4px 12px rgba(0,0,0,0.08))",
+                }}
+              />
+            )}
             <p style={{ margin: "auto 0 0", fontSize: "0.75rem", fontWeight: 700, color: "#6b7280", alignSelf: "flex-start" }}>
               Question {questionIndex + 1} of {total}
             </p>

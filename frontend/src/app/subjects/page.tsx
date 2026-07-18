@@ -69,7 +69,7 @@ export default function SubjectsPage() {
           </p>
           <h1 className="game-font text-3xl font-bold text-[var(--kid-text)] sm:text-4xl">
             {level === "subjects" && "Pick a subject"}
-            {level === "topics" && `${subject?.emoji ?? ""} ${subject?.title} topics`}
+            {level === "topics" && `${subject?.emoji ?? ""} ${subject?.title} chapters`}
             {level === "subtopics" && `${topic?.emoji ?? ""} ${topic?.title}`}
           </h1>
           <p className="mt-2 max-w-xl text-base font-semibold text-[var(--kid-muted)]">

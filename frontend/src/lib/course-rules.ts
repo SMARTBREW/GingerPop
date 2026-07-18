@@ -59,6 +59,13 @@ export function validateCourseStructure(
 
   const lessonIds = new Set(lessons.map((l) => l.id));
   for (const q of questions) {
+    if (!q.lessonId) {
+      return {
+        valid: false,
+        error:
+          "Standalone quiz questions cannot be combined with chapters and lessons. Choose one course format.",
+      };
+    }
     if (q.lessonId && !lessonIds.has(q.lessonId)) {
       return { valid: false, error: "Some assessments reference a removed lesson." };
     }

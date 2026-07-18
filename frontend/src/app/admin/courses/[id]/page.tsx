@@ -101,8 +101,8 @@ export default function CourseEditorPage() {
           pages: l.pages?.length
             ? l.pages
             : l.content
-              ? [{ title: l.title || "Topic 1", content: l.content, imageUrl: l.imageUrl || l.mediaUrl }]
-              : [{ title: "Topic 1", content: "", imageUrl: l.imageUrl || l.mediaUrl }],
+              ? [{ title: l.title || "Lesson page 1", content: l.content, imageUrl: l.imageUrl || l.mediaUrl }]
+              : [{ title: "Lesson page 1", content: "", imageUrl: l.imageUrl || l.mediaUrl }],
         })),
       );
       setQuizQuestions(
@@ -210,10 +210,12 @@ export default function CourseEditorPage() {
           slug: l.slug,
           topicTitle: l.topicTitle,
           topicEmoji: l.topicEmoji,
+          topicDescription: l.topicDescription,
           badgeText: l.badgeText,
           mascotSpeech: l.mascotSpeech,
           ctaText: l.ctaText,
           imageUrl: l.imageUrl || l.mediaUrl,
+          videoUrl: l.videoUrl,
           audioUrl: l.audioUrl,
           audioText: l.audioText,
           pages: l.pages,
@@ -237,6 +239,9 @@ export default function CourseEditorPage() {
           wrongExplanation: q.wrongExplanation,
           optionEmojis: q.optionEmojis,
           imageUrl: q.imageUrl || q.mediaUrl,
+          videoUrl: q.videoUrl,
+          audioUrl: q.audioUrl,
+          audioText: q.audioText,
         })),
       }),
     });
@@ -390,40 +395,46 @@ export default function CourseEditorPage() {
           </div>
         </div>
 
-        <div className="mt-3 flex flex-wrap gap-2">
+        <div className="mt-3 flex flex-wrap items-center gap-2">
           {(
             [
               { id: "subject" as const, label: "1. Subject" },
-              { id: "build" as const, label: "2. Chapters & lessons" },
+              { id: "build" as const, label: "2. Chapters → Lessons → Lesson quiz" },
               { id: "invites" as const, label: `3. Learners (${invitations.length})` },
             ] as const
-          ).map((step) => (
-            <button
-              key={step.id}
-              type="button"
-              onClick={() => {
-                if (step.id === "invites") {
-                  setTab("invites");
-                  setSetupPhase("invites");
-                } else {
-                  setTab("content");
-                  setSetupPhase(step.id);
-                }
-              }}
-              className={`rounded-full px-3 py-1.5 text-sm font-bold transition ${
-                (step.id === "invites" && tab === "invites") ||
-                (step.id !== "invites" && tab === "content" && setupPhase === step.id)
-                  ? "bg-[#ffedd5] text-[#c2410c]"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-              }`}
-            >
-              {step.label}
-            </button>
+          ).map((step, index) => (
+            <div key={step.id} className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  if (step.id === "invites") {
+                    setTab("invites");
+                    setSetupPhase("invites");
+                  } else {
+                    setTab("content");
+                    setSetupPhase(step.id);
+                  }
+                }}
+                className={`rounded-full px-3 py-1.5 text-sm font-bold transition ${
+                  (step.id === "invites" && tab === "invites") ||
+                  (step.id !== "invites" && tab === "content" && setupPhase === step.id)
+                    ? "bg-[#ffedd5] text-[#c2410c] ring-2 ring-[#fdba74]"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+              >
+                {step.label}
+              </button>
+              {index < 2 && (
+                <span className="font-extrabold text-[#ea580c]" aria-hidden>
+                  →
+                </span>
+              )}
+            </div>
           ))}
         </div>
 
         <p className="mt-2 text-xs font-semibold text-gray-500">
-          Step by step like Subjects → chapter → lesson → play → quiz
+          Follow the arrows: set up the subject → add chapters, lessons and lesson quizzes → invite learners
           {lastSavedAt ? ` · last saved ${lastSavedAt}` : ""}
         </p>
       </div>

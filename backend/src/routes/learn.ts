@@ -120,6 +120,7 @@ router.get("/:token", async (req: Request, res: Response) => {
         id: string;
         title: string;
         emoji: string;
+        description?: string;
         subtopics: {
           id: string;
           title: string;
@@ -140,6 +141,7 @@ router.get("/:token", async (req: Request, res: Response) => {
           id: topicId,
           title: topicTitle,
           emoji: play.topicEmoji || "📖",
+          description: play.topicDescription?.trim() || undefined,
           subtopics: [],
         });
       }

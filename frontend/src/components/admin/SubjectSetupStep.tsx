@@ -110,7 +110,7 @@ export function SubjectSetupStep({
 
             <FieldHint
               label="URL slug"
-              hint="Used in links like /play?lesson=…"
+              hint="Readable URL name. If it already exists, GingerPop adds a short unique ID when you save."
               example="maths"
             >
               <input

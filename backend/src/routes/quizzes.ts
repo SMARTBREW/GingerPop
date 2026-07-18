@@ -8,6 +8,7 @@ import { inviteExpiresAt } from "@/lib/invitation-expiry";
 import { Quiz, IQuizQuestion } from "@/models/Quiz";
 import { Invitation, IAnswerRecord } from "@/models/Invitation";
 import { Admin } from "@/models/Admin";
+import { Course, ILesson } from "@/models/Course";
 
 const router = Router();
 
@@ -19,7 +20,13 @@ router.get("/", async (req: Request, res: Response) => {
   const filter = auth.admin.role === "super_admin" ? {} : { adminId: auth.admin.id };
   const quizzes = await Quiz.find(filter)
     .sort({ updatedAt: -1 })
-    .select("title description questions updatedAt createdAt");
+    .select("title description questions referenceCourseId referenceLessonId updatedAt createdAt");
+
+  const courseIds = quizzes.flatMap((quiz) =>
+    quiz.referenceCourseId ? [quiz.referenceCourseId] : [],
+  );
+  const referenceCourses = await Course.find({ _id: { $in: courseIds } }).select("title lessons");
+  const courseById = new Map(referenceCourses.map((course) => [course._id.toString(), course]));
 
   return jsonOk(res, {
     quizzes: quizzes.map((q) => ({
@@ -27,8 +34,38 @@ router.get("/", async (req: Request, res: Response) => {
       title: q.title,
       description: q.description,
       questionCount: q.questions.length,
+      referenceCourseTitle: q.referenceCourseId
+        ? courseById.get(q.referenceCourseId.toString())?.title
+        : undefined,
+      referenceLessonTitle: q.referenceCourseId && q.referenceLessonId
+        ? courseById
+            .get(q.referenceCourseId.toString())
+            ?.lessons.find((lesson: ILesson) => lesson._id.equals(q.referenceLessonId!))?.title
+        : undefined,
       updatedAt: q.updatedAt,
       createdAt: q.createdAt,
+    })),
+  });
+});
+
+router.get("/reference-options", async (req: Request, res: Response) => {
+  const auth = await requireAdmin(req);
+  if ("error" in auth) return sendAuthError(res, auth);
+
+  await connectDB();
+  const filter = auth.admin.role === "super_admin" ? {} : { adminId: auth.admin.id };
+  const courses = await Course.find(filter)
+    .sort({ title: 1 })
+    .select("title lessons._id lessons.title");
+
+  return jsonOk(res, {
+    courses: courses.map((course) => ({
+      id: course._id.toString(),
+      title: course.title,
+      lessons: course.lessons.map((lesson: ILesson) => ({
+        id: lesson._id.toString(),
+        title: lesson.title,
+      })),
     })),
   });
 });
@@ -76,6 +113,8 @@ router.get("/:id", async (req: Request, res: Response) => {
       id: quiz._id.toString(),
       title: quiz.title,
       description: quiz.description,
+      referenceCourseId: quiz.referenceCourseId?.toString(),
+      referenceLessonId: quiz.referenceLessonId?.toString(),
       questions: quiz.questions
         .sort((a: IQuizQuestion, b: IQuizQuestion) => a.order - b.order)
         .map((q: IQuizQuestion) => ({
@@ -121,6 +160,28 @@ router.put("/:id", async (req: Request, res: Response) => {
 
     if (body.title !== undefined) quiz.title = body.title.trim();
     if (body.description !== undefined) quiz.description = body.description?.trim();
+    if (body.referenceCourseId || body.referenceLessonId) {
+      const referenceCourse = await Course.findById(body.referenceCourseId);
+      if (!referenceCourse) return jsonError(res, "Referenced subject not found", 404);
+      if (
+        auth.admin.role !== "super_admin" &&
+        referenceCourse.adminId.toString() !== auth.admin.id
+      ) {
+        return unauthorized(res);
+      }
+      const referenceLesson = referenceCourse.lessons.find(
+        (lesson: ILesson) => lesson._id.toString() === body.referenceLessonId,
+      );
+      if (!referenceLesson) return jsonError(res, "Referenced lesson not found", 400);
+      quiz.referenceCourseId = referenceCourse._id;
+      quiz.referenceLessonId = referenceLesson._id;
+    } else if (
+      body.referenceCourseId === null ||
+      body.referenceLessonId === null
+    ) {
+      quiz.referenceCourseId = undefined;
+      quiz.referenceLessonId = undefined;
+    }
 
     if (body.questions !== undefined) {
       quiz.questions = body.questions.map(

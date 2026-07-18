@@ -47,7 +47,7 @@ router.get("/catalog", async (_req: Request, res: Response) => {
             id: topicId,
             title: topicKey,
             emoji: lesson.topicEmoji || "📖",
-            description: undefined,
+            description: lesson.topicDescription?.trim() || undefined,
             subtopics: [],
           });
         }
@@ -56,7 +56,9 @@ router.get("/catalog", async (_req: Request, res: Response) => {
           title: lesson.title,
           emoji: "✨",
           description: stripHtml(lesson.mascotSpeech || lesson.content || "").slice(0, 120),
-          lessonId: lessonSlug(lesson),
+          // Public links use the immutable Mongo ID, so duplicate human-readable
+          // lesson names/slugs can never open another teacher's lesson.
+          lessonId: lesson._id.toString(),
         });
       }
 

@@ -10,6 +10,7 @@ interface TopicNode {
   id: string;
   title: string;
   emoji: string;
+  description?: string;
   subtopics: {
     id: string;
     title: string;
@@ -240,7 +241,7 @@ export function InvitePlayLearner({
             <div className="mb-2 flex items-center gap-2">
               <span className="text-3xl">{emoji}</span>
               <h1 className="game-font text-3xl font-bold text-[var(--kid-text)] sm:text-4xl">
-                {courseTitle} topics
+                {courseTitle} chapters
               </h1>
             </div>
             <p className="mt-2 max-w-xl text-base font-semibold text-[var(--kid-muted)]">
@@ -274,6 +275,11 @@ export function InvitePlayLearner({
                       <h2 className="game-font text-xl font-bold" style={{ color: accent }}>
                         {t.title}
                       </h2>
+                      {t.description && (
+                        <p className="mt-1 text-sm font-semibold text-[var(--kid-muted)]">
+                          {t.description}
+                        </p>
+                      )}
                       <p className="mt-3 text-sm font-extrabold" style={{ color: accent }}>
                         {t.subtopics.length} lesson{t.subtopics.length === 1 ? "" : "s"} →
                       </p>
