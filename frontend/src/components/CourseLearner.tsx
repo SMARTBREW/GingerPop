@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
+import Link from "next/link";
 import { LessonViewer } from "@/components/LessonViewer";
 import { QuizPlayer } from "@/components/QuizPlayer";
 import { AnswerResult, PlayQuestion } from "@/types/quiz";
@@ -192,6 +193,12 @@ export function CourseLearner({
             <p className="mt-3 text-base text-[var(--kid-muted)]">
               You collected {percentage}% of all the stars!
             </p>
+            <Link
+              href="/student/dashboard"
+              className="kid-btn-primary mt-8 inline-flex !px-5 !py-2.5 !text-sm"
+            >
+              Student dashboard →
+            </Link>
           </div>
         </main>
       </KidZone>

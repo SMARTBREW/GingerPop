@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { KidZone } from "@/components/layout/KidZone";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { SiteHeader } from "@/components/layout/SiteHeader";
@@ -216,6 +217,12 @@ export function InvitePlayLearner({
               >
                 Reset progress
               </button>
+              <Link
+                href="/student/dashboard"
+                className="kid-btn-secondary !px-5 !py-2.5 !text-sm"
+              >
+                Student dashboard →
+              </Link>
             </div>
           </div>
         )}
