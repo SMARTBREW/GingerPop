@@ -16,6 +16,7 @@ export interface SessionStudent {
   id: string;
   name: string;
   email: string;
+  mustChangePassword?: boolean;
 }
 
 export type AuthError = { error: string; status: number };
@@ -67,6 +68,7 @@ export async function getSessionStudent(req: Request): Promise<SessionStudent | 
     id: student._id.toString(),
     name: student.name,
     email: student.email,
+    mustChangePassword: Boolean(student.mustChangePassword),
   };
 }
 

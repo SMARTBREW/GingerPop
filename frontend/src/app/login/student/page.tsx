@@ -7,6 +7,7 @@ import { KidZone } from "@/components/layout/KidZone";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { SiteHeader, SiteHeaderLink } from "@/components/layout/SiteHeader";
 import { Suspense } from "react";
+import { studentPostLoginPath } from "@/lib/student-auth-flow";
 
 function StudentLoginForm() {
   const searchParams = useSearchParams();
@@ -37,7 +38,7 @@ function StudentLoginForm() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Invalid credentials");
-      window.location.href = safeNext;
+      window.location.href = studentPostLoginPath(data.student?.mustChangePassword, safeNext);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sign in failed");
     } finally {

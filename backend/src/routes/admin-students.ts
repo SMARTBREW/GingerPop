@@ -67,6 +67,7 @@ router.post("/", async (req: Request, res: Response) => {
       name: name.trim(),
       email: normalized,
       passwordHash: await hashPassword(password),
+      mustChangePassword: true,
       active: true,
       createdBy: auth.admin.id,
     });
@@ -102,6 +103,7 @@ router.patch("/:id", async (req: Request, res: Response) => {
         return jsonError(res, "Password must be at least 6 characters");
       }
       student.passwordHash = await hashPassword(password);
+      student.mustChangePassword = true;
     }
 
     await student.save();

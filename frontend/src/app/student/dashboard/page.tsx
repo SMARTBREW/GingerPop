@@ -2,10 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 import { KidZone } from "@/components/layout/KidZone";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { PaginatedList } from "@/components/ui/PaginatedList";
+import { PasswordSetupModal } from "@/components/student/PasswordSetupModal";
 
 interface StudentCourseItem {
   invitationId: string;
@@ -22,6 +25,7 @@ interface StudentSession {
   id: string;
   name: string;
   email: string;
+  mustChangePassword?: boolean;
 }
 
 function phaseLabel(phase: string, expired: boolean) {
@@ -38,11 +42,15 @@ function phaseColor(phase: string, expired: boolean) {
   return { bg: "#e0f2fe", text: "#075985" };
 }
 
-export default function StudentDashboardPage() {
+function StudentDashboardInner() {
+  const searchParams = useSearchParams();
+  const nextAfterSetup = searchParams.get("next");
+
   const [student, setStudent] = useState<StudentSession | null>(null);
   const [courses, setCourses] = useState<StudentCourseItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -57,6 +65,7 @@ export default function StudentDashboardPage() {
         }
         if (cancelled) return;
         setStudent(meData.student);
+        setShowPasswordModal(Boolean(meData.student.mustChangePassword));
 
         const coursesRes = await fetch("/api/student/courses", { credentials: "include" });
         const coursesData = await coursesRes.json();
@@ -86,6 +95,18 @@ export default function StudentDashboardPage() {
     window.location.href = "/login";
   };
 
+  const handlePasswordComplete = () => {
+    setShowPasswordModal(false);
+    setStudent((prev) => (prev ? { ...prev, mustChangePassword: false } : prev));
+    const next =
+      nextAfterSetup && nextAfterSetup.startsWith("/") && !nextAfterSetup.startsWith("//")
+        ? nextAfterSetup
+        : null;
+    if (next && next !== "/student/dashboard") {
+      window.location.href = next;
+    }
+  };
+
   if (loading) {
     return (
       <KidZone className="relative flex min-h-screen flex-col">
@@ -100,6 +121,13 @@ export default function StudentDashboardPage() {
 
   return (
     <KidZone className="relative flex min-h-screen flex-col overflow-hidden">
+      {showPasswordModal && (
+        <PasswordSetupModal
+          studentName={student?.name}
+          onComplete={handlePasswordComplete}
+        />
+      )}
+
       <div className="kid-blob -left-16 top-24 h-40 w-40 bg-[var(--kid-sun)]" aria-hidden />
       <div className="kid-blob right-0 top-16 h-32 w-32 bg-[var(--kid-grass)]" aria-hidden />
 
@@ -127,13 +155,19 @@ export default function StudentDashboardPage() {
       />
 
       <main className="page-shell relative flex-1 py-8 sm:py-12">
-        <section className="kid-card mb-8 overflow-hidden p-6 sm:p-8" style={{ background: "linear-gradient(135deg, #f0fdf4, #ecfeff)" }}>
-          <p className="kid-pill mb-3 border-2 border-[#bbf7d0] bg-white text-[#166534]">Student dashboard</p>
+        <section
+          className="kid-card mb-8 overflow-hidden p-6 sm:p-8"
+          style={{ background: "linear-gradient(135deg, #f0fdf4, #ecfeff)" }}
+        >
+          <p className="kid-pill mb-3 border-2 border-[#bbf7d0] bg-white text-[#166534]">
+            Student dashboard
+          </p>
           <h1 className="game-font text-3xl font-bold text-[var(--kid-text)] sm:text-4xl">
             Hi {student?.name?.split(" ")[0] ?? "there"}! 👋
           </h1>
           <p className="mt-2 max-w-xl text-base font-semibold text-[var(--kid-muted)]">
-            This is your home after login. Open invited courses below, or jump into practice quests anytime.
+            This is your home after login. Open invited courses below, or jump into practice quests
+            anytime.
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
             <Link href="/subjects" className="kid-btn-primary !px-5 !py-2.5 !text-sm">
@@ -147,15 +181,23 @@ export default function StudentDashboardPage() {
 
         <div className="mb-8 grid gap-4 sm:grid-cols-3">
           <div className="kid-card p-5 text-center">
-            <p className="text-xs font-extrabold uppercase tracking-wide text-[var(--kid-muted)]">Active quests</p>
+            <p className="text-xs font-extrabold uppercase tracking-wide text-[var(--kid-muted)]">
+              Active quests
+            </p>
             <p className="game-font mt-1 text-3xl font-bold text-[#166534]">{stats.active}</p>
           </div>
           <div className="kid-card p-5 text-center">
-            <p className="text-xs font-extrabold uppercase tracking-wide text-[var(--kid-muted)]">Completed</p>
-            <p className="game-font mt-1 text-3xl font-bold text-[var(--kid-purple)]">{stats.completed}</p>
+            <p className="text-xs font-extrabold uppercase tracking-wide text-[var(--kid-muted)]">
+              Completed
+            </p>
+            <p className="game-font mt-1 text-3xl font-bold text-[var(--kid-purple)]">
+              {stats.completed}
+            </p>
           </div>
           <div className="kid-card p-5 text-center">
-            <p className="text-xs font-extrabold uppercase tracking-wide text-[var(--kid-muted)]">Stars earned</p>
+            <p className="text-xs font-extrabold uppercase tracking-wide text-[var(--kid-muted)]">
+              Stars earned
+            </p>
             <p className="game-font mt-1 text-3xl font-bold text-[#b45309]">⭐ {stats.stars}</p>
           </div>
         </div>
@@ -181,9 +223,12 @@ export default function StudentDashboardPage() {
               <p className="text-5xl" aria-hidden>
                 📭
               </p>
-              <p className="game-font mt-4 text-2xl font-bold text-[var(--kid-text)]">No course invites yet</p>
+              <p className="game-font mt-4 text-2xl font-bold text-[var(--kid-text)]">
+                No course invites yet
+              </p>
               <p className="mx-auto mt-2 max-w-md text-sm font-semibold text-[var(--kid-muted)]">
-                Ask your teacher to invite <strong>{student?.email}</strong>, or start a practice quest while you wait.
+                Ask your teacher to invite <strong>{student?.email}</strong>, or start a practice
+                quest while you wait.
               </p>
               <Link href="/subjects" className="kid-btn-primary mt-6 inline-flex">
                 Start practice quest
@@ -236,7 +281,9 @@ export default function StudentDashboardPage() {
                         {item.phase === "completed" ? "Review quest →" : "Continue quest →"}
                       </Link>
                     ) : (
-                      <p className="text-sm font-bold text-[#b45309]">Ask your teacher for a new invite</p>
+                      <p className="text-sm font-bold text-[#b45309]">
+                        Ask your teacher for a new invite
+                      </p>
                     )}
                   </div>
                 </div>
@@ -248,5 +295,23 @@ export default function StudentDashboardPage() {
 
       <SiteFooter showAuthLinks={false} />
     </KidZone>
+  );
+}
+
+export default function StudentDashboardPage() {
+  return (
+    <Suspense
+      fallback={
+        <KidZone className="relative flex min-h-screen flex-col">
+          <SiteHeader brandHref="/student/dashboard" actions={null} />
+          <div className="flex flex-1 items-center justify-center game-font text-lg font-bold text-[var(--kid-muted)]">
+            Loading your dashboard…
+          </div>
+          <SiteFooter showAuthLinks={false} />
+        </KidZone>
+      }
+    >
+      <StudentDashboardInner />
+    </Suspense>
   );
 }

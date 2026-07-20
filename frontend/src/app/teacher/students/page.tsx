@@ -59,7 +59,7 @@ export default function TeacherStudentsPage() {
       setForm({ name: "", email: "", password: "" });
       setMessage({
         type: "success",
-        text: `Student created. They can sign in with ${data.student.email}.`,
+        text: `Student created. They can sign in with ${data.student.email} and will be prompted to set a password on first login.`,
       });
       loadStudents();
     } else {
@@ -109,7 +109,8 @@ export default function TeacherStudentsPage() {
           <section className="kid-card mb-8 p-6 sm:p-8">
             <h2 className="game-font text-2xl font-bold text-[var(--kid-text)]">Create student</h2>
             <p className="mt-1 text-sm font-semibold text-[var(--kid-muted)]">
-              They’ll use this email and password on Student login.
+              They’ll use this email and temporary password on first login — we’ll ask them to set
+              a new password (or keep the temporary one).
             </p>
             <form onSubmit={handleCreate} className="mt-5 grid gap-4 sm:grid-cols-2">
               <label className="block">
