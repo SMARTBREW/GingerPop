@@ -153,4 +153,40 @@ router.post("/password-setup", async (req: Request, res: Response) => {
   }
 });
 
+/** Logged-in student changes their own password (admins cannot do this). */
+router.post("/change-password", async (req: Request, res: Response) => {
+  try {
+    const studentSession = await getSessionStudent(req);
+    if (!studentSession) return unauthorized(res);
+
+    const { currentPassword, newPassword } = req.body as {
+      currentPassword?: string;
+      newPassword?: string;
+    };
+
+    if (!currentPassword || !newPassword) {
+      return jsonError(res, "Current and new password are required");
+    }
+    if (newPassword.length < 6) {
+      return jsonError(res, "New password must be at least 6 characters");
+    }
+
+    await connectDB();
+    const student = await Student.findById(studentSession.id);
+    if (!student || !student.active) return unauthorized(res);
+
+    const valid = await verifyPassword(currentPassword, student.passwordHash);
+    if (!valid) return jsonError(res, "Current password is incorrect", 401);
+
+    student.passwordHash = await hashPassword(newPassword);
+    student.mustChangePassword = false;
+    await student.save();
+
+    return jsonOk(res, { student: publicStudent(student) });
+  } catch (err) {
+    console.error("Student change password error:", err);
+    return jsonError(res, "Failed to change password", 500);
+  }
+});
+
 export default router;

@@ -9,6 +9,7 @@ import { SiteFooter } from "@/components/layout/SiteFooter";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { PaginatedList } from "@/components/ui/PaginatedList";
 import { PasswordSetupModal } from "@/components/student/PasswordSetupModal";
+import { ChangePasswordModal } from "@/components/student/ChangePasswordModal";
 
 interface StudentCourseItem {
   invitationId: string;
@@ -51,6 +52,7 @@ function StudentDashboardInner() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [showChangePassword, setShowChangePassword] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -127,6 +129,9 @@ function StudentDashboardInner() {
           onComplete={handlePasswordComplete}
         />
       )}
+      {showChangePassword && !showPasswordModal && (
+        <ChangePasswordModal onClose={() => setShowChangePassword(false)} />
+      )}
 
       <div className="kid-blob -left-16 top-24 h-40 w-40 bg-[var(--kid-sun)]" aria-hidden />
       <div className="kid-blob right-0 top-16 h-32 w-32 bg-[var(--kid-grass)]" aria-hidden />
@@ -143,6 +148,13 @@ function StudentDashboardInner() {
             <Link href="/subjects" className="kid-btn-secondary !px-3 !py-1.5 !text-sm">
               Practice
             </Link>
+            <button
+              type="button"
+              onClick={() => setShowChangePassword(true)}
+              className="rounded-full px-3 py-2 text-sm font-semibold text-[var(--kid-muted)] hover:bg-white/80"
+            >
+              Password
+            </button>
             <button
               type="button"
               onClick={logout}

@@ -4,6 +4,7 @@ import { hashPassword } from "@/lib/auth";
 import { requireAdmin, sendAuthError } from "@/lib/permissions";
 import { jsonError, jsonOk } from "@/lib/api";
 import { Student } from "@/models/Student";
+import { Invitation } from "@/models/Invitation";
 
 const router = Router();
 
@@ -79,38 +80,83 @@ router.post("/", async (req: Request, res: Response) => {
   }
 });
 
-/** Update student (active, name, or reset password) */
+/**
+ * Update student profile (name, email, active).
+ * Password cannot be changed by admins — only the student can change it.
+ */
 router.patch("/:id", async (req: Request, res: Response) => {
   const auth = await requireAdmin(req);
   if ("error" in auth) return sendAuthError(res, auth);
 
   try {
     const { id } = req.params;
-    const { active, name, password } = req.body as {
+    const { active, name, email, password } = req.body as {
       active?: boolean;
       name?: string;
+      email?: string;
       password?: string;
     };
+
+    if (password !== undefined) {
+      return jsonError(
+        res,
+        "Admins cannot change student passwords. Only the student can update their password after login.",
+        403,
+      );
+    }
 
     await connectDB();
     const student = await Student.findById(id);
     if (!student) return jsonError(res, "Student not found", 404);
 
+    const previousEmail = student.email;
+
     if (typeof active === "boolean") student.active = active;
     if (name?.trim()) student.name = name.trim();
-    if (password) {
-      if (password.length < 6) {
-        return jsonError(res, "Password must be at least 6 characters");
+
+    if (email?.trim()) {
+      const normalized = email.toLowerCase().trim();
+      if (normalized !== student.email) {
+        const exists = await Student.findOne({ email: normalized, _id: { $ne: student._id } });
+        if (exists) return jsonError(res, "A student with this email already exists", 409);
+        student.email = normalized;
       }
-      student.passwordHash = await hashPassword(password);
-      student.mustChangePassword = true;
     }
 
     await student.save();
+
+    // Keep invites linked to the same learner when email is updated
+    if (student.email !== previousEmail) {
+      await Invitation.updateMany({ email: previousEmail }, { $set: { email: student.email } });
+    }
+
     return jsonOk(res, { student: publicStudent(student) });
   } catch (err) {
     console.error("Update student error:", err);
     return jsonError(res, "Failed to update student", 500);
+  }
+});
+
+/** Permanently delete a student account and their invitations */
+router.delete("/:id", async (req: Request, res: Response) => {
+  const auth = await requireAdmin(req);
+  if ("error" in auth) return sendAuthError(res, auth);
+
+  try {
+    const { id } = req.params;
+    await connectDB();
+
+    const student = await Student.findById(id);
+    if (!student) return jsonError(res, "Student not found", 404);
+
+    const email = student.email;
+    await Student.deleteOne({ _id: id });
+    await Invitation.deleteMany({ email });
+
+    return jsonOk(res, { success: true, deletedEmail: email });
+  } catch (err) {
+    console.error("Delete student error:", err);
+    return jsonError(res, "Failed to delete student", 500);
   }
 });
 
