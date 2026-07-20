@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import { connectDB } from "@/lib/mongodb";
 import { jsonError, jsonOk } from "@/lib/api";
 import { isInvitationExpired, INVITE_EXPIRED_MESSAGE } from "@/lib/invitation-expiry";
+import { requireInviteLearnAccess, sendAuthError } from "@/lib/permissions";
 import { Invitation, IAnswerRecord } from "@/models/Invitation";
 import { Quiz, IQuizQuestion } from "@/models/Quiz";
 import { Admin } from "@/models/Admin";
@@ -18,6 +19,9 @@ router.get("/:token", async (req: Request, res: Response) => {
     const invitation = await Invitation.findOne({ token });
     if (!invitation) return jsonError(res, "Invalid or expired invite link", 404);
     if (isInvitationExpired(invitation)) return jsonError(res, INVITE_EXPIRED_MESSAGE, 410);
+
+    const access = await requireInviteLearnAccess(req, invitation.email);
+    if ("error" in access) return sendAuthError(res, access);
 
     const quiz = await Quiz.findById(invitation.quizId);
     if (!quiz) return jsonError(res, "Quiz not found", 404);
@@ -89,6 +93,9 @@ router.post("/:token", async (req: Request, res: Response) => {
     if (invitation.status === "completed" || invitation.phase === "completed") {
       return jsonError(res, "Quiz already completed", 400);
     }
+
+    const access = await requireInviteLearnAccess(req, invitation.email);
+    if ("error" in access) return sendAuthError(res, access);
 
     const quiz = await Quiz.findById(invitation.quizId);
     if (!quiz) return jsonError(res, "Quiz not found", 404);

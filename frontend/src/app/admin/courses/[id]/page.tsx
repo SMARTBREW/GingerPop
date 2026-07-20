@@ -303,8 +303,35 @@ export default function CourseEditorPage() {
     setPublished(checked);
   };
 
+  const parseInviteEmails = (raw: string) =>
+    raw
+      .split(/[\n,;]+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+  const ensurePublishedBeforeInvite = async () => {
+    if (!publishCheck.valid) {
+      setMessage({ type: "error", text: publishCheck.error ?? "Complete the subject before inviting." });
+      return false;
+    }
+    if (published) {
+      const saved = await persistCourse(lessons, quizQuestions);
+      return saved;
+    }
+    const saved = await persistCourse(lessons, quizQuestions, { publishedOverride: true });
+    if (saved) setPublished(true);
+    return saved;
+  };
+
   const sendInvitesToEmails = async (emails: string[]) => {
-    if (emails.length === 0) return;
+    if (emails.length === 0) {
+      setMessage({ type: "error", text: "Enter at least one email address." });
+      return;
+    }
+
+    const ready = await ensurePublishedBeforeInvite();
+    if (!ready) return;
+
     setInviting(true);
     setInviteResults([]);
     setMessage(null);
@@ -322,6 +349,7 @@ export default function CourseEditorPage() {
       setInviteResults(data.results);
       setEmailInput("");
       const resetCount = (data.results as { reset?: boolean }[]).filter((r) => r.reset).length;
+      const missingCount = (data.missingEmails as string[] | undefined)?.length ?? 0;
       setMessage({
         type: "success",
         text:
@@ -329,6 +357,16 @@ export default function CourseEditorPage() {
             ? `Processed ${data.results.length} invite(s). ${resetCount} existing learner(s) were reset for a fresh attempt.`
             : `Invitations processed for ${data.results.length} recipient(s).`,
       });
+      if (missingCount > 0) {
+        setMessage((prev) =>
+          prev
+            ? {
+                ...prev,
+                text: `${prev.text} Skipped ${missingCount} email(s) because no matching student account exists.`,
+              }
+            : prev,
+        );
+      }
       const refresh = await fetch(`/api/courses/${id}`).then((r) => r.json());
       setInvitations(refresh.invitations ?? []);
     } else {
@@ -338,12 +376,12 @@ export default function CourseEditorPage() {
 
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
-    const emails = emailInput
-      .split(/[\n,;]+/)
-      .map((s) => s.trim())
-      .filter(Boolean);
-    await sendInvitesToEmails(emails);
+    await sendInvitesToEmails(parseInviteEmails(emailInput));
   };
+
+  const inviteEmails = parseInviteEmails(emailInput);
+  const canInvite =
+    inviteEmails.length > 0 && publishCheck.valid && !inviting && !saving;
 
   const handleReinvite = async (email: string) => {
     const ok = window.confirm(
@@ -387,11 +425,9 @@ export default function CourseEditorPage() {
               />
               Published
             </label>
-            {tab === "content" && setupPhase !== "invites" && (
-              <Button onClick={handleSave} disabled={saving}>
-                {saving ? "Saving..." : "Save changes"}
-              </Button>
-            )}
+            <Button onClick={handleSave} disabled={saving}>
+              {saving ? "Saving..." : "Save changes"}
+            </Button>
           </div>
         </div>
 
@@ -452,9 +488,15 @@ export default function CourseEditorPage() {
           </div>
         )}
 
-        {!publishCheck.valid && tab === "content" && (
+        {!publishCheck.valid && (
           <div className="mb-6 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-base text-amber-900">
             {publishCheck.error}
+          </div>
+        )}
+
+        {tab === "invites" && publishCheck.valid && !published && (
+          <div className="mb-6 rounded-md border border-sky-200 bg-sky-50 px-4 py-3 text-base text-sky-900">
+            This subject is still a draft. Sending invites will publish it and save your latest changes.
           </div>
         )}
 
@@ -522,14 +564,18 @@ export default function CourseEditorPage() {
                   rows={4}
                   hint="Separate multiple addresses with commas or new lines. Same email = re-invite (reset + new link)."
                 />
-                <Button type="submit" disabled={inviting || !published || !publishCheck.valid}>
-                  {inviting && !reinvitingEmail ? "Sending..." : "Send / re-invite"}
+                <Button type="submit" disabled={!canInvite}>
+                  {inviting && !reinvitingEmail
+                    ? "Sending..."
+                    : published
+                      ? "Send / re-invite"
+                      : "Publish & send invites"}
                 </Button>
-                {!published && (
-                  <p className="text-sm text-amber-700">Publish the subject before inviting.</p>
-                )}
-                {published && !publishCheck.valid && (
+                {!publishCheck.valid && (
                   <p className="text-sm text-amber-700">{publishCheck.error}</p>
+                )}
+                {publishCheck.valid && inviteEmails.length === 0 && (
+                  <p className="text-sm text-gray-500">Add at least one email address to send invites.</p>
                 )}
               </form>
             </Card>
@@ -647,7 +693,7 @@ export default function CourseEditorPage() {
                             <Button
                               type="button"
                               size="sm"
-                              disabled={inviting || !published || !publishCheck.valid}
+                              disabled={inviting || saving || !publishCheck.valid}
                               onClick={() => void handleReinvite(inv.email)}
                             >
                               {reinvitingEmail === inv.email ? "Re-inviting…" : "Re-invite"}

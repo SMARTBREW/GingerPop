@@ -101,7 +101,7 @@ export async function requireInviteLearnAccess(
   const invited = invitationEmail.toLowerCase().trim();
   if (student.email.toLowerCase().trim() !== invited) {
     return {
-      error: "This quest was invited to a different email. Sign in with that account.",
+      error: `This quest was invited to ${invitationEmail}. Please log in with that student account to continue.`,
       status: 403,
     };
   }

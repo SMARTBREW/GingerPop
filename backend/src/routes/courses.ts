@@ -12,6 +12,7 @@ import { resetInvitationForRetake } from "@/lib/invitation-reset";
 import { Course, ICourseQuizQuestion, ILesson } from "@/models/Course";
 import { Invitation } from "@/models/Invitation";
 import { Admin } from "@/models/Admin";
+import { Student } from "@/models/Student";
 import { collectCourseMediaUrls, deleteCloudinaryUrls } from "@/lib/cloudinary";
 import { courseSlug, lessonSlug } from "@/lib/play-lesson";
 
@@ -584,6 +585,22 @@ router.post("/:id/invitations", async (req: Request, res: Response) => {
 
     await connectDB();
 
+    // Only allow invites to emails that already exist as active student accounts.
+    // This prevents teachers from sending invites to random emails that can never login.
+    const students = await Student.find({ email: { $in: emailList } })
+      .select("email")
+      .lean();
+    const validEmailSet = new Set(students.map((s) => s.email.toLowerCase().trim()));
+    const missingEmails = emailList.filter((e) => !validEmailSet.has(e.toLowerCase().trim()));
+    const targetEmails = emailList.filter((e) => validEmailSet.has(e.toLowerCase().trim()));
+    if (targetEmails.length === 0) {
+      return jsonError(
+        res,
+        `Create student accounts for: ${missingEmails.join(", ")}`,
+        400,
+      );
+    }
+
     const course = await Course.findById(id);
     if (!course) return jsonError(res, "Course not found", 404);
     if (!canManageCourse(auth.admin, course.adminId.toString())) return unauthorized(res);
@@ -607,7 +624,7 @@ router.post("/:id/invitations", async (req: Request, res: Response) => {
     const isQuizOnly = course.lessons.length === 0;
     const results: { email: string; sent: boolean; inviteLink: string; reset: boolean }[] = [];
 
-    for (const email of emailList) {
+    for (const email of targetEmails) {
       let invitation = await Invitation.findOne({ courseId: id, email });
       let wasReset = false;
 
@@ -658,7 +675,7 @@ router.post("/:id/invitations", async (req: Request, res: Response) => {
       });
     }
 
-    return jsonOk(res, { results });
+    return jsonOk(res, { results, missingEmails });
   } catch (err) {
     console.error("Invite error:", err);
     return jsonError(res, "Failed to send invitations", 500);

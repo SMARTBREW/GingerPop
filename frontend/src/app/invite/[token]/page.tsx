@@ -28,7 +28,16 @@ export default function InviteQuizPage() {
     if (!token || token === "_") return;
     fetch(`/api/invite/${encodeURIComponent(token)}`, { cache: "no-store" })
       .then(async (response) => {
-        const result = await response.json();
+        const result = await response
+          .json()
+          .catch(() => ({} as { error?: string }));
+
+        if (response.status === 401) {
+          const next = `/invite/${encodeURIComponent(token)}`;
+          window.location.href = `/login/student?next=${encodeURIComponent(next)}`;
+          return;
+        }
+
         if (!response.ok) throw new Error(result.error ?? "Failed to load quiz");
         const reference = result.quiz.reference;
         setData({
