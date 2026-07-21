@@ -43,22 +43,26 @@ router.post("/", upload.single("file"), async (req: Request, res: Response) => {
     }
 
     const mimeType = file.mimetype || "application/octet-stream";
+    const baseMime = mimeType.split(";")[0].trim().toLowerCase();
 
-    if (mediaType === "image" && !mimeType.startsWith("image/")) {
+    console.log(`[upload] mediaType=${mediaType} mimetype="${mimeType}" baseMime="${baseMime}" size=${file.size}`);
+
+    if (mediaType === "image" && !baseMime.startsWith("image/")) {
       return jsonError(res, "Invalid image file", 400);
     }
-    if (mediaType === "audio" && !mimeType.startsWith("audio/") && !mimeType.startsWith("video/")) {
+    if (mediaType === "audio" && !baseMime.startsWith("audio/") && !baseMime.startsWith("video/")) {
       return jsonError(res, "Invalid audio file", 400);
     }
-    if (mediaType === "video" && !mimeType.startsWith("video/")) {
-      return jsonError(res, "Invalid video file", 400);
+    // Video: accept video/* and any generic binary type — let Cloudinary reject truly invalid files
+    if (mediaType === "video" && baseMime.startsWith("image/")) {
+      return jsonError(res, "That looks like an image, not a video", 400);
     }
 
     const ext = file.originalname.split(".").pop()?.replace(/[^a-z0-9]/gi, "") ?? "media";
     const filename = `${mediaType}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
 
     const result = await uploadToCloudinary(file.buffer, {
-      mimeType,
+      mimeType: baseMime,
       folder: `ginger-pop/${mediaType}`,
       filename,
     });
@@ -66,7 +70,7 @@ router.post("/", upload.single("file"), async (req: Request, res: Response) => {
     return jsonOk(res, {
       url: result.url,
       publicId: result.publicId,
-      resourceType: cloudinaryResourceType(mimeType),
+      resourceType: cloudinaryResourceType(baseMime),
     });
   } catch (err) {
     console.error("Upload error:", err);

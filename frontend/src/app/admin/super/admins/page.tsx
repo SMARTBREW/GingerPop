@@ -17,6 +17,10 @@ export default function SuperAdminsPage() {
   const [admins, setAdmins] = useState<ManagedAdmin[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [editing, setEditing] = useState<ManagedAdmin | null>(null);
+  const [editForm, setEditForm] = useState({ name: "", email: "", active: true });
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [form, setForm] = useState({ name: "", email: "", password: "" });
 
@@ -35,6 +39,7 @@ export default function SuperAdminsPage() {
 
   useEffect(() => {
     loadAdmins();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load once on mount
   }, [router]);
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -57,6 +62,64 @@ export default function SuperAdminsPage() {
       loadAdmins();
     } else {
       setMessage({ type: "error", text: data.error ?? "Failed to create administrator." });
+    }
+  };
+
+  const openEdit = (admin: ManagedAdmin) => {
+    setEditing(admin);
+    setEditForm({ name: admin.name, email: admin.email, active: admin.active });
+    setMessage(null);
+  };
+
+  const handleEditSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editing) return;
+    setSavingEdit(true);
+    setMessage(null);
+
+    const res = await fetch(`/api/super/admins/${editing.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        name: editForm.name,
+        email: editForm.email,
+        active: editForm.active,
+      }),
+    });
+    const data = await res.json();
+    setSavingEdit(false);
+
+    if (res.ok) {
+      setEditing(null);
+      setMessage({ type: "success", text: "Administrator updated." });
+      loadAdmins();
+    } else {
+      setMessage({ type: "error", text: data.error ?? "Failed to update administrator." });
+    }
+  };
+
+  const handleDelete = async (admin: ManagedAdmin) => {
+    const ok = window.confirm(
+      `Delete ${admin.name} (${admin.email})?\n\nThis permanently removes their administrator login. This cannot be undone.`,
+    );
+    if (!ok) return;
+
+    setDeletingId(admin.id);
+    setMessage(null);
+    const res = await fetch(`/api/super/admins/${admin.id}`, {
+      method: "DELETE",
+      credentials: "include",
+    });
+    const data = await res.json();
+    setDeletingId(null);
+
+    if (res.ok) {
+      if (editing?.id === admin.id) setEditing(null);
+      setMessage({ type: "success", text: `Deleted ${admin.email}.` });
+      loadAdmins();
+    } else {
+      setMessage({ type: "error", text: data.error ?? "Failed to delete administrator." });
     }
   };
 
@@ -84,6 +147,7 @@ export default function SuperAdminsPage() {
             <h1 className="game-font text-3xl font-bold text-[var(--kid-text)] sm:text-4xl">Administrators</h1>
             <p className="mt-2 max-w-xl text-base font-semibold text-[var(--kid-muted)]">
               Provision and manage teacher accounts that can create courses and invite learners.
+              Passwords can only be changed by the account owner after login — not by other admins.
             </p>
           </section>
 
@@ -128,7 +192,9 @@ export default function SuperAdminsPage() {
                 />
               </label>
               <label className="block sm:col-span-2 sm:max-w-sm">
-                <span className="mb-1.5 block text-sm font-bold text-[var(--kid-text)]">Password</span>
+                <span className="mb-1.5 block text-sm font-bold text-[var(--kid-text)]">
+                  Temporary password
+                </span>
                 <input
                   type="password"
                   value={form.password}
@@ -151,7 +217,7 @@ export default function SuperAdminsPage() {
             <div className="mb-4">
               <h2 className="game-font text-2xl font-bold text-[var(--kid-text)]">Active accounts</h2>
               <p className="mt-1 text-sm font-semibold text-[var(--kid-muted)]">
-                Activate or deactivate administrator access
+                Edit name/email, activate/deactivate, or delete — passwords stay with the account owner
               </p>
             </div>
 
@@ -192,7 +258,14 @@ export default function SuperAdminsPage() {
                         <p className="mt-1 break-all text-sm font-semibold text-[var(--kid-muted)]">{a.email}</p>
                       </div>
                     </div>
-                    <div className="shrink-0">
+                    <div className="flex shrink-0 flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => openEdit(a)}
+                        className="kid-btn-secondary !px-4 !py-2 !text-sm"
+                      >
+                        Edit
+                      </button>
                       <button
                         type="button"
                         onClick={() => toggleActive(a.id, a.active)}
@@ -200,12 +273,95 @@ export default function SuperAdminsPage() {
                       >
                         {a.active ? "Deactivate" : "Activate"}
                       </button>
+                      <button
+                        type="button"
+                        disabled={deletingId === a.id}
+                        onClick={() => void handleDelete(a)}
+                        className="rounded-full border-2 border-red-200 bg-red-50 px-4 py-2 text-sm font-extrabold text-red-700 hover:bg-red-100 disabled:opacity-50"
+                      >
+                        {deletingId === a.id ? "Deleting…" : "Delete"}
+                      </button>
                     </div>
                   </div>
                 )}
               />
             )}
           </section>
+
+          {editing && (
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="edit-admin-title"
+            >
+              <div className="kid-card w-full max-w-md p-6 shadow-xl sm:p-8">
+                <h2
+                  id="edit-admin-title"
+                  className="game-font text-2xl font-bold text-[var(--kid-text)]"
+                >
+                  Edit administrator
+                </h2>
+                <p className="mt-2 text-sm font-semibold text-[var(--kid-muted)]">
+                  You can update name and email. Password can only be changed by that administrator
+                  after they sign in.
+                </p>
+
+                <form onSubmit={(e) => void handleEditSave(e)} className="mt-5 space-y-4">
+                  <label className="block">
+                    <span className="mb-1.5 block text-sm font-bold text-[var(--kid-text)]">
+                      Full name
+                    </span>
+                    <input
+                      type="text"
+                      value={editForm.name}
+                      onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                      required
+                      className="w-full rounded-xl border-2 border-[#fed7aa] bg-white px-4 py-3 text-base font-semibold text-[var(--kid-text)] outline-none focus:border-[#ea580c]"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="mb-1.5 block text-sm font-bold text-[var(--kid-text)]">
+                      Email
+                    </span>
+                    <input
+                      type="email"
+                      value={editForm.email}
+                      onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                      required
+                      className="w-full rounded-xl border-2 border-[#fed7aa] bg-white px-4 py-3 text-base font-semibold text-[var(--kid-text)] outline-none focus:border-[#ea580c]"
+                    />
+                  </label>
+                  <label className="flex cursor-pointer items-center gap-2 text-sm font-bold text-[var(--kid-text)]">
+                    <input
+                      type="checkbox"
+                      checked={editForm.active}
+                      onChange={(e) => setEditForm({ ...editForm, active: e.target.checked })}
+                      className="h-4 w-4 rounded border-gray-300 text-[var(--kid-purple)]"
+                    />
+                    Account active
+                  </label>
+
+                  <div className="flex flex-wrap gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setEditing(null)}
+                      className="kid-btn-secondary !px-4 !py-2 !text-sm"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={savingEdit}
+                      className="kid-btn-primary !px-4 !py-2 !text-sm"
+                    >
+                      {savingEdit ? "Saving…" : "Save changes"}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
         </>
       )}
     </AdminShell>

@@ -78,7 +78,21 @@ router.patch("/:id", async (req: Request, res: Response) => {
   const { id } = req.params;
 
   try {
-    const { active, name } = req.body;
+    const { active, name, email, password } = req.body as {
+      active?: boolean;
+      name?: string;
+      email?: string;
+      password?: string;
+    };
+
+    if (password !== undefined) {
+      return jsonError(
+        res,
+        "Passwords cannot be changed here. Only the account owner can update their password after login.",
+        403,
+      );
+    }
+
     await connectDB();
 
     const admin = await Admin.findOne({ _id: id, role: "admin" });
@@ -86,9 +100,27 @@ router.patch("/:id", async (req: Request, res: Response) => {
 
     if (typeof active === "boolean") admin.active = active;
     if (name?.trim()) admin.name = name.trim();
+
+    if (email?.trim()) {
+      const normalized = email.toLowerCase().trim();
+      if (normalized !== admin.email) {
+        const exists = await Admin.findOne({ email: normalized, _id: { $ne: admin._id } });
+        if (exists) return jsonError(res, "Email already registered", 409);
+        admin.email = normalized;
+      }
+    }
+
     await admin.save();
 
-    return jsonOk(res, { success: true });
+    return jsonOk(res, {
+      success: true,
+      admin: {
+        id: admin._id.toString(),
+        name: admin.name,
+        email: admin.email,
+        active: admin.active,
+      },
+    });
   } catch (err) {
     console.error("Update admin error:", err);
     return jsonError(res, "Failed to update admin", 500);

@@ -650,11 +650,9 @@ interface LessonTopic {
 
 function TopicAudioBar({
   audioUrl,
-  audioText,
   resetKey,
 }: {
   audioUrl?: string;
-  audioText?: string;
   resetKey: string;
 }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -674,9 +672,6 @@ function TopicAudioBar({
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
-    }
-    if (typeof window !== "undefined" && "speechSynthesis" in window) {
-      window.speechSynthesis.cancel();
     }
     setPlaying(false);
     setProgress(0);
@@ -719,61 +714,31 @@ function TopicAudioBar({
   }, [audioUrl]);
 
   const toggle = () => {
-    if (audioUrl && audioRef.current) {
-      if (playing) {
-        audioRef.current.pause();
-        setPlaying(false);
-      } else {
-        void audioRef.current.play();
-        setPlaying(true);
-      }
-      return;
-    }
-
-    if (!audioText || typeof window === "undefined" || !("speechSynthesis" in window)) return;
-
+    if (!audioUrl || !audioRef.current) return;
     if (playing) {
-      window.speechSynthesis.cancel();
+      audioRef.current.pause();
       setPlaying(false);
-      setProgress(0);
-      return;
+    } else {
+      void audioRef.current.play();
+      setPlaying(true);
     }
-
-    const utter = new SpeechSynthesisUtterance(audioText);
-    utter.rate = 0.92;
-    utter.pitch = 1.05;
-    const words = Math.max(audioText.split(/\s+/).length, 1);
-    const estimatedSec = Math.max(words / 2.4, 2);
-    setDurationLabel(formatTime(estimatedSec));
-    const started = Date.now();
-    const tick = window.setInterval(() => {
-      const elapsed = (Date.now() - started) / 1000;
-      setProgress(Math.min((elapsed / estimatedSec) * 100, 99));
-      setCurrentLabel(formatTime(elapsed));
-    }, 200);
-
-    utter.onend = () => {
-      window.clearInterval(tick);
-      setPlaying(false);
-      setProgress(100);
-      setCurrentLabel(formatTime(estimatedSec));
-      window.setTimeout(() => {
-        setProgress(0);
-        setCurrentLabel("0:00");
-      }, 400);
-    };
-    utter.onerror = () => {
-      window.clearInterval(tick);
-      setPlaying(false);
-      setProgress(0);
-    };
-
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(utter);
-    setPlaying(true);
   };
 
-  if (!audioUrl && !audioText) return null;
+  if (!audioUrl) {
+    return (
+      <p
+        style={{
+          margin: 0,
+          fontSize: "0.78rem",
+          fontWeight: 700,
+          color: "#9ca3af",
+          textAlign: "center",
+        }}
+      >
+        No audio available
+      </p>
+    );
+  }
 
   return (
     <div
@@ -863,7 +828,7 @@ function getLessonTopics(lesson: Lesson): LessonTopic[] {
       imageUrl: page.imageUrl || lesson.imageUrl,
       videoUrl: page.videoUrl || lesson.videoUrl,
       audioUrl: page.audioUrl,
-      audioText: page.audioText || page.content || page.title,
+      audioText: page.audioText,
       body: (
         <div
           style={{ margin: 0, lineHeight: 1.55, color: "#4b5563", fontSize: "0.95rem", fontWeight: 600 }}
@@ -1214,7 +1179,6 @@ function LessonPage({
             </div>
             <TopicAudioBar
               audioUrl={topic.audioUrl}
-              audioText={topic.audioText}
               resetKey={`${lesson.id}-${safeIndex}`}
             />
           </div>
@@ -1498,7 +1462,6 @@ function QuizCard({
           {hasAudio && (
             <TopicAudioBar
               audioUrl={question.audioUrl}
-              audioText={question.audioText || question.question}
               resetKey={`${question.id}-audio`}
             />
           )}

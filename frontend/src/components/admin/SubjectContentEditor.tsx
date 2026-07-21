@@ -541,14 +541,29 @@ function PlayLayoutEditor({
           </div>
 
           <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
-            <button
-              type="button"
-              disabled={pageIndex <= 0}
-              onClick={() => onPageIndex(pageIndex - 1)}
-              className="kid-btn-secondary !px-4 !py-2 !text-sm disabled:opacity-40"
-            >
-              ← Back
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={pageIndex <= 0}
+                onClick={() => onPageIndex(pageIndex - 1)}
+                className="kid-btn-secondary !px-4 !py-2 !text-sm disabled:opacity-40"
+              >
+                ← Back
+              </button>
+              {pages.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = pages.filter((_, i) => i !== pageIndex);
+                    onLessonChange({ ...lesson, pages: next });
+                    onPageIndex(Math.min(pageIndex, next.length - 1));
+                  }}
+                  className="rounded-full border-2 border-red-200 bg-red-50 px-4 py-2 text-sm font-extrabold text-red-700 hover:bg-red-100"
+                >
+                  Remove page
+                </button>
+              )}
+            </div>
             <div className="flex flex-wrap gap-2">
               {pageIndex < pages.length - 1 ? (
                 <button
@@ -561,15 +576,16 @@ function PlayLayoutEditor({
               ) : (
                 <button
                   type="button"
-                  onClick={() =>
+                  onClick={() => {
                     onLessonChange({
                       ...lesson,
                       pages: [
                         ...pages,
                         { ...EMPTY_LESSON_PAGE, title: `Lesson page ${pages.length + 1}` },
                       ],
-                    })
-                  }
+                    });
+                    onPageIndex(pages.length);
+                  }}
                   className="kid-btn-secondary !px-4 !py-2 !text-sm"
                 >
                   + Lesson page
@@ -611,25 +627,7 @@ function PlayLayoutEditor({
         />
       </div>
 
-      <div className="kid-card grid gap-4 p-4 sm:grid-cols-2 sm:p-5">
-        <FieldHint
-          label="Play URL slug"
-          hint="Readable lesson name. If another lesson uses it, GingerPop adds a short unique ID when you save."
-          example="comparing-numbers"
-        >
-          <Editable
-            value={lesson.slug ?? ""}
-            onChange={(slug) => onLessonChange({ ...lesson, slug: slugify(slug) })}
-            placeholder="comparing-numbers"
-            className="w-full rounded-lg border border-[#fed7aa] bg-white px-3 py-2 text-sm font-semibold"
-          />
-        </FieldHint>
-        <div className="flex items-end">
-          <button type="button" onClick={onOpenQuiz} className="kid-btn-primary w-full !px-5 !py-2.5 !text-sm sm:w-auto">
-            open quiz! 🎯
-          </button>
-        </div>
-      </div>
+     
     </div>
   );
 }

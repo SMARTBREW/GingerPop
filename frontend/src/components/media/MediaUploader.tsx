@@ -224,14 +224,23 @@ export function MediaUploader({ type, value, onChange, label, onTranscript }: Me
     uploadBlob(previewBlob, `recording-${Date.now()}.${ext}`);
   };
 
-  const handleFilePick = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFilePick = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
 
     setError("");
     cleanupPreview();
-    await uploadBlob(file, file.name);
+
+    if (type === "image") {
+      void uploadBlob(file, file.name);
+      return;
+    }
+
+    const url = URL.createObjectURL(file);
+    setPreviewBlob(file);
+    setPreviewUrl(url);
+    setStep("preview");
   };
 
   const removeMedia = () => {
@@ -274,7 +283,6 @@ export function MediaUploader({ type, value, onChange, label, onTranscript }: Me
               </Button>
             </div>
           )}
-          <p className="mt-2 truncate text-xs text-gray-400">{value}</p>
         </div>
       )}
 
@@ -369,12 +377,12 @@ export function MediaUploader({ type, value, onChange, label, onTranscript }: Me
                   </Button>
                 </div>
               )}
-              <p className="mb-4 text-sm text-gray-600">Preview your {typeLabel} before uploading</p>
+              <p className="mb-4 text-sm text-gray-600">Review your {typeLabel} — upload or discard</p>
               <div className="flex gap-3">
                 <Button variant="secondary" onClick={discardPreview}>
                   Discard
                 </Button>
-                <Button onClick={uploadPreview}>Upload to Cloudinary</Button>
+                <Button onClick={uploadPreview}>Upload</Button>
               </div>
             </div>
           )}
@@ -382,7 +390,7 @@ export function MediaUploader({ type, value, onChange, label, onTranscript }: Me
           {step === "uploading" && (
             <div className="flex flex-col items-center py-8">
               <div className="spinner mb-3" />
-              <p className="text-sm text-gray-600">Uploading to Cloudinary...</p>
+              <p className="text-sm text-gray-600">Uploading…</p>
             </div>
           )}
 
@@ -420,7 +428,7 @@ export function MediaUploader({ type, value, onChange, label, onTranscript }: Me
           {step === "uploading" ? (
             <div className="py-6">
               <div className="spinner mx-auto mb-3" />
-              <p className="text-sm text-gray-600">Uploading image...</p>
+              <p className="text-sm text-gray-600">Uploading…</p>
             </div>
           ) : (
             <>
