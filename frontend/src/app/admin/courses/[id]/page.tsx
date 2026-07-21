@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useDynamicParam } from "@/lib/use-dynamic-param";
 import { AdminShell, useAdminSession } from "@/components/layout/AdminShell";
@@ -71,6 +71,7 @@ export default function CourseEditorPage() {
   const [draftRestored, setDraftRestored] = useState(false);
   const [editorReady, setEditorReady] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
+  const serverFingerprintRef = React.useRef<string>("");
 
   const draftKey = `gingerpop-subject-draft:${id}`;
 
@@ -113,6 +114,8 @@ export default function CourseEditorPage() {
           optionEmojis: q.optionEmojis ?? ["🐊", "🐊", "🐊", "😐"],
         })),
       );
+      // Keep fingerprint in sync whenever server data is applied
+      serverFingerprintRef.current = course.lessons.map((l) => l.id).sort().join(",");
     },
     [],
   );
@@ -126,9 +129,17 @@ export default function CourseEditorPage() {
           return;
         }
 
+        // Fingerprint = sorted server lesson IDs. If the draft was saved against
+        // a different set of lessons, the server has changed and the draft is stale.
+        const serverFingerprint = (data.course.lessons as { id: string }[])
+          .map((l) => l.id)
+          .sort()
+          .join(",");
+        serverFingerprintRef.current = serverFingerprint;
+
         let restoredDraft = false;
         try {
-          const raw = sessionStorage.getItem(draftKey);
+          const raw = sessionStorage.getItem(draftKey) ?? localStorage.getItem(draftKey);
           if (raw) {
             const draft = JSON.parse(raw) as {
               title: string;
@@ -137,20 +148,29 @@ export default function CourseEditorPage() {
               subjectMeta: typeof subjectMeta;
               lessons: LessonRow[];
               quizQuestions: QuestionRow[];
+              serverFingerprint?: string;
             };
-            setTitle(draft.title ?? data.course.title);
-            setDescription(draft.description ?? data.course.description ?? "");
-            setPublished(draft.published ?? data.course.published);
-            setSubjectMeta(draft.subjectMeta ?? {
-              emoji: data.course.emoji || "📚",
-              color: data.course.color || "#fff7ed",
-              accent: data.course.accent || "#ea580c",
-              slug: data.course.slug || "",
-            });
-            setLessons(draft.lessons ?? []);
-            setQuizQuestions(draft.quizQuestions ?? []);
-            restoredDraft = true;
-            setDraftRestored(true);
+            const draftFingerprint = draft.serverFingerprint ?? "";
+            if (draftFingerprint && draftFingerprint !== serverFingerprint) {
+              // Server lessons changed since draft was saved → stale, discard silently
+              sessionStorage.removeItem(draftKey);
+              localStorage.removeItem(draftKey);
+              applyCoursePayload(data.course);
+            } else {
+              setTitle(draft.title ?? data.course.title);
+              setDescription(draft.description ?? data.course.description ?? "");
+              setPublished(draft.published ?? data.course.published);
+              setSubjectMeta(draft.subjectMeta ?? {
+                emoji: data.course.emoji || "📚",
+                color: data.course.color || "#fff7ed",
+                accent: data.course.accent || "#ea580c",
+                slug: data.course.slug || "",
+              });
+              setLessons(draft.lessons ?? []);
+              setQuizQuestions(draft.quizQuestions ?? []);
+              restoredDraft = true;
+              setDraftRestored(true);
+            }
           } else {
             applyCoursePayload(data.course);
           }
@@ -277,6 +297,7 @@ export default function CourseEditorPage() {
       lessons,
       quizQuestions,
       savedAt: Date.now(),
+      serverFingerprint: serverFingerprintRef.current,
     };
     sessionStorage.setItem(draftKey, JSON.stringify(payload));
   }, [
