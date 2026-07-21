@@ -128,7 +128,7 @@ export default function CourseEditorPage() {
 
         let restoredDraft = false;
         try {
-          const raw = localStorage.getItem(draftKey);
+          const raw = sessionStorage.getItem(draftKey);
           if (raw) {
             const draft = JSON.parse(raw) as {
               title: string;
@@ -137,30 +137,20 @@ export default function CourseEditorPage() {
               subjectMeta: typeof subjectMeta;
               lessons: LessonRow[];
               quizQuestions: QuestionRow[];
-              savedAt?: number;
             };
-            const serverUpdatedAt: number = data.course.updatedAt ?? 0;
-            const draftSavedAt: number = draft.savedAt ?? 0;
-            if (draftSavedAt > serverUpdatedAt) {
-              // Draft is newer than what's on the server — restore it
-              setTitle(draft.title ?? data.course.title);
-              setDescription(draft.description ?? data.course.description ?? "");
-              setPublished(draft.published ?? data.course.published);
-              setSubjectMeta(draft.subjectMeta ?? {
-                emoji: data.course.emoji || "📚",
-                color: data.course.color || "#fff7ed",
-                accent: data.course.accent || "#ea580c",
-                slug: data.course.slug || "",
-              });
-              setLessons(draft.lessons ?? []);
-              setQuizQuestions(draft.quizQuestions ?? []);
-              restoredDraft = true;
-              setDraftRestored(true);
-            } else {
-              // Server is newer — discard stale draft
-              localStorage.removeItem(draftKey);
-              applyCoursePayload(data.course);
-            }
+            setTitle(draft.title ?? data.course.title);
+            setDescription(draft.description ?? data.course.description ?? "");
+            setPublished(draft.published ?? data.course.published);
+            setSubjectMeta(draft.subjectMeta ?? {
+              emoji: data.course.emoji || "📚",
+              color: data.course.color || "#fff7ed",
+              accent: data.course.accent || "#ea580c",
+              slug: data.course.slug || "",
+            });
+            setLessons(draft.lessons ?? []);
+            setQuizQuestions(draft.quizQuestions ?? []);
+            restoredDraft = true;
+            setDraftRestored(true);
           } else {
             applyCoursePayload(data.course);
           }
@@ -261,7 +251,7 @@ export default function CourseEditorPage() {
     setSaving(false);
 
     if (res.ok) {
-      localStorage.removeItem(draftKey);
+      sessionStorage.removeItem(draftKey);
       setDraftRestored(false);
       setLastSavedAt(new Date().toLocaleTimeString());
       // Reload from server without re-applying stale drafts
@@ -288,7 +278,7 @@ export default function CourseEditorPage() {
       quizQuestions,
       savedAt: Date.now(),
     };
-    localStorage.setItem(draftKey, JSON.stringify(payload));
+    sessionStorage.setItem(draftKey, JSON.stringify(payload));
   }, [
     editorReady,
     loading,
@@ -501,7 +491,7 @@ export default function CourseEditorPage() {
             {draftRestored && (
               <button
                 onClick={() => {
-                  localStorage.removeItem(draftKey);
+                  sessionStorage.removeItem(draftKey);
                   setDraftRestored(false);
                   setMessage(null);
                   loadCourse();
