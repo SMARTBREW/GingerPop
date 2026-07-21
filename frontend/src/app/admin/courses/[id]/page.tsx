@@ -68,6 +68,7 @@ export default function CourseEditorPage() {
   const [inviting, setInviting] = useState(false);
   const [reinvitingEmail, setReinvitingEmail] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [draftRestored, setDraftRestored] = useState(false);
   const [editorReady, setEditorReady] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
 
@@ -136,19 +137,30 @@ export default function CourseEditorPage() {
               subjectMeta: typeof subjectMeta;
               lessons: LessonRow[];
               quizQuestions: QuestionRow[];
+              savedAt?: number;
             };
-            setTitle(draft.title ?? data.course.title);
-            setDescription(draft.description ?? data.course.description ?? "");
-            setPublished(draft.published ?? data.course.published);
-            setSubjectMeta(draft.subjectMeta ?? {
-              emoji: data.course.emoji || "📚",
-              color: data.course.color || "#fff7ed",
-              accent: data.course.accent || "#ea580c",
-              slug: data.course.slug || "",
-            });
-            setLessons(draft.lessons ?? []);
-            setQuizQuestions(draft.quizQuestions ?? []);
-            restoredDraft = true;
+            const serverUpdatedAt: number = data.course.updatedAt ?? 0;
+            const draftSavedAt: number = draft.savedAt ?? 0;
+            if (draftSavedAt > serverUpdatedAt) {
+              // Draft is newer than what's on the server — restore it
+              setTitle(draft.title ?? data.course.title);
+              setDescription(draft.description ?? data.course.description ?? "");
+              setPublished(draft.published ?? data.course.published);
+              setSubjectMeta(draft.subjectMeta ?? {
+                emoji: data.course.emoji || "📚",
+                color: data.course.color || "#fff7ed",
+                accent: data.course.accent || "#ea580c",
+                slug: data.course.slug || "",
+              });
+              setLessons(draft.lessons ?? []);
+              setQuizQuestions(draft.quizQuestions ?? []);
+              restoredDraft = true;
+              setDraftRestored(true);
+            } else {
+              // Server is newer — discard stale draft
+              localStorage.removeItem(draftKey);
+              applyCoursePayload(data.course);
+            }
           } else {
             applyCoursePayload(data.course);
           }
@@ -162,7 +174,7 @@ export default function CourseEditorPage() {
         if (restoredDraft) {
           setMessage({
             type: "success",
-            text: "Restored your draft after refresh. Click Save changes to keep it on the server.",
+            text: "You have unsaved local changes. Click Save to keep them, or Discard to reload from server.",
           });
         }
       });
@@ -250,6 +262,7 @@ export default function CourseEditorPage() {
 
     if (res.ok) {
       localStorage.removeItem(draftKey);
+      setDraftRestored(false);
       setLastSavedAt(new Date().toLocaleTimeString());
       // Reload from server without re-applying stale drafts
       const fresh = await fetch(`/api/courses/${id}`).then((r) => r.json());
@@ -478,13 +491,26 @@ export default function CourseEditorPage() {
       <div className="px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
         {message && (
           <div
-            className={`mb-6 rounded-md border px-4 py-3 text-base ${
+            className={`mb-6 flex items-center justify-between gap-4 rounded-md border px-4 py-3 text-base ${
               message.type === "success"
                 ? "border-emerald-200 bg-emerald-50 text-emerald-800"
                 : "border-red-200 bg-red-50 text-red-800"
             }`}
           >
-            {message.text}
+            <span>{message.text}</span>
+            {draftRestored && (
+              <button
+                onClick={() => {
+                  localStorage.removeItem(draftKey);
+                  setDraftRestored(false);
+                  setMessage(null);
+                  loadCourse();
+                }}
+                className="shrink-0 rounded border border-emerald-400 bg-white px-3 py-1 text-sm font-medium text-emerald-700 hover:bg-emerald-50"
+              >
+                Discard draft
+              </button>
+            )}
           </div>
         )}
 

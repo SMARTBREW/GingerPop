@@ -173,6 +173,7 @@ router.get("/:id", async (req: Request, res: Response) => {
       color: course.color,
       accent: course.accent,
       slug: course.slug,
+      updatedAt: (course as unknown as { updatedAt?: Date }).updatedAt?.getTime() ?? Date.now(),
       lessons: course.lessons
         .sort((a: ILesson, b: ILesson) => a.order - b.order)
         .map(serializeLesson),
