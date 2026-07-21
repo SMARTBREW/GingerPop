@@ -1,12 +1,20 @@
 "use client";
 
 import { Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
+import { useEffect } from "react";
 import { MascotQuizPlayer } from "@/components/MascotQuizPlayer";
 
 function PlayPageInner() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const lessonId = searchParams.get("lesson") ?? undefined;
+
+  useEffect(() => {
+    if (!lessonId) router.replace("/subjects");
+  }, [lessonId, router]);
+
+  if (!lessonId) return null;
   return <MascotQuizPlayer initialLessonId={lessonId} />;
 }
 

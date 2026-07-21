@@ -1,22 +1,56 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { KidZone } from "@/components/layout/KidZone";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { SiteHeader, SiteHeaderLink } from "@/components/layout/SiteHeader";
-import {
-  CatalogSubject,
-  CatalogTopic,
-  SUBJECT_CATALOG,
-} from "@/data/subject-catalog";
+
+interface CatalogSubtopic {
+  id: string;
+  title: string;
+  description?: string;
+  emoji?: string;
+  lessonId?: string;
+}
+
+interface CatalogTopic {
+  id: string;
+  title: string;
+  emoji?: string;
+  description?: string;
+  subtopics: CatalogSubtopic[];
+}
+
+interface CatalogSubject {
+  id: string;
+  courseId: string;
+  title: string;
+  description: string;
+  emoji: string;
+  color: string;
+  accent: string;
+  topics: CatalogTopic[];
+}
 
 type Level = "subjects" | "topics" | "subtopics";
 
 export default function SubjectsPage() {
+  const [catalog, setCatalog] = useState<CatalogSubject[]>([]);
+  const [catalogLoading, setCatalogLoading] = useState(true);
   const [level, setLevel] = useState<Level>("subjects");
   const [subject, setSubject] = useState<CatalogSubject | null>(null);
   const [topic, setTopic] = useState<CatalogTopic | null>(null);
+
+  useEffect(() => {
+    fetch("/api/public/catalog")
+      .then((r) => r.json())
+      .then((data) => {
+        setCatalog(data.subjects ?? []);
+        setCatalogLoading(false);
+      })
+      .catch(() => setCatalogLoading(false));
+  }, []);
 
   const breadcrumb = useMemo(() => {
     const bits: { label: string; onClick?: () => void }[] = [
@@ -98,9 +132,15 @@ export default function SubjectsPage() {
           ))}
         </nav>
 
-        {level === "subjects" && (
+        {level === "subjects" && catalogLoading && (
+          <p className="py-8 text-center text-sm font-semibold text-[var(--kid-muted)]">Loading subjects…</p>
+        )}
+        {level === "subjects" && !catalogLoading && catalog.length === 0 && (
+          <p className="py-8 text-center text-sm font-semibold text-[var(--kid-muted)]">No published subjects yet.</p>
+        )}
+        {level === "subjects" && !catalogLoading && (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {SUBJECT_CATALOG.map((s) => (
+            {catalog.map((s) => (
               <button
                 key={s.id}
                 type="button"

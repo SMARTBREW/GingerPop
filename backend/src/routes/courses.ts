@@ -451,16 +451,11 @@ router.put("/:id", async (req: Request, res: Response) => {
         : undefined;
       const filledCount = options.filter((t) => String(t || "").trim().length > 0).length;
       let correctIndex = typeof q.correctIndex === "number" ? q.correctIndex : 0;
-      if (
-        correctIndex < 0 ||
-        correctIndex > 3 ||
-        !String(options[correctIndex] || "").trim() ||
-        filledCount === 0
-      ) {
-        correctIndex = Math.max(
-          0,
-          options.findIndex((t) => String(t || "").trim().length > 0),
-        );
+      // Clamp to valid range only — do NOT auto-reset based on option text,
+      // because empty options show placeholder text in the UI and silently
+      // changing the correct answer is confusing for the admin.
+      if (correctIndex < 0 || correctIndex > 3) {
+        correctIndex = 0;
       }
       return {
         ...(q.id && isValidObjectId(q.id) ? { _id: new mongoose.Types.ObjectId(q.id) } : {}),

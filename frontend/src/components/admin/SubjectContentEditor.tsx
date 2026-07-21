@@ -28,6 +28,8 @@ interface SubjectMeta {
   slug: string;
 }
 
+type QuestionsUpdater = QuestionRow[] | ((prev: QuestionRow[]) => QuestionRow[]);
+
 interface SubjectContentEditorProps {
   subjectTitle: string;
   subjectDescription: string;
@@ -36,7 +38,7 @@ interface SubjectContentEditorProps {
   lessons: LessonRow[];
   quizQuestions: QuestionRow[];
   onLessonsChange: (lessons: LessonRow[]) => void;
-  onQuestionsChange: (questions: QuestionRow[]) => void;
+  onQuestionsChange: (questions: QuestionsUpdater) => void;
   onSave?: () => void;
   saving?: boolean;
   onBackToSubject?: () => void;
@@ -311,13 +313,7 @@ function QuizCardEditor({
                       onChange({ ...q, options });
                     }}
                     placeholder={
-                      oIdx === 0
-                        ? "< (Less Than)"
-                        : oIdx === 1
-                          ? "> (Greater Than)"
-                          : oIdx === 2
-                            ? "= (Equal To)"
-                            : "Optional 4th answer…"
+                      oIdx === 3 ? "4th option (optional)" : `Option ${OPTION_LABELS[oIdx]}`
                     }
                     className="flex-1 bg-transparent text-base font-bold text-[var(--kid-text)] outline-none"
                   />
@@ -645,7 +641,7 @@ export function StandaloneQuizEditor({
   lessons: LessonRow[];
   quizQuestions: QuestionRow[];
   onLessonsChange: (lessons: LessonRow[]) => void;
-  onQuestionsChange: (questions: QuestionRow[]) => void;
+  onQuestionsChange: (questions: QuestionsUpdater) => void;
   onSave: () => void;
   saving?: boolean;
   onBack: () => void;
@@ -745,20 +741,19 @@ export function StandaloneQuizEditor({
                 ))}
               </div>
               <QuizCardEditor
+                key={standaloneQuestions[Math.min(questionIndex, standaloneQuestions.length - 1)]?.id}
                 q={standaloneQuestions[Math.min(questionIndex, standaloneQuestions.length - 1)]}
                 idx={Math.min(questionIndex, standaloneQuestions.length - 1)}
                 total={standaloneQuestions.length}
                 onChange={(updated) =>
-                  onQuestionsChange(
-                    quizQuestions.map((question) =>
-                      question.id === updated.id ? updated : question,
-                    ),
+                  onQuestionsChange((prev) =>
+                    prev.map((question) => (question.id === updated.id ? updated : question)),
                   )
                 }
                 onRemove={() => {
                   const current =
                     standaloneQuestions[Math.min(questionIndex, standaloneQuestions.length - 1)];
-                  onQuestionsChange(quizQuestions.filter((question) => question.id !== current.id));
+                  onQuestionsChange((prev) => prev.filter((question) => question.id !== current.id));
                   setQuestionIndex((index) => Math.max(0, index - 1));
                 }}
               />
@@ -1233,17 +1228,18 @@ export function SubjectContentEditor({
                 ))}
               </div>
               <QuizCardEditor
+                key={lessonQuestions[Math.min(quizIndex, lessonQuestions.length - 1)]?.id}
                 q={lessonQuestions[Math.min(quizIndex, lessonQuestions.length - 1)]}
                 idx={Math.min(quizIndex, lessonQuestions.length - 1)}
                 total={lessonQuestions.length}
                 onChange={(updated) =>
-                  onQuestionsChange(
-                    quizQuestions.map((q) => (q.id === updated.id ? updated : q)),
+                  onQuestionsChange((prev) =>
+                    prev.map((q) => (q.id === updated.id ? updated : q)),
                   )
                 }
                 onRemove={() => {
                   const id = lessonQuestions[Math.min(quizIndex, lessonQuestions.length - 1)].id;
-                  onQuestionsChange(quizQuestions.filter((q) => q.id !== id));
+                  onQuestionsChange((prev) => prev.filter((q) => q.id !== id));
                   setQuizIndex(0);
                 }}
               />
