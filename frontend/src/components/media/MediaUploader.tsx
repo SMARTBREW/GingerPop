@@ -6,6 +6,7 @@ import { cn } from "@/lib/cn";
 
 import { createSpeechRecognition, isSpeechRecognitionSupported, type SpeechRecognitionEvent } from "@/lib/speech-recognition";
 import { compressImageFile, formatFileSize } from "@/lib/compress-media";
+import { uploadMediaDirect } from "@/lib/direct-upload";
 
 type MediaType = "audio" | "video" | "image";
 type Step = "idle" | "recording" | "preview" | "uploading" | "compressing";
@@ -43,6 +44,7 @@ export function MediaUploader({ type, value, onChange, label, onTranscript }: Me
   const [liveStream, setLiveStream] = useState<MediaStream | null>(null);
   const [transcript, setTranscript] = useState("");
   const [interimTranscript, setInterimTranscript] = useState("");
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -141,7 +143,7 @@ export function MediaUploader({ type, value, onChange, label, onTranscript }: Me
       const recorderOptions: MediaRecorderOptions = { mimeType: mimeType || undefined };
       if (mimeType) {
         recorderOptions.audioBitsPerSecond = 96_000;
-        if (type === "video") recorderOptions.videoBitsPerSecond = 1_000_000;
+        if (type === "video") recorderOptions.videoBitsPerSecond = 750_000;
       }
       const recorder = mimeType
         ? new MediaRecorder(stream, recorderOptions)
@@ -205,27 +207,19 @@ export function MediaUploader({ type, value, onChange, label, onTranscript }: Me
   const uploadBlob = async (blob: Blob, filename: string) => {
     setStep("uploading");
     setError("");
+    setUploadProgress(0);
 
-    const formData = new FormData();
-    formData.append("file", blob, filename);
-    formData.append("mediaType", type);
-
-    const res = await fetch("/api/upload", {
-      method: "POST",
-      body: formData,
-      credentials: "include",
-    });
-    const data = await res.json();
-
-    if (!res.ok) {
-      setError(data.error ?? "Upload failed");
+    try {
+      const url = await uploadMediaDirect(blob, filename, type, setUploadProgress);
+      onChange(url);
+      cleanupPreview();
+      setStep("idle");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Upload failed");
       setStep("preview");
-      return;
+    } finally {
+      setUploadProgress(0);
     }
-
-    onChange(data.url);
-    cleanupPreview();
-    setStep("idle");
   };
 
   const buildUploadFilename = (name: string, ext: string) => {
@@ -431,9 +425,19 @@ export function MediaUploader({ type, value, onChange, label, onTranscript }: Me
           )}
 
           {step === "uploading" && (
-            <div className="flex flex-col items-center py-8">
+            <div className="flex flex-col items-center py-8 w-full">
               <div className="spinner mb-3" />
-              <p className="text-sm text-gray-600">Uploading…</p>
+              <p className="text-sm text-gray-600">
+                Uploading{uploadProgress > 0 ? `… ${uploadProgress}%` : "…"}
+              </p>
+              {uploadProgress > 0 && (
+                <div className="mt-3 h-2 w-full max-w-xs overflow-hidden rounded-full bg-gray-200">
+                  <div
+                    className="h-full rounded-full bg-[var(--primary)] transition-all duration-200"
+                    style={{ width: `${uploadProgress}%` }}
+                  />
+                </div>
+              )}
             </div>
           )}
 
@@ -476,11 +480,21 @@ export function MediaUploader({ type, value, onChange, label, onTranscript }: Me
             onChange={handleFilePick}
           />
           {step === "uploading" || step === "compressing" ? (
-            <div className="py-6">
+            <div className="py-6 w-full">
               <div className="spinner mx-auto mb-3" />
-              <p className="text-sm text-gray-600">
-                {step === "compressing" ? "Optimizing image…" : "Uploading…"}
+              <p className="text-sm text-gray-600 text-center">
+                {step === "compressing"
+                  ? "Optimizing image…"
+                  : `Uploading${uploadProgress > 0 ? `… ${uploadProgress}%` : "…"}`}
               </p>
+              {step === "uploading" && uploadProgress > 0 && (
+                <div className="mx-auto mt-3 h-2 w-full max-w-xs overflow-hidden rounded-full bg-gray-200">
+                  <div
+                    className="h-full rounded-full bg-[var(--primary)] transition-all duration-200"
+                    style={{ width: `${uploadProgress}%` }}
+                  />
+                </div>
+              )}
             </div>
           ) : (
             <>

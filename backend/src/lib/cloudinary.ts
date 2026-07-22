@@ -28,10 +28,19 @@ export function isCloudinaryConfigured() {
   return Boolean(cloudinary.config().cloud_name && cloudinary.config().api_key);
 }
 
-export function cloudinaryResourceType(mimeType: string): "image" | "video" | "raw" {
-  if (mimeType.startsWith("image/")) return "image";
-  if (mimeType.startsWith("video/")) return "video";
-  if (mimeType.startsWith("audio/")) return "video";
+export function cloudinaryResourceType(
+  mimeType: string,
+  mediaType?: string,
+): "image" | "video" | "raw" {
+  const base = mimeType.split(";")[0].trim().toLowerCase();
+  if (base.startsWith("image/")) return "image";
+  if (base.startsWith("video/")) return "video";
+  if (base.startsWith("audio/")) return "video";
+
+  if (mediaType === "image" || mediaType === "video" || mediaType === "audio") {
+    return mediaType === "image" ? "image" : "video";
+  }
+
   return "raw";
 }
 
@@ -40,10 +49,57 @@ export function cloudinaryPublicId(filename: string): string {
   return filename.replace(/\.[^/.]+$/, "");
 }
 
+export function buildUploadFilename(mediaType: string, extension?: string) {
+  const ext = extension?.replace(/[^a-z0-9]/gi, "") || "media";
+  return `${mediaType}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+}
+
+/** Params for browser → Cloudinary direct upload (skips EC2 hop). */
+export function signDirectUpload(params: { mediaType: string; filename: string }) {
+  const config = cloudinary.config();
+  const apiSecret = config.api_secret;
+  if (!config.cloud_name || !config.api_key || !apiSecret) {
+    throw new Error("Cloudinary is not configured");
+  }
+
+  const mediaType = params.mediaType;
+  const resourceType = cloudinaryResourceType("application/octet-stream", mediaType);
+  const folder = `ginger-pop/${mediaType}`;
+  const public_id = cloudinaryPublicId(params.filename);
+
+  const timestamp = Math.round(Date.now() / 1000);
+  const signParams: Record<string, string | number> = {
+    timestamp,
+    folder,
+    public_id,
+  };
+
+  if (resourceType === "image") {
+    signParams.quality = "auto:good";
+    signParams.fetch_format = "auto";
+  } else if (resourceType === "video") {
+    signParams.quality = "auto:good";
+  }
+
+  const signature = cloudinary.utils.api_sign_request(signParams, apiSecret);
+
+  return {
+    cloudName: config.cloud_name,
+    apiKey: config.api_key,
+    timestamp,
+    signature,
+    folder,
+    publicId: public_id,
+    resourceType,
+    uploadParams: signParams,
+  };
+}
+
 export async function uploadToCloudinary(
   buffer: Buffer,
   options: {
     mimeType: string;
+    mediaType?: string;
     folder?: string;
     filename?: string;
   },
@@ -52,7 +108,7 @@ export async function uploadToCloudinary(
     throw new Error("Cloudinary is not configured. Add CLOUDINARY_URL to .env");
   }
 
-  const resourceType = cloudinaryResourceType(options.mimeType);
+  const resourceType = cloudinaryResourceType(options.mimeType, options.mediaType);
 
   const uploadOptions: Record<string, unknown> = {
     resource_type: resourceType,

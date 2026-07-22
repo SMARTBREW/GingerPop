@@ -2,7 +2,7 @@ import { Router, Request, Response } from "express";
 import multer from "multer";
 import { requireAdmin, sendAuthError } from "@/lib/permissions";
 import { jsonError, jsonOk } from "@/lib/api";
-import { cloudinaryResourceType, deleteCloudinaryByUrl, isCloudinaryConfigured, uploadToCloudinary } from "@/lib/cloudinary";
+import { cloudinaryResourceType, deleteCloudinaryByUrl, isCloudinaryConfigured, uploadToCloudinary, buildUploadFilename, signDirectUpload } from "@/lib/cloudinary";
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -16,6 +16,32 @@ const MAX_BYTES: Record<string, number> = {
 };
 
 const router = Router();
+
+router.post("/sign", async (req: Request, res: Response) => {
+  const auth = await requireAdmin(req);
+  if ("error" in auth) return sendAuthError(res, auth);
+
+  if (!isCloudinaryConfigured()) {
+    return jsonError(res, "Cloudinary is not configured. Set CLOUDINARY_URL in .env", 503);
+  }
+
+  try {
+    const mediaType = String(req.body?.mediaType ?? "");
+    if (!["image", "video", "audio"].includes(mediaType)) {
+      return jsonError(res, "Invalid mediaType", 400);
+    }
+
+    const originalName = String(req.body?.filename ?? "");
+    const ext = originalName.split(".").pop()?.replace(/[^a-z0-9]/gi, "") ?? "media";
+    const filename = buildUploadFilename(mediaType, ext);
+
+    const signed = signDirectUpload({ mediaType, filename });
+    return jsonOk(res, signed);
+  } catch (err) {
+    console.error("Upload sign error:", err);
+    return jsonError(res, err instanceof Error ? err.message : "Failed to sign upload", 500);
+  }
+});
 
 router.post("/", upload.single("file"), async (req: Request, res: Response) => {
   const auth = await requireAdmin(req);
@@ -63,6 +89,7 @@ router.post("/", upload.single("file"), async (req: Request, res: Response) => {
 
     const result = await uploadToCloudinary(file.buffer, {
       mimeType: baseMime,
+      mediaType,
       folder: `ginger-pop/${mediaType}`,
       filename,
     });
@@ -70,7 +97,7 @@ router.post("/", upload.single("file"), async (req: Request, res: Response) => {
     return jsonOk(res, {
       url: result.url,
       publicId: result.publicId,
-      resourceType: cloudinaryResourceType(baseMime),
+      resourceType: cloudinaryResourceType(baseMime, mediaType),
     });
   } catch (err) {
     console.error("Upload error:", err);
