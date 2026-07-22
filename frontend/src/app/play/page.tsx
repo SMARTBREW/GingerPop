@@ -1,14 +1,27 @@
 "use client";
 
-import { Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { MascotQuizPlayer } from "@/components/MascotQuizPlayer";
 
 function PlayPageInner() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const lessonId = searchParams.get("lesson") ?? undefined;
-  // No lesson param → built-in demo lessons (ALL_MATH_LESSONS) for practice.
-  return <MascotQuizPlayer initialLessonId={lessonId} />;
+
+  useEffect(() => {
+    if (!lessonId) router.replace("/subjects");
+  }, [lessonId, router]);
+
+  if (!lessonId) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#fff8f0] text-lg font-bold text-[#6b5b8a]">
+        Loading your quest…
+      </div>
+    );
+  }
+
+  return <MascotQuizPlayer initialLessonId={lessonId} staticDemo />;
 }
 
 export default function PlayPage() {

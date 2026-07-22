@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
+import { SUBJECT_CATALOG } from "@/data/subject-catalog";
 import { KidZone } from "@/components/layout/KidZone";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { SiteHeader, SiteHeaderLink } from "@/components/layout/SiteHeader";
@@ -35,22 +36,23 @@ interface CatalogSubject {
 
 type Level = "subjects" | "topics" | "subtopics";
 
+function previewCatalog(): CatalogSubject[] {
+  return SUBJECT_CATALOG.map((subject) => ({
+    ...subject,
+    courseId: `preview-${subject.id}`,
+    topics: subject.topics.map((topic) => ({
+      ...topic,
+      subtopics: topic.subtopics.map((sub) => ({ ...sub })),
+    })),
+  }));
+}
+
 export default function SubjectsPage() {
-  const [catalog, setCatalog] = useState<CatalogSubject[]>([]);
-  const [catalogLoading, setCatalogLoading] = useState(true);
+  /** Static demo catalog only — no API (preview Maths / Science / English). */
+  const catalog = useMemo(() => previewCatalog(), []);
   const [level, setLevel] = useState<Level>("subjects");
   const [subject, setSubject] = useState<CatalogSubject | null>(null);
   const [topic, setTopic] = useState<CatalogTopic | null>(null);
-
-  useEffect(() => {
-    fetch("/api/public/catalog")
-      .then((r) => r.json())
-      .then((data) => {
-        setCatalog(data.subjects ?? []);
-        setCatalogLoading(false);
-      })
-      .catch(() => setCatalogLoading(false));
-  }, []);
 
   const breadcrumb = useMemo(() => {
     const bits: { label: string; onClick?: () => void }[] = [
@@ -101,6 +103,9 @@ export default function SubjectsPage() {
           <p className="kid-pill mb-3 border-2 border-[#fcd34d] bg-[#fef9c3] text-[#92400e]">
             📖 Choose your adventure
           </p>
+          <p className="mb-3 text-sm font-semibold text-[var(--kid-muted)]">
+            Demo preview — sample subjects, chapters, and built-in Maths lessons.
+          </p>
           <h1 className="game-font text-3xl font-bold text-[var(--kid-text)] sm:text-4xl">
             {level === "subjects" && "Pick a subject"}
             {level === "topics" && `${subject?.emoji ?? ""} ${subject?.title} chapters`}
@@ -132,13 +137,7 @@ export default function SubjectsPage() {
           ))}
         </nav>
 
-        {level === "subjects" && catalogLoading && (
-          <p className="py-8 text-center text-sm font-semibold text-[var(--kid-muted)]">Loading subjects…</p>
-        )}
-        {level === "subjects" && !catalogLoading && catalog.length === 0 && (
-          <p className="py-8 text-center text-sm font-semibold text-[var(--kid-muted)]">No published subjects yet.</p>
-        )}
-        {level === "subjects" && !catalogLoading && (
+        {level === "subjects" && (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {catalog.map((s) => (
               <button

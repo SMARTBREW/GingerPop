@@ -1,6 +1,6 @@
 "use client";
 
-import { CSSProperties, useState } from "react";
+import { CSSProperties, useEffect, useRef, useState } from "react";
 import { optimizeMediaUrl } from "@/lib/media-url";
 
 function MediaPlaceholder({ label }: { label: string }) {
@@ -22,9 +22,22 @@ export function PlayerImage({
   style?: CSSProperties;
   className?: string;
 }) {
+  const imgRef = useRef<HTMLImageElement>(null);
   const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
   const optimized = optimizeMediaUrl(src, "image");
+
+  useEffect(() => {
+    setLoaded(false);
+    setFailed(false);
+  }, [optimized]);
+
+  useEffect(() => {
+    const img = imgRef.current;
+    if (img?.complete && img.naturalWidth > 0) {
+      setLoaded(true);
+    }
+  }, [optimized]);
 
   if (!optimized) return null;
   if (failed) return <MediaPlaceholder label="Image could not load" />;
@@ -34,6 +47,7 @@ export function PlayerImage({
       {!loaded && <MediaPlaceholder label="Loading image…" />}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
+        ref={imgRef}
         src={optimized}
         alt={alt}
         decoding="async"

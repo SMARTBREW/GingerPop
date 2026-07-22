@@ -652,12 +652,19 @@ interface LessonTopic {
 
 function TopicAudioBar({
   audioUrl,
+  audioText,
   resetKey,
+  allowSpeechFallback = false,
 }: {
   audioUrl?: string;
+  audioText?: string;
   resetKey: string;
+  /** When false, only uploaded audioUrl is shown (learn/invite pages). */
+  allowSpeechFallback?: boolean;
 }) {
+  const speechText = allowSpeechFallback ? audioText?.trim() : undefined;
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const speechTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [durationLabel, setDurationLabel] = useState("0:00");
@@ -670,15 +677,30 @@ function TopicAudioBar({
     return `${m}:${s.toString().padStart(2, "0")}`;
   };
 
+  const clearSpeechTimer = useCallback(() => {
+    if (speechTimerRef.current) {
+      clearInterval(speechTimerRef.current);
+      speechTimerRef.current = null;
+    }
+  }, []);
+
+  const stopSpeech = useCallback(() => {
+    if (typeof window !== "undefined" && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+    clearSpeechTimer();
+  }, [clearSpeechTimer]);
+
   const stopAll = useCallback(() => {
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
     }
+    stopSpeech();
     setPlaying(false);
     setProgress(0);
     setCurrentLabel("0:00");
-  }, []);
+  }, [stopSpeech]);
 
   useEffect(() => {
     stopAll();
@@ -718,31 +740,67 @@ function TopicAudioBar({
     };
   }, [audioUrl]);
 
-  const toggle = () => {
-    if (!audioUrl || !audioRef.current) return;
-    if (playing) {
-      audioRef.current.pause();
+  const startSpeech = useCallback(() => {
+    if (!speechText || typeof window === "undefined" || !window.speechSynthesis) return;
+
+    stopSpeech();
+    const utterance = new SpeechSynthesisUtterance(speechText);
+    utterance.lang = "en-IN";
+    utterance.rate = 0.95;
+
+    const wordCount = speechText.split(/\s+/).filter(Boolean).length;
+    const estimatedMs = Math.max(wordCount * 450, 2000);
+    const start = Date.now();
+
+    utterance.onend = () => {
+      clearSpeechTimer();
       setPlaying(false);
-    } else {
-      void audioRef.current.play();
-      setPlaying(true);
+      setProgress(100);
+      setCurrentLabel(formatTime(estimatedMs / 1000));
+    };
+    utterance.onerror = () => {
+      clearSpeechTimer();
+      setPlaying(false);
+    };
+
+    setDurationLabel(formatTime(estimatedMs / 1000));
+    setPlaying(true);
+    setProgress(0);
+    setCurrentLabel("0:00");
+
+    speechTimerRef.current = setInterval(() => {
+      const elapsed = Date.now() - start;
+      const pct = Math.min(100, (elapsed / estimatedMs) * 100);
+      setProgress(pct);
+      setCurrentLabel(formatTime(elapsed / 1000));
+    }, 100);
+
+    window.speechSynthesis.speak(utterance);
+  }, [speechText, stopSpeech, clearSpeechTimer]);
+
+  const toggle = () => {
+    if (audioUrl && audioRef.current) {
+      if (playing) {
+        audioRef.current.pause();
+        setPlaying(false);
+      } else {
+        void audioRef.current.play();
+        setPlaying(true);
+      }
+      return;
     }
+
+    if (!speechText) return;
+    if (playing) {
+      stopSpeech();
+      setPlaying(false);
+      return;
+    }
+    startSpeech();
   };
 
-  if (!audioUrl) {
-    return (
-      <p
-        style={{
-          margin: 0,
-          fontSize: "0.78rem",
-          fontWeight: 700,
-          color: "#9ca3af",
-          textAlign: "center",
-        }}
-      >
-        No audio available
-      </p>
-    );
+  if (!audioUrl && !speechText) {
+    return null;
   }
 
   return (
@@ -1049,10 +1107,12 @@ function LessonPage({
   lesson,
   onStartQuiz,
   transitionClass,
+  allowSpeechFallback = false,
 }: {
   lesson: Lesson;
   onStartQuiz: () => void;
   transitionClass: string;
+  allowSpeechFallback?: boolean;
 }) {
   const topics = getLessonTopics(lesson);
   const [topicIndex, setTopicIndex] = useState(0);
@@ -1153,6 +1213,8 @@ function LessonPage({
             </div>
             <TopicAudioBar
               audioUrl={topic.audioUrl}
+              audioText={topic.audioText}
+              allowSpeechFallback={allowSpeechFallback}
               resetKey={`${lesson.id}-${safeIndex}`}
             />
           </div>
@@ -1225,6 +1287,7 @@ function QuizCard({
   transitionClass,
   inviteToken,
   reviewMode = false,
+  allowSpeechFallback = false,
 }: {
   lesson: Lesson;
   onBackToLesson: () => void;
@@ -1240,13 +1303,16 @@ function QuizCard({
   }) => void;
   inviteToken?: string;
   reviewMode?: boolean;
+  allowSpeechFallback?: boolean;
 }) {
   const questions = lesson.quizQuestions;
   const question = questions[questionIndex];
   const total = questions.length;
   const visibleOptions = question.options.filter((o) => (o.text || "").trim().length > 0);
   const hasImage = Boolean(question.imageUrl || question.videoUrl);
-  const hasAudio = Boolean(question.audioUrl || question.audioText);
+  const hasAudio = Boolean(
+    question.audioUrl || (allowSpeechFallback && question.audioText?.trim()),
+  );
 
   const [selected, setSelected] = useState<number | null>(null);
   const [answered, setAnswered] = useState(false);
@@ -1420,6 +1486,8 @@ function QuizCard({
           {hasAudio && (
             <TopicAudioBar
               audioUrl={question.audioUrl}
+              audioText={question.audioText}
+              allowSpeechFallback={allowSpeechFallback}
               resetKey={`${question.id}-audio`}
             />
           )}
@@ -1686,8 +1754,11 @@ type ViewMode = "lesson" | "quiz";
 export function MascotQuizPlayer({
   initialLessonId,
   invite,
+  staticDemo = false,
 }: {
   initialLessonId?: string;
+  /** Built-in ALL_MATH_LESSONS preview — never calls the lessons API. */
+  staticDemo?: boolean;
   invite?: {
     token: string;
     lessons: InvitePlayLesson[];
@@ -1708,12 +1779,12 @@ export function MascotQuizPlayer({
 }) {
   const [remoteLesson, setRemoteLesson] = useState<Lesson | null>(null);
   const [remoteLoading, setRemoteLoading] = useState(
-    Boolean(initialLessonId) && !invite,
+    Boolean(initialLessonId) && !invite && !staticDemo,
   );
   const [remoteError, setRemoteError] = useState("");
 
   useEffect(() => {
-    if (invite || !initialLessonId) {
+    if (invite || staticDemo || !initialLessonId) {
       setRemoteLoading(false);
       return;
     }
@@ -1783,13 +1854,13 @@ export function MascotQuizPlayer({
     return () => {
       cancelled = true;
     };
-  }, [initialLessonId, invite]);
+  }, [initialLessonId, invite, staticDemo]);
 
   const lessonList: Lesson[] = invite
     ? invite.lessons
-    : remoteLesson
-      ? [remoteLesson]
-      : ALL_MATH_LESSONS;
+    : staticDemo || !remoteLesson
+      ? ALL_MATH_LESSONS
+      : [remoteLesson];
 
   const startIdx = (() => {
     if (invite && initialLessonId) {
@@ -1804,6 +1875,8 @@ export function MascotQuizPlayer({
 
   const [activeLessonIndex, setActiveLessonIndex] = useState(startIdx);
   const lesson = lessonList[Math.min(activeLessonIndex, Math.max(lessonList.length - 1, 0))];
+  /** TTS fallback only on the static /play demo — never on learn/invite (API lessons). */
+  const allowSpeechFallback = staticDemo;
   const [viewMode, setViewMode] = useState<ViewMode>("lesson");
   const [hasStartedQuiz, setHasStartedQuiz] = useState(false);
   const [questionIndex, setQuestionIndex] = useState(0);
@@ -2049,6 +2122,7 @@ export function MascotQuizPlayer({
                   lesson={lesson}
                   onStartQuiz={startQuiz}
                   transitionClass=""
+                  allowSpeechFallback={allowSpeechFallback}
                 />
               </div>
 
@@ -2073,6 +2147,7 @@ export function MascotQuizPlayer({
                   onInviteProgress={invite ? handleInviteProgress : undefined}
                   inviteToken={invite?.token}
                   reviewMode={Boolean(invite?.reviewMode)}
+                  allowSpeechFallback={allowSpeechFallback}
                   onBackToLesson={() => {
                     setIsTransitioning(true);
                     setTimeout(() => {

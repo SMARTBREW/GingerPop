@@ -4,8 +4,8 @@ import { stripHtml } from "@/lib/play-lesson";
  * Word limits derived from the static ALL_MATH_LESSONS demo on /play.
  */
 export const CONTENT_WORD_LIMITS = {
-  lessonTitle: 2,
-  badgeText: 3,
+  lessonTitle: 3,
+  badgeText: 4,
   mascotSpeech: 25,
   ctaText: 1,
   topicTitle: 6,

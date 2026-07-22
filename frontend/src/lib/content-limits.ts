@@ -3,8 +3,8 @@
  * Keep in sync with backend/src/lib/content-limits.ts
  */
 export const CONTENT_WORD_LIMITS = {
-  lessonTitle: 2,
-  badgeText: 3,
+  lessonTitle: 3,
+  badgeText: 4,
   mascotSpeech: 25,
   ctaText: 1,
   topicTitle: 6,

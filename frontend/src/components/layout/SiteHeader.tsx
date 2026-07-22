@@ -68,7 +68,7 @@ export function SiteHeaderMarketingActions() {
         Sign in
       </Link>
       <Link
-        href="/play"
+        href="/subjects"
         className="site-header-play-btn game-font inline-flex min-h-[44px] items-center gap-1.5 whitespace-nowrap rounded-full border-[2.5px] border-[#e85d04] bg-gradient-to-b from-[#ff9f43] to-[#ff6b35] px-3 py-2 text-xs font-extrabold text-white shadow-[0_5px_0_#c44d00] transition-transform hover:-translate-y-0.5 active:translate-y-1 sm:min-h-[48px] sm:gap-2 sm:px-4 sm:py-2.5 sm:text-sm md:text-base"
         style={{ textShadow: "0 1px 0 rgba(0,0,0,0.15)" }}
       >

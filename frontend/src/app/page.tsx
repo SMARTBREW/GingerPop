@@ -483,7 +483,7 @@ export default function HomePage() {
 
           <div className="lnd-hero-actions flex flex-wrap items-center gap-4 sm:gap-5">
             <Link
-              href="/play"
+              href="/subjects"
               className="lnd-btn inline-flex min-h-[52px] items-center gap-2 whitespace-nowrap rounded-full border-[3.5px] border-[#e85d04] bg-gradient-to-b from-[#ff9f43] to-[#ff6b35] px-5 py-3 text-base font-extrabold text-white shadow-[0_8px_0_#c44d00,0_12px_24px_rgba(255,107,53,0.3)] sm:min-h-[56px] sm:px-8 sm:py-4 sm:text-lg md:text-xl"
               style={{ fontFamily: "'Fredoka', system-ui, sans-serif", textShadow: "0 2px 0 rgba(0,0,0,0.15)" }}
             >
@@ -678,7 +678,7 @@ export default function HomePage() {
           </p>
           <div className="flex flex-wrap justify-center gap-4 sm:gap-5">
             <Link
-              href="/play"
+              href="/subjects"
               className="lnd-btn inline-flex min-h-[52px] items-center gap-2 whitespace-nowrap rounded-full border-[3.5px] border-[#e85d04] bg-gradient-to-b from-[#ff9f43] to-[#ff6b35] px-6 py-3 text-base font-extrabold text-white shadow-[0_8px_0_#c44d00,0_12px_24px_rgba(255,107,53,0.3)] sm:min-h-[56px] sm:px-8 sm:py-4 sm:text-lg md:text-xl"
               style={{ fontFamily: "'Fredoka', system-ui, sans-serif", textShadow: "0 2px 0 rgba(0,0,0,0.15)" }}
             >

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   CourseQuizQuestion,
   EMPTY_LESSON,
@@ -12,7 +12,7 @@ import {
 import { MediaUploader } from "@/components/media/MediaUploader";
 import { FieldHint } from "@/components/admin/FieldHint";
 import { SubjectWizardChrome, WizardStepFooter } from "@/components/admin/SubjectWizardChrome";
-import { getLessonQuestions } from "@/lib/course-rules";
+import { getLessonQuestions, isQuizOnlyCourse } from "@/lib/course-rules";
 import { CONTENT_WORD_LIMITS, isOverWordLimit, wordCountLabel } from "@/lib/content-limits";
 import { optimizeMediaUrl } from "@/lib/media-url";
 import "@/styles/mascot-quiz.css";
@@ -887,6 +887,26 @@ export function SubjectContentEditor({
     return Array.from(map.values());
   }, [lessons]);
 
+  // First visit: show an editable Chapter 1 card instead of only "Add chapter".
+  useEffect(() => {
+    if (topics.length > 0 || lessons.length > 0) return;
+    if (isQuizOnlyCourse(lessons, quizQuestions)) return;
+
+    const name = "Chapter 1";
+    onLessonsChange([
+      {
+        ...EMPTY_LESSON,
+        id: `new-${Date.now()}`,
+        topicTitle: name,
+        topicEmoji: "📖",
+        topicDescription: "",
+        title: "New lesson",
+        slug: `lesson-${Date.now()}`,
+        order: 0,
+      },
+    ]);
+  }, [topics.length, lessons, quizQuestions, onLessonsChange]);
+
   const activeLesson = lessons.find((l) => l.id === activeLessonId) ?? null;
   const lessonQuestions = activeLesson
     ? getLessonQuestions(quizQuestions, activeLesson.id)
@@ -908,8 +928,6 @@ export function SubjectContentEditor({
         order: lessons.length,
       },
     ]);
-    setActiveTopic(name);
-    setView("lessons");
   };
 
   const addLesson = (topicTitle: string, topicEmoji: string) => {
