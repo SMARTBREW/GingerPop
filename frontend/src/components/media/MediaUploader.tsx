@@ -214,8 +214,8 @@ export function MediaUploader({ type, value, onChange, label, onTranscript }: Me
       onChange(url);
       cleanupPreview();
       setStep("idle");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Upload failed");
+    } catch {
+      setError("Failed to upload. Please try again.");
       setStep("preview");
     } finally {
       setUploadProgress(0);

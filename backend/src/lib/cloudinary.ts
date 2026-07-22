@@ -68,30 +68,22 @@ export function signDirectUpload(params: { mediaType: string; filename: string }
   const public_id = cloudinaryPublicId(params.filename);
 
   const timestamp = Math.round(Date.now() / 1000);
-  const signParams: Record<string, string | number> = {
+  const uploadParams: Record<string, string | number> = {
     timestamp,
     folder,
     public_id,
   };
 
-  if (resourceType === "image") {
-    signParams.quality = "auto:good";
-    signParams.fetch_format = "auto";
-  } else if (resourceType === "video") {
-    signParams.quality = "auto:good";
-  }
-
-  const signature = cloudinary.utils.api_sign_request(signParams, apiSecret);
+  const signature = cloudinary.utils.api_sign_request(uploadParams, apiSecret);
 
   return {
     cloudName: config.cloud_name,
     apiKey: config.api_key,
-    timestamp,
     signature,
     folder,
     publicId: public_id,
     resourceType,
-    uploadParams: signParams,
+    uploadParams,
   };
 }
 

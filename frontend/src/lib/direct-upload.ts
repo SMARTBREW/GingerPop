@@ -1,9 +1,10 @@
 type MediaType = "image" | "video" | "audio";
 
+const UPLOAD_FAILED_MESSAGE = "Failed to upload. Please try again.";
+
 interface SignResponse {
   cloudName: string;
   apiKey: string;
-  timestamp: number;
   signature: string;
   folder: string;
   publicId: string;
@@ -27,18 +28,14 @@ export async function uploadMediaDirect(
   });
   const sign = (await signRes.json()) as SignResponse;
   if (!signRes.ok) {
-    throw new Error(sign.error ?? "Could not start upload");
+    throw new Error(UPLOAD_FAILED_MESSAGE);
   }
 
   const formData = new FormData();
   formData.append("file", file, filename);
   formData.append("api_key", sign.apiKey);
-  formData.append("timestamp", String(sign.timestamp));
   formData.append("signature", sign.signature);
-  formData.append("folder", sign.folder);
-  formData.append("public_id", sign.publicId);
   for (const [key, value] of Object.entries(sign.uploadParams)) {
-    if (key === "timestamp" || key === "folder" || key === "public_id") continue;
     formData.append(key, String(value));
   }
 
@@ -61,13 +58,13 @@ export async function uploadMediaDirect(
           resolve(data.secure_url);
           return;
         }
-        reject(new Error(data.error?.message ?? "Upload failed"));
+        reject(new Error(UPLOAD_FAILED_MESSAGE));
       } catch {
-        reject(new Error("Upload failed"));
+        reject(new Error(UPLOAD_FAILED_MESSAGE));
       }
     };
 
-    xhr.onerror = () => reject(new Error("Upload failed — check your connection"));
+    xhr.onerror = () => reject(new Error(UPLOAD_FAILED_MESSAGE));
     xhr.send(formData);
   });
 }
