@@ -2,6 +2,8 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { optimizeMediaUrl } from "@/lib/media-url";
+import { PlayerImage, PlayerVideo } from "@/components/media/PlayerMedia";
 import { BrandName } from "@/components/BrandName";
 
 /* ─── Types ─────────────────────────────────────────────────────────────── */
@@ -685,7 +687,10 @@ function TopicAudioBar({
 
   useEffect(() => {
     if (!audioUrl) return;
-    const el = new Audio(audioUrl);
+    const optimized = optimizeMediaUrl(audioUrl, "audio");
+    if (!optimized) return;
+    const el = new Audio(optimized);
+    el.preload = "auto";
     audioRef.current = el;
 
     const onTime = () => {
@@ -826,7 +831,7 @@ function getLessonTopics(lesson: Lesson): LessonTopic[] {
     return lesson.pages.map((page) => ({
       title: page.title,
       imageUrl: page.imageUrl || lesson.imageUrl,
-      videoUrl: page.videoUrl || lesson.videoUrl,
+      videoUrl: page.videoUrl,
       audioUrl: page.audioUrl,
       audioText: page.audioText,
       body: (
@@ -1060,7 +1065,7 @@ function LessonPage({
   const safeIndex = Math.min(topicIndex, Math.max(topics.length - 1, 0));
   const topic = topics[safeIndex];
   const isLastTopic = safeIndex >= topics.length - 1;
-  const hasImage = Boolean(topic?.imageUrl || topic?.videoUrl);
+  const hasVisual = Boolean(topic?.videoUrl || topic?.imageUrl);
 
   const handleNext = () => {
     if (isLastTopic) {
@@ -1077,53 +1082,34 @@ function LessonPage({
       <div className="mascot-player-card">
         {/* LEFT: lesson name + optional image */}
         <div
-          className={`mascot-player-left mascot-player-left--topics${hasImage ? "" : " mascot-player-left--no-image"}`}
+          className={`mascot-player-left mascot-player-left--topics${hasVisual ? "" : " mascot-player-left--no-image"}`}
         >
-          <h2
-            style={{
+          <h2 className="mascot-left-title" style={{
               margin: 0,
-              fontSize: hasImage ? "1.15rem" : "1.45rem",
+              fontSize: hasVisual ? "1.15rem" : "1.45rem",
               fontWeight: 900,
               color: "#111827",
               lineHeight: 1.3,
               letterSpacing: "-0.02em",
-              textAlign: hasImage ? "left" : "center",
-              alignSelf: hasImage ? "flex-start" : "center",
+              textAlign: hasVisual ? "left" : "center",
+              alignSelf: hasVisual ? "flex-start" : "center",
               width: "100%",
             }}
           >
             {lesson.title}
           </h2>
           {topic.videoUrl ? (
-            <video
-              src={topic.videoUrl}
-              controls
-              playsInline
-              style={{ width: "100%", maxHeight: "300px", borderRadius: "0.75rem", background: "#000" }}
-            />
-          ) : hasImage && (
-            <img
-              src={topic.imageUrl}
-              alt={lesson.title}
-              style={{
-                width: "100%",
-                height: "auto",
-                objectFit: "contain",
-                maxHeight: "300px",
-                borderRadius: "0.75rem",
-                filter: "drop-shadow(0 4px 12px rgba(0,0,0,0.08))",
-                alignSelf: "flex-start",
-              }}
-            />
-          )}
-          <p
-            style={{
-              margin: hasImage ? "auto 0 0" : 0,
+            <PlayerVideo src={topic.videoUrl} />
+          ) : topic.imageUrl ? (
+            <PlayerImage src={topic.imageUrl} alt={lesson.title} />
+          ) : null}
+          <p className="mascot-page-indicator" style={{
+              margin: hasVisual ? "auto 0 0" : 0,
               fontSize: "0.75rem",
               fontWeight: 700,
               color: "#6b7280",
-              alignSelf: hasImage ? "flex-start" : "center",
-              textAlign: hasImage ? "left" : "center",
+              alignSelf: hasVisual ? "flex-start" : "center",
+              textAlign: hasVisual ? "left" : "center",
               width: "100%",
             }}
           >
@@ -1140,27 +1126,15 @@ function LessonPage({
           )}
 
           {lesson.mascotSpeech && (
-            <div style={{ display: "flex", alignItems: "flex-start", gap: "0.65rem" }}>
+            <div className="mascot-lesson-speech">
               <MascotSvg size={44} animate />
-              <div
-                style={{
-                  flex: 1,
-                  background: "#f8fafc",
-                  border: "1.5px solid #e2e8f0",
-                  borderRadius: "0.875rem",
-                  borderBottomLeftRadius: "0.25rem",
-                  padding: "0.6rem 0.875rem",
-                  fontSize: "0.82rem",
-                  lineHeight: 1.55,
-                  color: "#475569",
-                }}
-              >
+              <div className="mascot-lesson-speech-bubble">
                 {lesson.mascotSpeech}
               </div>
             </div>
           )}
 
-          <div style={{ display: "flex", flexDirection: "column", gap: "1.15rem", alignItems: "flex-start", textAlign: "left", width: "100%" }}>
+          <div className="mascot-lesson-body">
             <h1
               style={{
                 margin: 0,
@@ -1183,7 +1157,7 @@ function LessonPage({
             />
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.75rem", marginTop: "auto", paddingTop: "1.25rem" }}>
+          <div className="mascot-lesson-nav">
             <button
               type="button"
               disabled={safeIndex === 0}
@@ -1416,27 +1390,11 @@ function QuizCard({
         {hasImage && (
           <div className="mascot-player-left-quiz" style={{ flexDirection: "column", gap: "0.75rem" }}>
             {question.videoUrl ? (
-              <video
-                src={question.videoUrl}
-                controls
-                playsInline
-                style={{ width: "100%", maxHeight: "300px", borderRadius: "0.75rem", background: "#000" }}
-              />
+              <PlayerVideo src={question.videoUrl} />
             ) : (
-              <img
-                src={question.imageUrl}
-                alt=""
-                style={{
-                  width: "100%",
-                  height: "auto",
-                  objectFit: "contain",
-                  maxHeight: "300px",
-                  borderRadius: "0.75rem",
-                  filter: "drop-shadow(0 4px 12px rgba(0,0,0,0.08))",
-                }}
-              />
+              <PlayerImage src={question.imageUrl} alt="" />
             )}
-            <p style={{ margin: "auto 0 0", fontSize: "0.75rem", fontWeight: 700, color: "#6b7280", alignSelf: "flex-start" }}>
+            <p className="mascot-page-indicator" style={{ margin: "auto 0 0", alignSelf: "flex-start" }}>
               Question {questionIndex + 1} of {total}
             </p>
           </div>
@@ -1466,7 +1424,7 @@ function QuizCard({
             />
           )}
 
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem", flex: 1 }}>
+          <div className="mascot-quiz-options" style={{ display: "flex", flexDirection: "column", gap: "0.4rem", flex: 1 }}>
             {visibleOptions.map((opt, idx) => {
               let bg = "white", border = "#e5e7eb", shadow = "#e5e7eb", color = "#374151";
               if (answered) {
@@ -1643,16 +1601,10 @@ function JourneyCard({
     : "Keep going — you're growing! Answer more to level up.";
 
   return (
-    <div style={{
-      display: "flex",
-      gap: "2.5rem",
-      width: "100%",
-      alignItems: "center",
-      justifyContent: "space-between",
-    }}>
+    <div className="mascot-journey-footer-card">
       {/* LEFT: Text Info */}
-      <div style={{ flex: "0 1 450px", minWidth: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "0.25rem" }}>
+      <div className="mascot-journey-footer-text">
+        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "0.25rem", flexWrap: "wrap" }}>
           <span style={{
             display: "inline-flex",
             alignItems: "center",
@@ -1678,7 +1630,7 @@ function JourneyCard({
       </div>
 
       {/* RIGHT: Progress Slider & Plant Level Labels */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "0.6rem", minWidth: 0 }}>
+      <div className="mascot-journey-footer-progress">
         {/* Track */}
         <div style={{
           height: "12px",
@@ -1797,6 +1749,7 @@ export function MascotQuizPlayer({
               wrongExplanation?: string;
               hint?: string;
               imageUrl?: string;
+              videoUrl?: string;
               audioUrl?: string;
               audioText?: string;
             }) => ({
@@ -1815,6 +1768,7 @@ export function MascotQuizPlayer({
               wrongExplanation: q.wrongExplanation,
               hint: q.hint,
               imageUrl: q.imageUrl,
+              videoUrl: q.videoUrl,
               audioUrl: q.audioUrl,
               audioText: q.audioText,
             }),
@@ -2017,62 +1971,33 @@ export function MascotQuizPlayer({
     <div className="mascot-shell mascot-shell-layout">
       {/* ── TOP HEADER ── */}
       <header className="mascot-header">
-        <div className="mascot-header-inner" style={{ justifyContent: "space-between" }}>
-          {/* Home link with Mascot Icon on the left and Brand Name on the right */}
+        <div className="mascot-header-inner">
           <Link
-            href={invite ? "#" : "/subjects"}
+            href={invite ? "#" : "/"}
             onClick={(e) => {
               if (invite?.onExitToMap) {
                 e.preventDefault();
                 invite.onExitToMap();
               }
             }}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              flexDirection: "row",
-              justifyContent: "flex-start",
-              gap: "0.5rem",
-              padding: "0.35rem 0.85rem",
-              borderRadius: "999px",
-              border: "1.5px solid #e5e7eb",
-              background: "white",
-              textDecoration: "none",
-              whiteSpace: "nowrap",
-              flexShrink: 0,
-              transition: "background 0.15s, transform 0.15s",
-              boxShadow: "0 2px 4px rgba(0,0,0,0.04)"
-            }}
-            onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.background = "#f9fafb"; (e.currentTarget as HTMLAnchorElement).style.transform = "translateY(-1px)"; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.background = "white"; (e.currentTarget as HTMLAnchorElement).style.transform = "none"; }}
-            aria-label={invite ? "Back to quest map" : "Back to subjects"}
+            className="mascot-header-brand"
+            aria-label={invite ? "Back to quest map" : "Back to home"}
           >
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <MascotSvg size={24} animate={false} />
-            </div>
-            <span style={{
-              fontFamily: "var(--font-game), 'Fredoka', system-ui, sans-serif",
-              fontSize: "0.95rem",
-              fontWeight: 700,
-              color: "#1f2937",
-              letterSpacing: "-0.01em",
-              display: "inline-block"
-            }}>
+            <MascotSvg size={24} animate={false} />
+            <span className="mascot-header-brand-text">
               <BrandName />
             </span>
           </Link>
 
-          {/* Left: lesson info */}
-          <div className="mascot-header-lesson" style={{ marginLeft: "0.25rem", marginRight: "auto" }}>
+          <div className="mascot-header-lesson">
             <div className="mascot-header-lesson-badge">
               LESSON {activeLessonIndex + 1} OF {totalLessons}
             </div>
-            <div className="mascot-header-lesson-title" style={{ fontSize: "0.9rem", maxWidth: "150px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            <div className="mascot-header-lesson-title">
               {lesson.title.split(" (")[0]}
             </div>
           </div>
 
-          {/* Center: progress bar */}
           <div className="mascot-header-bar-wrap">
             <div className="mascot-header-bar">
               <div
@@ -2084,7 +2009,6 @@ export function MascotQuizPlayer({
             </div>
           </div>
 
-          {/* Right: stats */}
           <div className="mascot-header-stats">
             <div className="mascot-stat-pill mascot-stat-red">
               <span>🔥</span>
@@ -2307,23 +2231,8 @@ export function MascotQuizPlayer({
       )}
 
       {/* ── STICKY FOOTER STRIPE ── */}
-      <footer style={{
-        position: "sticky",
-        bottom: 0,
-        zIndex: 50,
-        background: "rgba(255, 255, 255, 0.95)",
-        backdropFilter: "blur(12px)",
-        borderTop: "2px solid rgba(0,0,0,0.08)",
-        boxShadow: "0 -4px 20px rgba(0,0,0,0.06)",
-        flexShrink: 0,
-      }}>
-        <div style={{
-          maxWidth: "1100px",
-          margin: "0 auto",
-          padding: "1.5rem 1.5rem",
-          display: "flex",
-          alignItems: "center",
-        }}>
+      <footer className="mascot-footer-stripe">
+        <div className="mascot-footer-stripe-inner">
           <JourneyCard
             correctCount={correctCount}
             totalQuestions={lesson.quizQuestions.length}

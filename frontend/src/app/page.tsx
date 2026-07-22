@@ -80,9 +80,9 @@ function LandingMascotSvg({
   );
 }
 
-function StarMascotSvg({ size = 80 }: { size?: number }) {
+function StarMascotSvg({ size = 80, noFloat = false }: { size?: number; noFloat?: boolean }) {
   return (
-    <div style={{ width: size, height: size, display: "inline-block", animation: "lnd-float-alt 4s ease-in-out infinite" }}>
+    <div style={{ width: size, height: size, display: "inline-block", animation: noFloat ? undefined : "lnd-float-alt 4s ease-in-out infinite" }}>
       <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: "100%", height: "100%" }}>
         <polygon points="40,5 49,28 74,28 54,43 61,68 40,53 19,68 26,43 6,28 31,28" fill="#fbbf24" />
         <polygon points="40,10 47,28 68,28 52,41 58,62 40,49 22,62 28,41 12,28 33,28" fill="#fde68a" opacity="0.6" />
@@ -100,9 +100,9 @@ function StarMascotSvg({ size = 80 }: { size?: number }) {
   );
 }
 
-function RocketMascotSvg({ size = 80 }: { size?: number }) {
+function RocketMascotSvg({ size = 80, noFloat = false }: { size?: number; noFloat?: boolean }) {
   return (
-    <div style={{ width: size, height: size, display: "inline-block", animation: "lnd-rocket 5s ease-in-out infinite" }}>
+    <div style={{ width: size, height: size, display: "inline-block", animation: noFloat ? undefined : "lnd-rocket 5s ease-in-out infinite" }}>
       <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: "100%", height: "100%" }}>
         <ellipse cx="40" cy="38" rx="14" ry="26" fill="#a78bfa" />
         <circle cx="40" cy="33" r="8" fill="#e0f2fe" />
@@ -219,6 +219,8 @@ export default function HomePage() {
         .site-header-play-btn:hover { transform: translateY(-3px); }
         .site-header-play-btn:active { transform: translateY(2px); }
         .lnd-hero {
+          position: relative;
+          z-index: 1;
           max-width: 1100px;
           margin: 0 auto;
           padding: 5.5rem 1.75rem 4rem;
@@ -228,10 +230,178 @@ export default function HomePage() {
           flex-wrap: wrap;
           justify-content: space-between;
         }
+        .lnd-hero-copy {
+          flex: 1 1 360px;
+          max-width: 500px;
+        }
+        .lnd-hero-headline-wrap {
+          position: relative;
+          isolation: isolate;
+          margin-bottom: 1.25rem;
+        }
+        .lnd-hero-blobs {
+          position: absolute;
+          inset: -1.5rem -0.5rem -0.75rem -0.5rem;
+          z-index: 0;
+          pointer-events: none;
+          overflow: visible;
+        }
+        .lnd-hero-blob {
+          position: absolute;
+          border-radius: 50%;
+          animation: lnd-blob-pulse 6s ease-in-out infinite;
+        }
+        .lnd-hero-blob--yellow {
+          width: clamp(160px, 52%, 240px);
+          aspect-ratio: 1;
+          left: -4%;
+          top: 28%;
+          background: #ffe566;
+          opacity: 0.62;
+        }
+        .lnd-hero-blob--purple {
+          width: clamp(140px, 46%, 210px);
+          aspect-ratio: 1;
+          left: 34%;
+          top: 6%;
+          background: #a78bfa;
+          opacity: 0.52;
+          animation-delay: 1s;
+          animation-duration: 7s;
+        }
+        .lnd-hero-headline-content {
+          position: relative;
+          z-index: 1;
+        }
+        .lnd-hero-headline-content h1 {
+          filter: drop-shadow(0 2px 14px rgba(255, 255, 255, 0.95))
+            drop-shadow(0 1px 0 rgba(255, 255, 255, 0.85));
+        }
+        .lnd-hero-mascot--desktop {
+          flex: 0 1 340px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          position: relative;
+          min-height: 340px;
+          margin-left: auto;
+          margin-right: auto;
+        }
+        .lnd-hero-mascot--mobile {
+          display: none;
+        }
+        .lnd-page-blobs {
+          position: absolute;
+          inset: 0;
+          z-index: 0;
+          pointer-events: none;
+          overflow: hidden;
+        }
+        .lnd-page-content {
+          position: relative;
+          z-index: 1;
+          display: flex;
+          flex-direction: column;
+          flex: 1;
+        }
+        @media (min-width: 900px) {
+          .lnd-hero-blobs {
+            display: none;
+          }
+          .lnd-hero-headline-wrap {
+            margin-bottom: 0;
+          }
+          .lnd-hero-headline-content h1 {
+            font-family: "Fredoka", system-ui, sans-serif;
+            font-size: clamp(2.5rem, 5.5vw, 4rem);
+            font-weight: 700;
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 1.35rem;
+            white-space: normal;
+            filter: none;
+          }
+          .lnd-hero-copy p.lnd-hero-lead {
+            font-size: 1.125rem;
+            line-height: 1.7;
+            margin-bottom: 2.25rem;
+            max-width: 440px;
+          }
+        }
+        @media (max-width: 899px) {
+          .lnd-page-blobs {
+            display: none;
+          }
+          .lnd-hero {
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            gap: 2rem;
+            padding: 3rem 1rem 2.5rem;
+          }
+          .lnd-hero-copy {
+            flex: 0 0 auto;
+            width: 100%;
+            max-width: 100%;
+            text-align: center;
+          }
+          .lnd-hero-copy .lnd-hero-actions {
+            justify-content: center;
+          }
+          .lnd-hero-headline-wrap {
+            display: inline-block;
+            width: 100%;
+            max-width: 520px;
+            margin-left: auto;
+            margin-right: auto;
+          }
+          .lnd-hero-headline-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+          }
+          .lnd-hero-blob--yellow {
+            left: 12%;
+            top: 32%;
+          }
+          .lnd-hero-blob--purple {
+            left: 48%;
+            top: 8%;
+          }
+          .lnd-hero-mascot--desktop {
+            display: none;
+          }
+          .lnd-hero-mascot--mobile {
+            position: relative;
+            z-index: 1;
+            margin: 0 auto;
+            display: flex;
+            flex: 0 0 auto;
+            align-items: center;
+            justify-content: center;
+            width: min(100%, 340px);
+            min-height: 240px;
+          }
+        }
+        @media (max-width: 640px) {
+          .lnd-hero {
+            padding: 3rem 1rem 2.5rem;
+            gap: 1.75rem;
+          }
+          .lnd-hero-mascot--mobile {
+            min-height: 220px;
+          }
+        }
         .lnd-steps-grid {
           display: grid;
           grid-template-columns: 1fr;
           gap: 2rem;
+        }
+        @media (min-width: 640px) and (max-width: 899px) {
+          .lnd-steps-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1.5rem;
+          }
         }
         @media (min-width: 900px) {
           .lnd-steps-grid {
@@ -244,15 +414,25 @@ export default function HomePage() {
           margin: 0 auto;
           padding: 4rem 1.75rem 5rem;
         }
+        @media (max-width: 640px) {
+          .lnd-section-steps {
+            padding: 2.5rem 1rem 3rem;
+          }
+        }
         .lnd-section-cta {
           max-width: 1100px;
           margin: 0 auto;
           padding: 0 1.75rem 6rem;
         }
+        @media (max-width: 640px) {
+          .lnd-section-cta {
+            padding: 0 1rem 3rem;
+          }
+        }
       `}</style>
 
-      {/* Decorative floating blobs (background) */}
-      <div aria-hidden style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "hidden" }}>
+      {/* Decorative floating blobs (page background — not hero headline) */}
+      <div className="lnd-page-blobs" aria-hidden>
         <div style={{ position: "absolute", top: "5%", left: "-5%", width: 220, height: 220, borderRadius: "50%", background: "#ffe566", opacity: 0.45, animation: "lnd-blob-pulse 6s ease-in-out infinite" }} />
         <div style={{ position: "absolute", top: "3%", right: "-4%", width: 180, height: 180, borderRadius: "50%", background: "#a78bfa", opacity: 0.4, animation: "lnd-blob-pulse 7s ease-in-out infinite 1s" }} />
         <div style={{ position: "absolute", top: "42%", left: "-3%", width: 140, height: 140, borderRadius: "50%", background: "#7ee081", opacity: 0.35, animation: "lnd-blob-pulse 5s ease-in-out infinite 0.5s" }} />
@@ -265,139 +445,171 @@ export default function HomePage() {
         <span style={{ position: "absolute", top: "70%", right: "7%", fontSize: "1.5rem", animation: "lnd-sparkle 3.5s ease-in-out infinite 2s", opacity: 0.35 }}>💫</span>
       </div>
 
+      <div className="lnd-page-content">
       {/* ── HEADER ── */}
       <SiteHeader />
 
       {/* ── HERO ── */}
       <section className="lnd-hero">
         {/* Left: text */}
-        <div style={{ flex: "1 1 360px", maxWidth: 500 }}>
-          <div style={{
-            display: "inline-flex", alignItems: "center", gap: "0.4rem",
-            padding: "0.4rem 1rem", borderRadius: 999,
-            border: "2px solid #fcd34d",
-            background: "linear-gradient(135deg, #fffbeb, #fde68a)",
-            fontSize: "0.8rem", fontWeight: 800, letterSpacing: "0.06em",
-            textTransform: "uppercase", color: "#92400e", marginBottom: "1.75rem",
-            animation: "lnd-badge-glow 2.5s ease-in-out infinite",
-          }}>
-            <span style={{ animation: "lnd-sparkle 2s ease-in-out infinite" }}>✨</span>
-            Learning adventures for kids
+        <div className="lnd-hero-copy">
+          <div className="lnd-hero-headline-wrap">
+            <div className="lnd-hero-blobs" aria-hidden>
+              <div className="lnd-hero-blob lnd-hero-blob--yellow" />
+              <div className="lnd-hero-blob lnd-hero-blob--purple" />
+            </div>
+            <div className="lnd-hero-headline-content">
+              <div className="inline-flex items-center gap-2 whitespace-nowrap rounded-full border-2 border-[#fcd34d] bg-gradient-to-r from-[#fffbeb] to-[#fde68a] px-3 py-2 text-[0.65rem] font-extrabold uppercase tracking-wider text-[#92400e] sm:gap-2 sm:px-4 sm:text-xs md:text-sm"
+                style={{ animation: "lnd-badge-glow 2.5s ease-in-out infinite", marginBottom: "1.75rem" }}
+              >
+                <span style={{ animation: "lnd-sparkle 2s ease-in-out infinite" }}>✨</span>
+                <span className="hidden sm:inline">Learning adventures for kids</span>
+                <span className="sm:hidden">For kids</span>
+              </div>
+
+              <h1 className="game-font mb-0 whitespace-nowrap text-3xl font-bold leading-tight tracking-tight text-gray-900 sm:text-4xl md:text-5xl lg:text-6xl">
+                <span className="block sm:inline">Learn. </span>
+                <span className="bg-gradient-to-r from-[#f97316] to-[#fb923c] bg-clip-text text-transparent">Play.</span>
+                <br />
+                <span className="bg-gradient-to-r from-[#a78bfa] to-[#ec4899] bg-clip-text text-transparent">Level Up! 🚀</span>
+              </h1>
+            </div>
           </div>
 
-          <h1 style={{
-            fontFamily: "'Fredoka', system-ui, sans-serif",
-            fontSize: "clamp(2.5rem, 5.5vw, 4rem)",
-            fontWeight: 700, lineHeight: 1.15, color: "#111827",
-            letterSpacing: "-0.02em", margin: "0 0 1.35rem",
-          }}>
-            Learn.{" "}
-            <span style={{ background: "linear-gradient(135deg, #f97316, #fb923c)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>Play.</span>
-            <br />
-            <span style={{ background: "linear-gradient(135deg, #a78bfa, #ec4899)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>Level Up! 🚀</span>
-          </h1>
-
-          <p style={{ fontSize: "1.125rem", lineHeight: 1.7, color: "#4b5563", margin: "0 0 2.25rem", maxWidth: 440 }}>
+          <p className="lnd-hero-lead mb-8 max-w-md text-sm leading-relaxed text-gray-600 sm:mb-9 sm:text-base md:text-lg min-[900px]:text-[1.125rem] min-[900px]:leading-[1.7] min-[900px]:text-[#4b5563]">
             <strong><BrandName /></strong> turns boring quizzes into{" "}
-            <span style={{ color: "#7c3aed", fontWeight: 700 }}>epic mini games</span>. Open the link from your email and start your quest — no sign-up needed!
+            <span className="font-bold text-purple-600">epic mini games</span>. Open the link from your email and start your quest — no sign-up needed!
           </p>
 
-          <div style={{ display: "flex", gap: "1.25rem", flexWrap: "wrap", alignItems: "center" }}>
+          <div className="lnd-hero-actions flex flex-wrap items-center gap-4 sm:gap-5">
             <Link
-              href="/subjects"
-              className="lnd-btn"
-              style={{
-                display: "inline-flex", alignItems: "center", gap: "0.5rem",
-                padding: "1rem 2.25rem", borderRadius: 999,
-                border: "3.5px solid #e85d04",
-                background: "linear-gradient(180deg, #ff9f43 0%, #ff6b35 100%)",
-                fontFamily: "'Fredoka', system-ui, sans-serif",
-                fontSize: "1.3rem", fontWeight: 800, color: "white",
-                textDecoration: "none", textShadow: "0 2px 0 rgba(0,0,0,0.15)",
-                boxShadow: "0 8px 0 #c44d00, 0 12px 24px rgba(255,107,53,0.3)",
-              }}
+              href="/play"
+              className="lnd-btn inline-flex min-h-[52px] items-center gap-2 whitespace-nowrap rounded-full border-[3.5px] border-[#e85d04] bg-gradient-to-b from-[#ff9f43] to-[#ff6b35] px-5 py-3 text-base font-extrabold text-white shadow-[0_8px_0_#c44d00,0_12px_24px_rgba(255,107,53,0.3)] sm:min-h-[56px] sm:px-8 sm:py-4 sm:text-lg md:text-xl"
+              style={{ fontFamily: "'Fredoka', system-ui, sans-serif", textShadow: "0 2px 0 rgba(0,0,0,0.15)" }}
             >
-              🎯 Try a Practice Quest
+              🎯 <span className="hidden sm:inline">Try a Practice Quest</span>
+              <span className="sm:hidden">Practice Quest</span>
             </Link>
-            <p style={{ fontSize: "0.875rem", fontWeight: 700, color: "#9ca3af", maxWidth: 180, lineHeight: 1.4, margin: 0 }}>
+            <p className="max-w-[160px] whitespace-normal text-xs font-bold leading-snug text-gray-400 sm:max-w-[180px] sm:text-sm">
               Got an email invite? Tap that link first!
             </p>
           </div>
         </div>
 
-        {/* Right: mascot cluster */}
-        <div style={{
-          flex: "0 1 340px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          position: "relative",
-          minHeight: 340,
-          marginLeft: "auto",
-          marginRight: "auto",
-        }}>
-          {/* Main mascot */}
+        {/* Desktop mascot cluster (original layout) */}
+        <div className="lnd-hero-mascot--desktop">
           <div style={{ position: "relative", zIndex: 2 }}>
             <LandingMascotSvg size={200} expression="excited" floatDelay="0s" />
           </div>
-          {/* Star in top-right — kept outside the text column */}
           <div style={{ position: "absolute", top: 8, right: 0, zIndex: 1 }}>
             <StarMascotSvg size={64} />
           </div>
-          {/* Rocket in bottom-left */}
           <div style={{ position: "absolute", bottom: 8, left: 0, zIndex: 1 }}>
             <RocketMascotSvg size={58} />
           </div>
-          {/* Speech bubble */}
-          <div style={{
-            position: "absolute", top: 0, right: -8,
-            background: "white", border: "2.5px solid #e5e7eb",
-            borderRadius: "1rem", borderBottomLeftRadius: "0.25rem",
-            padding: "0.65rem 1rem", fontSize: "0.875rem", fontWeight: 700,
-            color: "#374151", maxWidth: 150,
-            boxShadow: "0 4px 12px rgba(0,0,0,0.08)", lineHeight: 1.4,
-            animation: "lnd-float-alt 4s ease-in-out infinite",
-          }}>
+          <div
+            style={{
+              position: "absolute",
+              top: 0,
+              right: -8,
+              background: "white",
+              border: "2.5px solid #e5e7eb",
+              borderRadius: "1rem",
+              borderBottomLeftRadius: "0.25rem",
+              padding: "0.65rem 1rem",
+              fontSize: "0.875rem",
+              fontWeight: 700,
+              color: "#374151",
+              maxWidth: 150,
+              boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+              lineHeight: 1.4,
+              animation: "lnd-float-alt 4s ease-in-out infinite",
+            }}
+          >
             {"Hi! I'm your quiz buddy! 🌟"}
           </div>
-          {/* Score pill */}
-          <div style={{
-            position: "absolute", bottom: 24, right: 0,
-            display: "flex", alignItems: "center", gap: "0.35rem",
-            padding: "0.45rem 0.85rem", borderRadius: 999,
-            background: "#fffbeb", border: "2px solid #fcd34d",
-            color: "#92400e", fontSize: "0.9rem", fontWeight: 800,
-            boxShadow: "0 4px 0 #fcd34d",
-            animation: "lnd-float 5s ease-in-out 1s infinite",
-          }}>
+          <div
+            style={{
+              position: "absolute",
+              bottom: 24,
+              right: 0,
+              display: "flex",
+              alignItems: "center",
+              gap: "0.35rem",
+              padding: "0.45rem 0.85rem",
+              borderRadius: 999,
+              background: "#fffbeb",
+              border: "2px solid #fcd34d",
+              color: "#92400e",
+              fontSize: "0.9rem",
+              fontWeight: 800,
+              boxShadow: "0 4px 0 #fcd34d",
+              animation: "lnd-float 5s ease-in-out 1s infinite",
+            }}
+          >
             ⭐ 240 pts
           </div>
-          {/* Lives pill */}
-          <div style={{
-            position: "absolute", top: 80, left: 0,
-            display: "flex", alignItems: "center", gap: "0.35rem",
-            padding: "0.45rem 0.85rem", borderRadius: 999,
-            background: "#fff1f0", border: "2px solid #fca5a5",
-            color: "#dc2626", fontSize: "0.9rem", fontWeight: 800,
-            boxShadow: "0 4px 0 #fca5a5",
-            animation: "lnd-float-alt 4s ease-in-out 0.5s infinite",
-          }}>
+          <div
+            style={{
+              position: "absolute",
+              top: 80,
+              left: 0,
+              display: "flex",
+              alignItems: "center",
+              gap: "0.35rem",
+              padding: "0.45rem 0.85rem",
+              borderRadius: 999,
+              background: "#fff1f0",
+              border: "2px solid #fca5a5",
+              color: "#dc2626",
+              fontSize: "0.9rem",
+              fontWeight: 800,
+              boxShadow: "0 4px 0 #fca5a5",
+              animation: "lnd-float-alt 4s ease-in-out 0.5s infinite",
+            }}
+          >
             🔥 7 lives
+          </div>
+        </div>
+
+        {/* Mobile mascot cluster */}
+        <div className="lnd-hero-mascot--mobile">
+          <div
+            className="relative"
+            style={{ animation: "lnd-float 3s ease-in-out infinite" }}
+          >
+            <LandingMascotSvg size={160} expression="excited" floatDelay="0s" noFloat />
+            {/* Star in top-right */}
+            <div className="absolute -right-2 -top-3">
+              <StarMascotSvg size={48} noFloat />
+            </div>
+            {/* Rocket in bottom-left */}
+            <div className="absolute -bottom-1 -left-4">
+              <RocketMascotSvg size={44} noFloat />
+            </div>
+            {/* Speech bubble */}
+            <div className="absolute -right-4 -top-10 max-w-[120px] whitespace-normal rounded-2xl rounded-bl-sm border-[2.5px] border-gray-200 bg-white px-3 py-2 text-[0.7rem] font-bold leading-snug text-gray-600 shadow-lg sm:max-w-[140px] sm:px-4 sm:py-2.5 sm:text-xs md:max-w-[150px] md:text-sm">
+              {"Hi! I'm your quiz buddy! 🌟"}
+            </div>
+            {/* Score pill */}
+            <div className="absolute -bottom-2 -right-6 flex items-center gap-1.5 whitespace-nowrap rounded-full border-2 border-[#fcd34d] bg-[#fffbeb] px-2.5 py-1.5 text-xs font-extrabold text-[#92400e] shadow-[0_4px_0_#fcd34d] sm:px-3 sm:py-2 sm:text-sm">
+              ⭐ 240 pts
+            </div>
+            {/* Lives pill */}
+            <div className="absolute -left-8 top-10 flex items-center gap-1.5 whitespace-nowrap rounded-full border-2 border-[#fca5a5] bg-[#fff1f0] px-2.5 py-1.5 text-xs font-extrabold text-red-600 shadow-[0_4px_0_#fca5a5] sm:top-12 sm:px-3 sm:py-2 sm:text-sm">
+              🔥 7 lives
+            </div>
           </div>
         </div>
       </section>
 
       {/* ── HOW IT WORKS ── */}
       <section className="lnd-section-steps">
-        <div style={{ textAlign: "center", marginBottom: "3rem" }}>
-          <h2 style={{
-            fontFamily: "'Fredoka', system-ui, sans-serif",
-            fontSize: "clamp(1.75rem, 4vw, 2.5rem)", fontWeight: 700,
-            color: "#111827", margin: "0 0 0.75rem", letterSpacing: "-0.01em",
-          }}>
+        <div className="mb-10 text-center sm:mb-12">
+          <h2 className="game-font mb-3 whitespace-nowrap text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl md:text-4xl">
             How your quest works 🗺️
           </h2>
-          <p style={{ color: "#6b7280", fontSize: "1.1rem", margin: 0, lineHeight: 1.5 }}>
+          <p className="m-0 whitespace-normal text-base leading-relaxed text-gray-600 sm:text-lg md:text-xl">
             Three simple steps to become a quiz champion!
           </p>
         </div>
@@ -406,46 +618,37 @@ export default function HomePage() {
           {steps.map((step, i) => (
             <article
               key={step.title}
-              className="lnd-step-card"
+              className="lnd-step-card relative rounded-[2rem] border-[3.5px] px-6 py-8 text-center shadow-[0_8px_0] sm:px-7 sm:py-9"
               style={{
-                borderRadius: "2rem",
-                border: `3.5px solid ${step.border}`,
+                borderColor: step.border,
                 background: step.bg,
-                padding: "2.25rem 1.75rem 2rem",
-                textAlign: "center",
                 boxShadow: `0 8px 0 ${step.shadow}`,
-                position: "relative",
               }}
             >
               {/* Step number */}
-              <div style={{
-                position: "absolute", top: 14, right: 14,
-                width: 28, height: 28, borderRadius: "50%",
-                background: step.numColor, color: "white",
-                fontSize: "0.875rem", fontWeight: 800,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                boxShadow: "0 3px 0 rgba(0,0,0,0.15)",
-              }}>
+              <div className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-full text-xs font-extrabold text-white shadow-[0_3px_0_rgba(0,0,0,0.15)] sm:h-8 sm:w-8 sm:text-sm"
+                style={{ background: step.numColor }}
+              >
                 {i + 1}
               </div>
               {/* Mascot */}
-              <div style={{ marginBottom: "1rem", display: "flex", justifyContent: "center" }}>
-                <LandingMascotSvg size={72} expression={step.expression} floatDelay={step.floatDelay} />
+              <div className="mb-3 flex justify-center sm:mb-4">
+                <LandingMascotSvg size={64} expression={step.expression} floatDelay={step.floatDelay} />
               </div>
               {/* Emoji icon */}
-              <div style={{
-                width: "3.5rem", height: "3.5rem", borderRadius: "1.25rem",
-                background: "rgba(255,255,255,0.8)", border: `2.5px solid ${step.border}`,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: "1.75rem", margin: "0 auto 1rem",
-                boxShadow: `0 4px 0 ${step.shadow}`,
-              }}>
+              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl border-[2.5px] text-2xl shadow-[0_4px_0] sm:mb-4 sm:h-14 sm:w-14 sm:text-3xl"
+                style={{
+                  background: "rgba(255,255,255,0.8)",
+                  borderColor: step.border,
+                  boxShadow: `0 4px 0 ${step.shadow}`,
+                }}
+              >
                 {step.emoji}
               </div>
-              <h3 style={{ fontFamily: "'Fredoka', system-ui, sans-serif", fontSize: "1.25rem", fontWeight: 700, color: "#111827", margin: "0 0 0.65rem" }}>
+              <h3 className="game-font mb-2 whitespace-nowrap text-lg font-bold text-gray-900 sm:mb-3 sm:text-xl md:text-2xl">
                 {step.title}
               </h3>
-              <p style={{ fontSize: "0.9375rem", color: "#4b5563", margin: 0, lineHeight: 1.55 }}>
+              <p className="m-0 whitespace-normal text-sm leading-relaxed text-gray-600 sm:text-base">
                 {step.description}
               </p>
             </article>
@@ -455,65 +658,37 @@ export default function HomePage() {
 
       {/* ── CTA SECTION ── */}
       <section className="lnd-section-cta">
-        <div style={{
-          borderRadius: "2rem",
-          border: "3.5px solid #c4b5fd",
-          background: "linear-gradient(145deg, #faf5ff 0%, #ede9fe 50%, #fce7f3 100%)",
-          padding: "3.5rem 2rem", textAlign: "center",
-          boxShadow: "0 10px 0 #a78bfa, 0 20px 40px rgba(167,139,250,0.2)",
-          position: "relative", overflow: "hidden",
-        }}>
-          <div style={{ position: "absolute", top: 12, left: 24, opacity: 0.55 }}>
-            <StarMascotSvg size={52} />
+        <div className="relative overflow-hidden rounded-[2rem] border-[3.5px] border-[#c4b5fd] bg-gradient-to-br from-[#faf5ff] via-[#ede9fe] to-[#fce7f3] px-4 py-10 text-center shadow-[0_10px_0_#a78bfa,0_20px_40px_rgba(167,139,250,0.2)] sm:px-6 sm:py-12 md:px-8 md:py-14">
+          <div className="pointer-events-none absolute left-4 top-3 opacity-55 sm:left-6">
+            <StarMascotSvg size={40} />
           </div>
-          <div style={{ position: "absolute", bottom: 12, right: 24, opacity: 0.55 }}>
-            <RocketMascotSvg size={52} />
+          <div className="pointer-events-none absolute bottom-3 right-4 opacity-55 sm:right-6">
+            <RocketMascotSvg size={40} />
           </div>
 
-          <div style={{ marginBottom: "1.25rem" }}>
-            <LandingMascotSvg size={100} expression="excited" floatDelay="0s" />
+          <div className="mb-4 sm:mb-5">
+            <LandingMascotSvg size={80} expression="excited" floatDelay="0s" />
           </div>
 
-          <h2 style={{
-            fontFamily: "'Fredoka', system-ui, sans-serif",
-            fontSize: "clamp(1.75rem, 4vw, 2.5rem)", fontWeight: 700,
-            color: "#111827", margin: "0 0 0.85rem", letterSpacing: "-0.01em",
-          }}>
+          <h2 className="game-font mb-3 whitespace-nowrap text-2xl font-bold tracking-tight text-gray-900 sm:mb-4 sm:text-3xl md:text-4xl">
             Ready to play? 🎯
           </h2>
-          <p style={{ fontSize: "1.0625rem", color: "#4b5563", margin: "0 0 2.25rem", maxWidth: 420, marginLeft: "auto", marginRight: "auto", lineHeight: 1.6 }}>
+          <p className="mx-auto mb-8 max-w-md whitespace-normal text-sm leading-relaxed text-gray-600 sm:mb-9 sm:text-base md:text-lg">
             Check your inbox for your quest link, or try a practice round first and meet your quiz buddy!
           </p>
-          <div style={{ display: "flex", gap: "1.25rem", justifyContent: "center", flexWrap: "wrap" }}>
+          <div className="flex flex-wrap justify-center gap-4 sm:gap-5">
             <Link
-              href="/subjects"
-              className="lnd-btn"
-              style={{
-                display: "inline-flex", alignItems: "center", gap: "0.5rem",
-                padding: "1rem 2.25rem", borderRadius: 999,
-                border: "3.5px solid #e85d04",
-                background: "linear-gradient(180deg, #ff9f43 0%, #ff6b35 100%)",
-                fontFamily: "'Fredoka', system-ui, sans-serif",
-                fontSize: "1.25rem", fontWeight: 800, color: "white",
-                textDecoration: "none", textShadow: "0 2px 0 rgba(0,0,0,0.15)",
-                boxShadow: "0 8px 0 #c44d00, 0 12px 24px rgba(255,107,53,0.3)",
-              }}
+              href="/play"
+              className="lnd-btn inline-flex min-h-[52px] items-center gap-2 whitespace-nowrap rounded-full border-[3.5px] border-[#e85d04] bg-gradient-to-b from-[#ff9f43] to-[#ff6b35] px-6 py-3 text-base font-extrabold text-white shadow-[0_8px_0_#c44d00,0_12px_24px_rgba(255,107,53,0.3)] sm:min-h-[56px] sm:px-8 sm:py-4 sm:text-lg md:text-xl"
+              style={{ fontFamily: "'Fredoka', system-ui, sans-serif", textShadow: "0 2px 0 rgba(0,0,0,0.15)" }}
             >
-              🎮 Start Practice Quest
+              🎮 <span className="hidden sm:inline">Start Practice Quest</span>
+              <span className="sm:hidden">Practice Quest</span>
             </Link>
             <Link
               href="/login"
-              className="lnd-btn-secondary"
-              style={{
-                display: "inline-flex", alignItems: "center", gap: "0.5rem",
-                padding: "1rem 2.25rem", borderRadius: 999,
-                border: "3.5px solid #7c3aed",
-                background: "linear-gradient(180deg, #c4b5fd 0%, #a78bfa 100%)",
-                fontFamily: "'Fredoka', system-ui, sans-serif",
-                fontSize: "1.25rem", fontWeight: 800, color: "white",
-                textDecoration: "none", textShadow: "0 2px 0 rgba(0,0,0,0.15)",
-                boxShadow: "0 8px 0 #6d28d9, 0 12px 24px rgba(124,58,237,0.3)",
-              }}
+              className="lnd-btn-secondary inline-flex min-h-[52px] items-center gap-2 whitespace-nowrap rounded-full border-[3.5px] border-[#7c3aed] bg-gradient-to-b from-[#c4b5fd] to-[#a78bfa] px-6 py-3 text-base font-extrabold text-white shadow-[0_8px_0_#6d28d9,0_12px_24px_rgba(124,58,237,0.3)] sm:min-h-[56px] sm:px-8 sm:py-4 sm:text-lg md:text-xl"
+              style={{ fontFamily: "'Fredoka', system-ui, sans-serif", textShadow: "0 2px 0 rgba(0,0,0,0.15)" }}
             >
               🔐 Sign in
             </Link>
@@ -523,6 +698,7 @@ export default function HomePage() {
 
       {/* ── FOOTER ── */}
       <SiteFooter />
+      </div>
     </div>
   );
 }

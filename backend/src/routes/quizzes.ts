@@ -3,6 +3,7 @@ import crypto from "crypto";
 import { connectDB } from "@/lib/mongodb";
 import { requireAdmin, sendAuthError } from "@/lib/permissions";
 import { jsonError, jsonOk, unauthorized, getAppUrl } from "@/lib/api";
+import { validateQuizQuestions } from "@/lib/content-limits";
 import { sendInviteEmail } from "@/lib/email";
 import { inviteExpiresAt } from "@/lib/invitation-expiry";
 import { Quiz, IQuizQuestion } from "@/models/Quiz";
@@ -184,6 +185,9 @@ router.put("/:id", async (req: Request, res: Response) => {
     }
 
     if (body.questions !== undefined) {
+      const limitCheck = validateQuizQuestions(body.questions);
+      if (!limitCheck.valid) return jsonError(res, limitCheck.error, 400);
+
       quiz.questions = body.questions.map(
         (
           q: {

@@ -5,6 +5,7 @@ import { connectDB } from "@/lib/mongodb";
 import { canManageCourse, requireAdmin, sendAuthError } from "@/lib/permissions";
 import { jsonError, jsonOk, unauthorized, getAppUrl } from "@/lib/api";
 import { validateCourseStructure, canSendInvites } from "@/lib/course-rules";
+import { validateCourseContent } from "@/lib/content-limits";
 import { buildLessonIdMap, isValidObjectId, resolveLessonObjectId } from "@/lib/course-id-map";
 import { sendCourseInviteEmail } from "@/lib/email";
 import { inviteExpiresAt } from "@/lib/invitation-expiry";
@@ -304,6 +305,14 @@ router.put("/:id", async (req: Request, res: Response) => {
         nextQuestions.map((q: { lessonId?: string }) => ({ lessonId: q.lessonId })),
       );
       if (!check.valid) return jsonError(res, check.error ?? "Invalid course structure", 400);
+    }
+
+    if (body.lessons !== undefined || body.quizQuestions !== undefined) {
+      const limitCheck = validateCourseContent(
+        body.lessons !== undefined ? body.lessons : course.lessons,
+        body.quizQuestions !== undefined ? body.quizQuestions : course.quizQuestions,
+      );
+      if (!limitCheck.valid) return jsonError(res, limitCheck.error, 400);
     }
 
     if (body.title !== undefined) course.title = body.title.trim();

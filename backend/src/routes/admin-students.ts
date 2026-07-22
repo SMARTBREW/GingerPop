@@ -3,6 +3,11 @@ import { connectDB } from "@/lib/mongodb";
 import { hashPassword } from "@/lib/auth";
 import { requireAdmin, sendAuthError } from "@/lib/permissions";
 import { jsonError, jsonOk } from "@/lib/api";
+import {
+  emailConflictMessage,
+  findEmailConflict,
+  normalizeAccountEmail,
+} from "@/lib/account-email";
 import { Student } from "@/models/Student";
 import { Invitation } from "@/models/Invitation";
 
@@ -60,9 +65,9 @@ router.post("/", async (req: Request, res: Response) => {
 
     await connectDB();
 
-    const normalized = email.toLowerCase().trim();
-    const exists = await Student.findOne({ email: normalized });
-    if (exists) return jsonError(res, "A student with this email already exists", 409);
+    const normalized = normalizeAccountEmail(email);
+    const conflict = await findEmailConflict(normalized);
+    if (conflict) return jsonError(res, emailConflictMessage(conflict), 409);
 
     const student = await Student.create({
       name: name.trim(),
@@ -115,10 +120,12 @@ router.patch("/:id", async (req: Request, res: Response) => {
     if (name?.trim()) student.name = name.trim();
 
     if (email?.trim()) {
-      const normalized = email.toLowerCase().trim();
+      const normalized = normalizeAccountEmail(email);
       if (normalized !== student.email) {
-        const exists = await Student.findOne({ email: normalized, _id: { $ne: student._id } });
-        if (exists) return jsonError(res, "A student with this email already exists", 409);
+        const conflict = await findEmailConflict(normalized, {
+          excludeStudentId: student._id.toString(),
+        });
+        if (conflict) return jsonError(res, emailConflictMessage(conflict), 409);
         student.email = normalized;
       }
     }

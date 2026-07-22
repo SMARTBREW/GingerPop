@@ -3,6 +3,11 @@ import { connectDB } from "@/lib/mongodb";
 import { hashPassword } from "@/lib/auth";
 import { requireSuperAdmin, sendAuthError } from "@/lib/permissions";
 import { jsonError, jsonOk } from "@/lib/api";
+import {
+  emailConflictMessage,
+  findEmailConflict,
+  normalizeAccountEmail,
+} from "@/lib/account-email";
 import { Admin } from "@/models/Admin";
 
 const router = Router();
@@ -40,13 +45,14 @@ router.post("/", async (req: Request, res: Response) => {
 
     await connectDB();
 
-    const exists = await Admin.findOne({ email: email.toLowerCase().trim() });
-    if (exists) return jsonError(res, "Email already registered");
+    const normalized = normalizeAccountEmail(email);
+    const conflict = await findEmailConflict(normalized);
+    if (conflict) return jsonError(res, emailConflictMessage(conflict), 409);
 
     const passwordHash = await hashPassword(password);
     const admin = await Admin.create({
       name: name.trim(),
-      email: email.toLowerCase().trim(),
+      email: normalized,
       passwordHash,
       role: "admin",
       active: true,
@@ -102,10 +108,10 @@ router.patch("/:id", async (req: Request, res: Response) => {
     if (name?.trim()) admin.name = name.trim();
 
     if (email?.trim()) {
-      const normalized = email.toLowerCase().trim();
+      const normalized = normalizeAccountEmail(email);
       if (normalized !== admin.email) {
-        const exists = await Admin.findOne({ email: normalized, _id: { $ne: admin._id } });
-        if (exists) return jsonError(res, "Email already registered", 409);
+        const conflict = await findEmailConflict(normalized, { excludeAdminId: admin._id.toString() });
+        if (conflict) return jsonError(res, emailConflictMessage(conflict), 409);
         admin.email = normalized;
       }
     }

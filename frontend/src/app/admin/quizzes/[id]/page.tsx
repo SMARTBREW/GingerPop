@@ -260,7 +260,7 @@ export default function QuizEditorPage() {
         {tab === "questions" && (
           <div className="space-y-6">
             {questions.map((q, idx) => (
-              <div key={idx} className="kid-card p-5 sm:p-6">
+              <div key={q.id ?? `q-${idx}`} className="kid-card p-5 sm:p-6">
                 <div className="mb-3 flex items-center justify-between">
                   <span className="kid-pill bg-[#ede9fe] text-[#5b21b6]">Question {idx + 1}</span>
                   <button
@@ -333,8 +333,9 @@ export default function QuizEditorPage() {
                 {(q.type === "image" || q.type === "video" || q.type === "audio") && (
                   <div className="mb-3 rounded-2xl border-2 border-[#e9d5ff] bg-[#faf5ff] p-3">
                     <MediaUploader
+                      key={`${q.id ?? idx}-${q.type}`}
                       type={q.type}
-                      value={q.mediaUrl}
+                      value={q.mediaUrl ?? ""}
                       onChange={(mediaUrl) => updateQuestion(idx, { mediaUrl })}
                       label={`${q.type[0].toUpperCase()}${q.type.slice(1)} for this question`}
                     />

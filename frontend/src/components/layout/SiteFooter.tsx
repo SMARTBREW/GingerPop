@@ -7,52 +7,19 @@ export function SiteFooter({
   showAuthLinks?: boolean;
 }) {
   return (
-    <footer
-      style={{
-        marginTop: "auto",
-        borderTop: "2px solid rgba(167,139,250,0.2)",
-        background: "rgba(255,255,255,0.5)",
-        padding: "1.25rem 1.5rem",
-      }}
-    >
-      <div
-        style={{
-          maxWidth: 1100,
-          margin: "0 auto",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: "1rem",
-          flexWrap: "wrap",
-        }}
-      >
-        <span
-          style={{
-            fontFamily: "var(--font-game), Fredoka, system-ui, sans-serif",
-            fontWeight: 700,
-            color: "#1f2937",
-            fontSize: "1rem",
-          }}
-        >
+    <footer className="mt-auto border-t-2 border-purple-200/50 bg-white/50 px-3 py-4 sm:px-4 sm:py-5 md:px-6">
+      <div className="mx-auto flex max-w-[1100px] flex-col items-center justify-between gap-3 sm:flex-row sm:gap-4">
+        <span className="game-font whitespace-nowrap text-base font-bold text-gray-800 sm:text-lg">
           <BrandName />
         </span>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "1.25rem",
-            fontSize: "0.875rem",
-            color: "#9ca3af",
-            flexWrap: "wrap",
-          }}
-        >
+        <div className="flex flex-wrap items-center justify-center gap-3 text-xs text-gray-400 sm:gap-4 sm:text-sm">
           {showAuthLinks && (
-            <Link href="/login" style={{ fontWeight: 700, color: "#6b7280", textDecoration: "none" }}>
+            <Link href="/login" className="whitespace-nowrap font-bold text-gray-600 no-underline hover:text-gray-900">
               Sign in
             </Link>
           )}
-          <span>Made with 🌱 for tiny scientists</span>
-          <span>© {new Date().getFullYear()}</span>
+          <span className="whitespace-nowrap">Made with 🌱 for tiny scientists</span>
+          <span className="whitespace-nowrap">© {new Date().getFullYear()}</span>
         </div>
       </div>
     </footer>

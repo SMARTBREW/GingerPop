@@ -151,14 +151,14 @@ function StudentDashboardInner() {
             <button
               type="button"
               onClick={() => setShowChangePassword(true)}
-              className="rounded-full px-3 py-2 text-sm font-semibold text-[var(--kid-muted)] hover:bg-white/80"
+              className="min-h-[44px] rounded-full px-4 py-2 text-sm font-semibold text-[var(--kid-muted)] hover:bg-white/80"
             >
               Password
             </button>
             <button
               type="button"
               onClick={logout}
-              className="rounded-full px-3 py-2 text-sm font-semibold text-[var(--kid-muted)] hover:bg-white/80"
+              className="min-h-[44px] rounded-full px-4 py-2 text-sm font-semibold text-[var(--kid-muted)] hover:bg-white/80"
             >
               Log out
             </button>

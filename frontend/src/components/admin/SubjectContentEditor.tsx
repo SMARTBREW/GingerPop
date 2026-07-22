@@ -13,7 +13,34 @@ import { MediaUploader } from "@/components/media/MediaUploader";
 import { FieldHint } from "@/components/admin/FieldHint";
 import { SubjectWizardChrome, WizardStepFooter } from "@/components/admin/SubjectWizardChrome";
 import { getLessonQuestions } from "@/lib/course-rules";
+import { CONTENT_WORD_LIMITS, isOverWordLimit, wordCountLabel } from "@/lib/content-limits";
+import { optimizeMediaUrl } from "@/lib/media-url";
 import "@/styles/mascot-quiz.css";
+
+const L = CONTENT_WORD_LIMITS;
+
+function lessonVisualMediaType(page: {
+  imageUrl?: string;
+  videoUrl?: string;
+  audioUrl?: string;
+}) {
+  if (page.videoUrl) return "video";
+  if (page.imageUrl) return "image";
+  if (page.audioUrl) return "audio";
+  return "text";
+}
+
+function quizVisualMediaType(q: {
+  imageUrl?: string;
+  mediaUrl?: string;
+  videoUrl?: string;
+  audioUrl?: string;
+}) {
+  if (q.videoUrl) return "video";
+  if (q.imageUrl || q.mediaUrl) return "image";
+  if (q.audioUrl) return "audio";
+  return "text";
+}
 
 type LessonRow = Lesson & { id: string };
 type QuestionRow = CourseQuizQuestion & { id: string };
@@ -39,9 +66,17 @@ interface SubjectContentEditorProps {
   quizQuestions: QuestionRow[];
   onLessonsChange: (lessons: LessonRow[]) => void;
   onQuestionsChange: (questions: QuestionsUpdater) => void;
-  onSave?: () => void;
+  onSave?: () => Promise<boolean> | boolean;
   saving?: boolean;
   onBackToSubject?: () => void;
+}
+
+async function runAfterSave(onSave: (() => Promise<boolean> | boolean) | undefined, action: () => void) {
+  if (onSave) {
+    const ok = await onSave();
+    if (!ok) return;
+  }
+  action();
 }
 
 function slugify(value: string) {
@@ -166,29 +201,44 @@ function QuizCardEditor({
 
           <div className="grid gap-3 sm:grid-cols-2">
             <MediaUploader
+              key={`${q.id}-image`}
               type="image"
-              value={previewImage}
+              value={q.imageUrl || q.mediaUrl || ""}
               onChange={(url) =>
                 onChange({
                   ...q,
                   imageUrl: url,
                   mediaUrl: url,
-                  type: q.videoUrl ? "video" : url ? "image" : q.audioUrl ? "audio" : "text",
+                  videoUrl: url ? "" : q.videoUrl,
+                  type: quizVisualMediaType({
+                    ...q,
+                    imageUrl: url,
+                    mediaUrl: url,
+                    videoUrl: url ? "" : q.videoUrl,
+                  }),
                 })
               }
-              label="Quiz image — left panel (optional)"
+              label="Quiz image — left panel (optional; replaces video)"
             />
             <MediaUploader
+              key={`${q.id}-video`}
               type="video"
-              value={previewVideo}
+              value={q.videoUrl ?? ""}
               onChange={(videoUrl) =>
                 onChange({
                   ...q,
                   videoUrl,
-                  type: videoUrl ? "video" : previewImage ? "image" : q.audioUrl ? "audio" : "text",
+                  imageUrl: videoUrl ? "" : q.imageUrl,
+                  mediaUrl: videoUrl ? "" : q.mediaUrl,
+                  type: quizVisualMediaType({
+                    ...q,
+                    videoUrl,
+                    imageUrl: videoUrl ? "" : q.imageUrl,
+                    mediaUrl: videoUrl ? "" : q.mediaUrl,
+                  }),
                 })
               }
-              label="Quiz video — record or upload (optional)"
+              label="Quiz video — left panel (optional; replaces image)"
             />
           </div>
 
@@ -196,6 +246,8 @@ function QuizCardEditor({
             label="Question text"
             hint="Big bold prompt on the quiz card"
             example="Fill in the blank: 64 ___ 89"
+            value={stripHtml(q.question)}
+            wordLimit={L.question}
           >
             <Editable
               value={stripHtml(q.question)}
@@ -210,6 +262,8 @@ function QuizCardEditor({
             hint="Small grey line under the question"
             example="Practice Question a"
             className="mt-2"
+            value={q.subtitle ?? ""}
+            wordLimit={L.subtitle}
           >
             <Editable
               value={q.subtitle ?? ""}
@@ -256,13 +310,14 @@ function QuizCardEditor({
 
           <div className="mt-3">
             <MediaUploader
+              key={`${q.id}-audio`}
               type="audio"
-              value={q.audioUrl}
+              value={q.audioUrl ?? ""}
               onChange={(url) =>
                 onChange({
                   ...q,
                   audioUrl: url,
-                  type: q.videoUrl ? "video" : url ? "audio" : previewImage ? "image" : "text",
+                  type: quizVisualMediaType({ ...q, audioUrl: url }),
                 })
               }
               onTranscript={(audioText) => onChange({ ...q, audioText })}
@@ -315,8 +370,19 @@ function QuizCardEditor({
                     placeholder={
                       oIdx === 3 ? "4th option (optional)" : `Option ${OPTION_LABELS[oIdx]}`
                     }
-                    className="flex-1 bg-transparent text-base font-bold text-[var(--kid-text)] outline-none"
+                    className={`flex-1 bg-transparent text-base font-bold text-[var(--kid-text)] outline-none ${
+                      isOverWordLimit(q.options[oIdx] ?? "", L.option) ? "text-red-600" : ""
+                    }`}
                   />
+                  <span
+                    className={`shrink-0 text-[0.6rem] font-bold sm:text-[0.65rem] ${
+                      isOverWordLimit(q.options[oIdx] ?? "", L.option)
+                        ? "text-red-600"
+                        : "text-[var(--kid-muted)]"
+                    }`}
+                  >
+                    {wordCountLabel(q.options[oIdx] ?? "", L.option)}
+                  </span>
                   <button
                     type="button"
                     onClick={() => onChange({ ...q, correctIndex: oIdx })}
@@ -330,7 +396,7 @@ function QuizCardEditor({
           </div>
 
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
-            <FieldHint label="Hint button" hint="Orange hint kids tap" example="89 is bigger than 64!">
+            <FieldHint label="Hint button" hint="Orange hint kids tap" example="89 is bigger than 64!" value={q.hint ?? ""} wordLimit={L.hint}>
               <Editable
                 value={q.hint ?? ""}
                 onChange={(hint) => onChange({ ...q, hint })}
@@ -338,7 +404,7 @@ function QuizCardEditor({
                 className="rounded-xl border-2 border-[#fde68a] bg-[#fffbeb] px-3 py-2 text-sm font-semibold"
               />
             </FieldHint>
-            <FieldHint label="Correct answer message" example="Correct! 64 < 89">
+            <FieldHint label="Correct answer message" example="Correct! 64 < 89" value={q.explanation ?? ""} wordLimit={L.explanation}>
               <Editable
                 value={q.explanation ?? ""}
                 onChange={(explanation) => onChange({ ...q, explanation })}
@@ -351,6 +417,15 @@ function QuizCardEditor({
                 placeholder="Oops — try again"
                 className="mt-2 rounded-xl border-2 border-[#fecaca] bg-[#fef2f2] px-3 py-2 text-sm font-semibold"
               />
+              <span
+                className={`mt-1 block text-[0.65rem] font-bold sm:text-xs ${
+                  isOverWordLimit(q.wrongExplanation ?? "", L.wrongExplanation)
+                    ? "text-red-600"
+                    : "text-[var(--kid-muted)]"
+                }`}
+              >
+                {wordCountLabel(q.wrongExplanation ?? "", L.wrongExplanation)}
+              </span>
             </FieldHint>
           </div>
         </div>
@@ -383,6 +458,9 @@ function PlayLayoutEditor({
     onLessonChange({
       ...lesson,
       ...lessonPatch,
+      // Media lives on each page — don't keep lesson-level audio/video
+      videoUrl: "",
+      audioUrl: "",
       pages: next,
       content: next.map((p) => `${p.title}\n${p.content ?? ""}`).join("\n\n"),
       imageUrl: next[0]?.imageUrl || "",
@@ -391,7 +469,7 @@ function PlayLayoutEditor({
   };
 
   return (
-    <div className="admin-play-editor space-y-4">
+    <div className="admin-play-editor space-y-3 sm:space-y-4">
       <div className="admin-mascot-preview mascot-card-wrapper">
         <div className="mascot-player-card">
         <div
@@ -403,6 +481,8 @@ function PlayLayoutEditor({
             label="Lesson title (left panel)"
             hint="Big heading on the left of the play card"
             example="Comparing Numbers"
+            value={lesson.title}
+            wordLimit={L.lessonTitle}
           >
             <Editable
               value={lesson.title}
@@ -415,34 +495,37 @@ function PlayLayoutEditor({
                 })
               }
               placeholder="Comparing Numbers"
-              className="game-font w-full bg-white/80 text-xl font-bold text-[var(--kid-text)] sm:text-2xl"
+              className="game-font w-full bg-white/80 text-base font-bold text-[var(--kid-text)] sm:text-lg md:text-xl lg:text-2xl"
             />
           </FieldHint>
 
-          <div className="mt-3 flex min-h-[200px] w-full flex-1 items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-[#fdba74] bg-[#fff7ed]/50 p-3">
-            {(page.videoUrl || lesson.videoUrl) && (
+          <div className="mt-2 flex min-h-[160px] w-full flex-1 items-center justify-center overflow-hidden rounded-xl border-2 border-dashed border-[#fdba74] bg-[#fff7ed]/50 p-2 sm:mt-3 sm:min-h-[200px] sm:rounded-2xl sm:p-3">
+            {page.videoUrl && (
               <video
-                src={page.videoUrl || lesson.videoUrl}
+                src={optimizeMediaUrl(page.videoUrl, "video")}
                 controls
                 playsInline
-                className="max-h-64 w-full rounded-xl bg-black object-contain"
+                preload="metadata"
+                className="max-h-48 w-full rounded-lg bg-black object-contain sm:max-h-64 sm:rounded-xl"
               />
             )}
-            {!(page.videoUrl || lesson.videoUrl) && (lesson.imageUrl || page.imageUrl || lesson.mediaUrl) && (
+            {!page.videoUrl && page.imageUrl && (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={lesson.imageUrl || page.imageUrl || lesson.mediaUrl}
+                src={optimizeMediaUrl(page.imageUrl, "image")}
                 alt=""
-                className="max-h-64 w-full rounded-xl object-contain"
+                loading="eager"
+                decoding="async"
+                className="max-h-48 w-full rounded-lg object-contain sm:max-h-64 sm:rounded-xl"
               />
             )}
-            {!(page.videoUrl || lesson.videoUrl || lesson.imageUrl || page.imageUrl || lesson.mediaUrl) && (
-              <p className="px-4 text-center text-sm font-bold text-[var(--kid-muted)]">
+            {!page.videoUrl && !page.imageUrl && (
+              <p className="px-3 text-center text-xs font-bold text-[var(--kid-muted)] sm:px-4 sm:text-sm">
                 Your lesson image or video preview appears here.
               </p>
             )}
           </div>
-          <p className="mt-3 text-sm font-extrabold text-[var(--kid-muted)]">
+          <p className="mt-2 text-xs font-extrabold text-[var(--kid-muted)] sm:mt-3 sm:text-sm">
             Lesson page {pageIndex + 1} of {pages.length}
           </p>
         </div>
@@ -452,17 +535,19 @@ function PlayLayoutEditor({
             label="Green badge (top right)"
             hint="Small pill above mascot speech"
             example="1. COMPARING NUMBERS"
+            value={lesson.badgeText ?? ""}
+            wordLimit={L.badgeText}
           >
             <Editable
               value={lesson.badgeText ?? ""}
               onChange={(badgeText) => onLessonChange({ ...lesson, badgeText })}
               placeholder="1. COMPARING NUMBERS"
-              className="mascot-badge w-fit border-2 border-[#bbf7d0] bg-[#f0fdf4] text-[#166534]"
+              className="mascot-badge w-fit border-2 border-[#bbf7d0] bg-[#f0fdf4] text-[0.6rem] text-[#166534] sm:text-[0.7rem]"
             />
           </FieldHint>
 
-          <div className="mb-4 mt-3 flex gap-3 rounded-2xl border-2 border-[#bbf7d0] bg-[#f0fdf4]/70 p-3">
-            <span className="text-3xl" aria-hidden>
+          <div className="mb-3 mt-2 flex gap-2 rounded-xl border-2 border-[#bbf7d0] bg-[#f0fdf4]/70 p-2 sm:mb-4 sm:mt-3 sm:gap-3 sm:rounded-2xl sm:p-3">
+            <span className="text-2xl sm:text-3xl" aria-hidden>
               🐸
             </span>
             <FieldHint
@@ -470,13 +555,15 @@ function PlayLayoutEditor({
               hint="Friendly intro kids read next to the frog"
               example="Hey there! Let's learn how to compare numbers…"
               className="flex-1"
+              value={lesson.mascotSpeech ?? ""}
+              wordLimit={L.mascotSpeech}
             >
               <Editable
                 value={lesson.mascotSpeech ?? ""}
                 onChange={(mascotSpeech) => onLessonChange({ ...lesson, mascotSpeech })}
                 placeholder="Hey there! Let's learn how to compare numbers…"
                 multiline
-                className="w-full bg-transparent text-sm font-semibold leading-relaxed text-[var(--kid-text)]"
+                className="w-full bg-transparent text-xs font-semibold leading-relaxed text-[var(--kid-text)] sm:text-sm"
               />
             </FieldHint>
           </div>
@@ -485,12 +572,14 @@ function PlayLayoutEditor({
             label="Lesson page heading"
             hint="Bold heading under the mascot — like “1. What is Compare in Maths?”"
             example="1. What is Compare in Maths?"
+            value={page.title}
+            wordLimit={L.pageTitle}
           >
             <Editable
               value={page.title}
               onChange={(title) => updatePage({ title })}
               placeholder="1. What is Compare in Maths?"
-              className="game-font w-full text-xl font-bold text-[var(--kid-text)]"
+              className="game-font w-full text-base font-bold text-[var(--kid-text)] sm:text-lg md:text-xl"
             />
           </FieldHint>
 
@@ -498,7 +587,9 @@ function PlayLayoutEditor({
             label="Explanation text"
             hint="Paragraph under the heading on the play page"
             example="Compare karne ka matlab hota hai do ya zyada numbers ko dekhkar…"
-            className="mt-3"
+            className="mt-2 sm:mt-3"
+            value={stripHtml(page.content ?? "")}
+            wordLimit={L.pageContent}
           >
             <Editable
               value={stripHtml(page.content ?? "")}
@@ -506,18 +597,20 @@ function PlayLayoutEditor({
               placeholder="Compare karne ka matlab hota hai…"
               multiline
               rows={6}
-              className="min-h-[120px] w-full text-base font-semibold leading-relaxed text-[var(--kid-muted)]"
+              className="min-h-[100px] w-full text-sm font-semibold leading-relaxed text-[var(--kid-muted)] sm:min-h-[120px] sm:text-base"
             />
           </FieldHint>
 
-          <div className="mt-4 rounded-2xl border-2 border-[#86efac] bg-[#ecfdf5] p-3">
+          <div className="mt-3 rounded-xl border-2 border-[#86efac] bg-[#ecfdf5] p-2 sm:mt-4 sm:rounded-2xl sm:p-3">
             <FieldHint
               label="Audio player"
-              hint="Kids tap play under the explanation — upload or paste TTS text"
+              hint="Plays under the explanation on the right — can be used with image or video"
+              value={page.audioText ?? ""}
+              wordLimit={L.audioText}
             >
               <MediaUploader
                 type="audio"
-                value={page.audioUrl || lesson.audioUrl}
+                value={page.audioUrl ?? ""}
                 onChange={(audioUrl) => updatePage({ audioUrl })}
                 label="Upload lesson audio"
                 onTranscript={(text) =>
@@ -531,18 +624,18 @@ function PlayLayoutEditor({
                 onChange={(audioText) => updatePage({ audioText })}
                 placeholder="Or paste spoken text if no audio file"
                 multiline
-                className="mt-2 w-full rounded-xl border border-[#86efac] bg-white px-3 py-2 text-sm font-semibold"
+                className="mt-2 w-full rounded-lg border border-[#86efac] bg-white px-2.5 py-2 text-xs font-semibold sm:rounded-xl sm:px-3 sm:text-sm"
               />
             </FieldHint>
           </div>
 
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 sm:mt-4">
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
                 disabled={pageIndex <= 0}
                 onClick={() => onPageIndex(pageIndex - 1)}
-                className="kid-btn-secondary !px-4 !py-2 !text-sm disabled:opacity-40"
+                className="kid-btn-secondary !min-h-[44px] !px-3 !py-2 !text-xs disabled:opacity-40 sm:!px-4 sm:!text-sm"
               >
                 ← Back
               </button>
@@ -554,7 +647,7 @@ function PlayLayoutEditor({
                     onLessonChange({ ...lesson, pages: next });
                     onPageIndex(Math.min(pageIndex, next.length - 1));
                   }}
-                  className="rounded-full border-2 border-red-200 bg-red-50 px-4 py-2 text-sm font-extrabold text-red-700 hover:bg-red-100"
+                  className="min-h-[44px] rounded-full border-2 border-red-200 bg-red-50 px-3 py-2 text-xs font-extrabold text-red-700 hover:bg-red-100 sm:px-4 sm:text-sm"
                 >
                   Remove page
                 </button>
@@ -565,7 +658,7 @@ function PlayLayoutEditor({
                 <button
                   type="button"
                   onClick={() => onPageIndex(pageIndex + 1)}
-                  className="kid-btn-primary !px-4 !py-2 !text-sm"
+                  className="kid-btn-primary !min-h-[44px] !px-3 !py-2 !text-xs sm:!px-4 sm:!text-sm"
                 >
                   Next →
                 </button>
@@ -582,7 +675,7 @@ function PlayLayoutEditor({
                     });
                     onPageIndex(pages.length);
                   }}
-                  className="kid-btn-secondary !px-4 !py-2 !text-sm"
+                  className="kid-btn-secondary !min-h-[44px] !px-3 !py-2 !text-xs sm:!px-4 sm:!text-sm"
                 >
                   + Lesson page
                 </button>
@@ -593,33 +686,24 @@ function PlayLayoutEditor({
       </div>
       </div>
 
-      <div className="kid-card grid items-start gap-4 p-4 lg:grid-cols-2 sm:p-5">
+      <div className="kid-card grid items-start gap-3 sm:gap-4 lg:grid-cols-2">
         <MediaUploader
           type="image"
-          value={page.imageUrl || lesson.imageUrl || lesson.mediaUrl}
-          onChange={(imageUrl) =>
-            updatePage(
-              { imageUrl },
-              {
-                type: imageUrl ? "image" : page.videoUrl ? "video" : page.audioUrl ? "audio" : "text",
-              },
-            )
-          }
-          label="Lesson image — upload or remove the left-panel poster"
+          value={page.imageUrl ?? ""}
+          onChange={(imageUrl) => {
+            const patch = imageUrl ? { imageUrl, videoUrl: "" } : { imageUrl };
+            updatePage(patch, { type: lessonVisualMediaType({ ...page, ...patch }) });
+          }}
+          label="Lesson image — left panel (optional; replaces video)"
         />
         <MediaUploader
           type="video"
-          value={page.videoUrl || lesson.videoUrl}
-          onChange={(videoUrl) =>
-            updatePage(
-              { videoUrl },
-              {
-                videoUrl,
-                type: videoUrl ? "video" : page.imageUrl ? "image" : page.audioUrl ? "audio" : "text",
-              },
-            )
-          }
-          label="Lesson video — record, upload, or remove (optional)"
+          value={page.videoUrl ?? ""}
+          onChange={(videoUrl) => {
+            const patch = videoUrl ? { videoUrl, imageUrl: "" } : { videoUrl };
+            updatePage(patch, { type: lessonVisualMediaType({ ...page, ...patch }) });
+          }}
+          label="Lesson video — left panel (optional; replaces image)"
         />
       </div>
 
@@ -642,10 +726,10 @@ export function StandaloneQuizEditor({
   quizQuestions: QuestionRow[];
   onLessonsChange: (lessons: LessonRow[]) => void;
   onQuestionsChange: (questions: QuestionsUpdater) => void;
-  onSave: () => void;
+  onSave: () => Promise<boolean> | boolean;
   saving?: boolean;
   onBack: () => void;
-  onNext: () => void;
+  onNext: () => void | Promise<void>;
 }) {
   const standaloneQuestions = quizQuestions.filter((q) => !q.lessonId);
   const [questionIndex, setQuestionIndex] = useState(0);
@@ -672,18 +756,17 @@ export function StandaloneQuizEditor({
         <WizardStepFooter
           onBack={onBack}
           backLabel="← Chapters & lessons"
-          onSave={onSave}
           saving={saving}
           onNext={onNext}
-          nextLabel="Next: Learners →"
+          nextLabel="Save & continue →"
           nextDisabled={lessons.length > 0 || standaloneQuestions.length === 0}
         />
       }
     >
       {lessons.length > 0 ? (
-        <div className="kid-card border-amber-200 bg-amber-50 p-6">
-          <h2 className="game-font text-xl font-bold text-amber-900">Choose one course format</h2>
-          <p className="mt-2 text-sm font-semibold text-amber-800">
+        <div className="kid-card border-amber-200 bg-amber-50">
+          <h2 className="game-font text-base font-bold text-amber-900 sm:text-lg md:text-xl">Choose one course format</h2>
+          <p className="mt-2 text-xs font-semibold text-amber-800 sm:text-sm">
             This subject already has chapters and lessons. A standalone quiz has no lessons, so it
             cannot be combined with that format.
           </p>
@@ -697,7 +780,7 @@ export function StandaloneQuizEditor({
               onLessonsChange([]);
               onQuestionsChange(quizQuestions.filter((q) => !q.lessonId));
             }}
-            className="mt-4 rounded-full border-2 border-red-200 bg-white px-4 py-2 text-sm font-extrabold text-red-700 hover:bg-red-50"
+            className="mt-3 min-h-[44px] rounded-full border-2 border-red-200 bg-white px-3 py-2 text-xs font-extrabold text-red-700 hover:bg-red-50 sm:mt-4 sm:px-4 sm:text-sm"
           >
             Remove lessons and use standalone quiz
           </button>
@@ -715,10 +798,10 @@ export function StandaloneQuizEditor({
           </div>
 
           {standaloneQuestions.length === 0 ? (
-            <div className="kid-card p-8 text-center">
-              <p className="text-5xl">🎯</p>
-              <h2 className="game-font mt-3 text-2xl font-bold">No standalone questions yet</h2>
-              <p className="mt-2 text-sm font-semibold text-[var(--kid-muted)]">
+            <div className="kid-card py-6 text-center sm:py-8">
+              <p className="text-4xl sm:text-5xl">🎯</p>
+              <h2 className="game-font mt-3 text-lg font-bold sm:text-xl md:text-2xl">No standalone questions yet</h2>
+              <p className="mt-2 text-xs font-semibold text-[var(--kid-muted)] sm:text-sm">
                 Add a question to create a quiz learners can play without opening a lesson.
               </p>
             </div>
@@ -863,7 +946,7 @@ export function SubjectContentEditor({
   const deleteTopic = (topicTitle: string) => {
     const topicLessons = lessons.filter((l) => topicKey(l) === topicTitle);
     const ok = window.confirm(
-      `Delete chapter “${topicTitle}”?\n\nThis removes ${topicLessons.length} lesson(s) and their quizzes from this subject. Save changes to store on the server.`,
+      `Delete chapter “${topicTitle}”?\n\nThis removes ${topicLessons.length} lesson(s) and their quizzes.`,
     );
     if (!ok) return;
 
@@ -878,7 +961,7 @@ export function SubjectContentEditor({
 
   const deleteLesson = (lesson: LessonRow) => {
     const ok = window.confirm(
-      `Delete lesson “${lesson.title || "Untitled lesson"}”?\n\nThis removes the lesson and its quiz questions. Save changes to store on the server.`,
+      `Delete lesson “${lesson.title || "Untitled lesson"}”?\n\nThis removes the lesson and its quiz questions.`,
     );
     if (!ok) return;
 
@@ -904,27 +987,28 @@ export function SubjectContentEditor({
           <WizardStepFooter
             onBack={onBackToSubject}
             backLabel="← Subject setup"
-            onSave={onSave}
             saving={saving}
-            onNext={() => {
-              if (topics.length === 0) return;
-              setActiveTopic(topics[0].title);
-              setView("lessons");
-            }}
-            nextLabel="Next: Lessons →"
+            onNext={() =>
+              void runAfterSave(onSave, () => {
+                if (topics.length === 0) return;
+                setActiveTopic(topics[0].title);
+                setView("lessons");
+              })
+            }
+            nextLabel="Save & continue →"
             nextDisabled={topics.length === 0}
           />
         }
       >
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-3 sm:grid-cols-2 sm:gap-4">
           {topics.map((t) => (
             <div
               key={t.lessons[0]?.id ?? t.title}
-              className="kid-card relative p-5 text-left transition-transform hover:-translate-y-1"
+              className="kid-card relative text-left transition-transform hover:-translate-y-1"
             >
               <button
                 type="button"
-                className="absolute right-3 top-3 rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-extrabold text-red-700 hover:bg-red-100"
+                className="absolute right-2 top-2 z-10 min-h-[36px] rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-extrabold text-red-700 hover:bg-red-100 sm:right-3 sm:top-3 sm:min-h-[40px] sm:px-3 sm:py-1.5 sm:text-sm"
                 onClick={(e) => {
                   e.stopPropagation();
                   deleteTopic(t.title);
@@ -932,7 +1016,7 @@ export function SubjectContentEditor({
               >
                 Delete
               </button>
-              <div className="flex items-start gap-3 pr-16">
+              <div className="flex flex-col gap-2 pr-16 sm:flex-row sm:items-start sm:gap-3 sm:pr-20">
                 <input
                   value={t.emoji}
                   onChange={(e) => {
@@ -943,12 +1027,19 @@ export function SubjectContentEditor({
                       ),
                     );
                   }}
-                  className="w-12 rounded-lg border border-transparent bg-transparent text-center text-3xl outline-none focus:border-[#fed7aa] focus:bg-white"
+                  className="h-12 w-12 flex-shrink-0 rounded-lg border border-transparent bg-transparent text-center text-3xl outline-none focus:border-[#fed7aa] focus:bg-white sm:h-14 sm:w-14 sm:text-4xl"
                   aria-label="Chapter emoji"
                 />
-                <div className="min-w-0 flex-1 space-y-2">
+                <div className="min-w-0 flex-1 space-y-2 sm:space-y-2.5">
                   <label className="block">
-                    <span className="text-xs font-bold text-[var(--kid-muted)]">Chapter name</span>
+                    <span className="text-xs font-bold text-[var(--kid-muted)] sm:text-sm">Chapter name</span>
+                    <span
+                      className={`mt-0.5 block text-[0.65rem] font-bold sm:text-xs ${
+                        isOverWordLimit(t.title, L.topicTitle) ? "text-red-600" : "text-[var(--kid-muted)]"
+                      }`}
+                    >
+                      {wordCountLabel(t.title, L.topicTitle)}
+                    </span>
                     <input
                       value={t.title}
                       onChange={(e) => {
@@ -960,13 +1051,22 @@ export function SubjectContentEditor({
                         );
                         if (activeTopic === t.title) setActiveTopic(nextName);
                       }}
-                      className="game-font mt-1 w-full rounded-lg border border-[#e9d5ff] bg-white px-2 py-1.5 text-xl font-bold text-[var(--kid-text)] outline-none focus:border-[#a78bfa]"
+                      className="game-font mt-1 w-full rounded-lg border border-[#e9d5ff] bg-white px-2.5 py-1.5 text-base font-bold text-[var(--kid-text)] outline-none focus:border-[#a78bfa] sm:px-3 sm:py-2 sm:text-lg md:text-xl"
                       placeholder="Example: Numbers"
                     />
                   </label>
                   <label className="block">
-                    <span className="text-xs font-bold text-[var(--kid-muted)]">
+                    <span className="text-xs font-bold text-[var(--kid-muted)] sm:text-sm">
                       Chapter description
+                    </span>
+                    <span
+                      className={`mt-0.5 block text-[0.65rem] font-bold sm:text-xs ${
+                        isOverWordLimit(t.description, L.topicDescription)
+                          ? "text-red-600"
+                          : "text-[var(--kid-muted)]"
+                      }`}
+                    >
+                      {wordCountLabel(t.description, L.topicDescription)}
                     </span>
                     <textarea
                       value={t.description}
@@ -979,7 +1079,7 @@ export function SubjectContentEditor({
                         );
                       }}
                       rows={2}
-                      className="mt-1 w-full resize-y rounded-lg border border-[#e9d5ff] bg-white px-2 py-1.5 text-sm font-semibold text-[var(--kid-muted)] outline-none focus:border-[#a78bfa]"
+                      className="mt-1 w-full resize-y rounded-lg border border-[#e9d5ff] bg-white px-2.5 py-1.5 text-xs font-semibold text-[var(--kid-muted)] outline-none focus:border-[#a78bfa] sm:px-3 sm:py-2 sm:text-sm"
                       placeholder="Example: Compare, count and play with numbers"
                     />
                   </label>
@@ -989,7 +1089,7 @@ export function SubjectContentEditor({
                       setActiveTopic(t.title);
                       setView("lessons");
                     }}
-                    className="text-sm font-extrabold text-[var(--kid-purple)]"
+                    className="min-h-[40px] text-xs font-extrabold text-[var(--kid-purple)] sm:min-h-[44px] sm:text-sm"
                   >
                     Edit {t.lessons.length} lesson{t.lessons.length === 1 ? "" : "s"} →
                   </button>
@@ -1001,11 +1101,11 @@ export function SubjectContentEditor({
           <button
             type="button"
             onClick={addTopic}
-            className="kid-card border-dashed p-5 text-left text-[var(--kid-muted)] transition-transform hover:-translate-y-1"
+            className="kid-card border-dashed text-left text-[var(--kid-muted)] transition-transform hover:-translate-y-1"
           >
-            <span className="text-3xl">＋</span>
-            <p className="game-font mt-3 text-xl font-bold">Add chapter</p>
-            <p className="mt-1 text-sm font-semibold">Like Numbers, Data Handling, Geometry</p>
+            <span className="text-2xl sm:text-3xl">＋</span>
+            <p className="game-font mt-2 text-base font-bold sm:mt-3 sm:text-lg md:text-xl">Add chapter</p>
+            <p className="mt-1 text-xs font-semibold sm:text-sm">Like Numbers, Data Handling, Geometry</p>
           </button>
         </div>
       </SubjectWizardChrome>
@@ -1030,26 +1130,27 @@ export function SubjectContentEditor({
           <WizardStepFooter
             onBack={() => setView("topics")}
             backLabel="← Chapters"
-            onSave={onSave}
             saving={saving}
-            onNext={() => {
-              if (topicLessons.length === 0) return;
-              openLesson(topicLessons[0]);
-            }}
-            nextLabel="Next: Lesson →"
+            onNext={() =>
+              void runAfterSave(onSave, () => {
+                if (topicLessons.length === 0) return;
+                openLesson(topicLessons[0]);
+              })
+            }
+            nextLabel="Save & continue →"
             nextDisabled={topicLessons.length === 0}
           />
         }
       >
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-3 sm:grid-cols-2 sm:gap-4">
           {topicLessons.map((lesson) => (
             <div
               key={lesson.id}
-              className="kid-card relative p-5 text-left transition-transform hover:-translate-y-1"
+              className="kid-card relative text-left transition-transform hover:-translate-y-1"
             >
               <button
                 type="button"
-                className="absolute right-3 top-3 rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-extrabold text-red-700 hover:bg-red-100"
+                className="absolute right-2 top-2 z-10 min-h-[36px] rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-extrabold text-red-700 hover:bg-red-100 sm:right-3 sm:top-3 sm:min-h-[40px] sm:px-3 sm:py-1.5 sm:text-sm"
                 onClick={(e) => {
                   e.stopPropagation();
                   deleteLesson(lesson);
@@ -1058,18 +1159,18 @@ export function SubjectContentEditor({
                 Delete
               </button>
               <button type="button" onClick={() => openLesson(lesson)} className="w-full text-left">
-                <div className="flex items-start gap-3 pr-16">
-                  <span className="text-3xl" aria-hidden>
+                <div className="flex flex-col gap-2 pr-16 sm:flex-row sm:items-start sm:gap-3 sm:pr-20">
+                  <span className="text-2xl sm:text-3xl" aria-hidden>
                     ⚖️
                   </span>
                   <div className="min-w-0 flex-1">
-                    <h2 className="game-font text-xl font-bold text-[var(--kid-text)]">
+                    <h2 className="game-font text-base font-bold text-[var(--kid-text)] sm:text-lg md:text-xl">
                       {lesson.title || "Untitled lesson"}
                     </h2>
-                    <p className="mt-1 text-sm font-semibold text-[var(--kid-muted)]">
+                    <p className="mt-1 text-xs font-semibold text-[var(--kid-muted)] sm:text-sm">
                       Greater than, less than & equal to
                     </p>
-                    <p className="mt-3 text-sm font-extrabold text-[#ea580c]">Start lesson →</p>
+                    <p className="mt-2 text-xs font-extrabold text-[#ea580c] sm:mt-3 sm:text-sm">Start lesson →</p>
                   </div>
                 </div>
               </button>
@@ -1079,11 +1180,11 @@ export function SubjectContentEditor({
           <button
             type="button"
             onClick={() => addLesson(activeTopic, topicEmoji)}
-            className="kid-card border-dashed p-5 text-left transition-transform hover:-translate-y-1"
+            className="kid-card border-dashed text-left transition-transform hover:-translate-y-1"
           >
-            <span className="text-3xl">＋</span>
-            <p className="game-font mt-3 text-xl font-bold text-[var(--kid-text)]">Add lesson</p>
-            <p className="mt-1 text-sm font-semibold text-[var(--kid-muted)]">
+            <span className="text-2xl sm:text-3xl">＋</span>
+            <p className="game-font mt-2 text-base font-bold text-[var(--kid-text)] sm:mt-3 sm:text-lg md:text-xl">Add lesson</p>
+            <p className="mt-1 text-xs font-semibold text-[var(--kid-muted)] sm:text-sm">
               Like Comparing Numbers — opens the play-page editor
             </p>
           </button>
@@ -1095,11 +1196,11 @@ export function SubjectContentEditor({
   /* ─────────── PLAY / QUIZ editors ─────────── */
   if (!activeLesson || (view !== "play" && view !== "quiz")) {
     return (
-      <div className="kid-card p-6 text-center">
-        <p className="font-semibold text-[var(--kid-muted)]">Pick a lesson to edit.</p>
+      <div className="kid-card py-6 text-center sm:py-8">
+        <p className="text-sm font-semibold text-[var(--kid-muted)] sm:text-base">Pick a lesson to edit.</p>
         <button
           type="button"
-          className="kid-btn-secondary mt-4 !px-4 !py-2 !text-sm"
+          className="kid-btn-secondary mt-4 !min-h-[44px] !px-4 !py-2 !text-sm sm:!text-base"
           onClick={() => setView("topics")}
         >
           ← Back to chapters
@@ -1138,16 +1239,19 @@ export function SubjectContentEditor({
             }
           }}
           backLabel={view === "quiz" ? "← Lesson" : "← Lessons"}
-          onSave={onSave}
           saving={saving}
-          onNext={view === "play" ? () => setView("quiz") : undefined}
-          nextLabel="Next: Quiz →"
+          onNext={
+            view === "play"
+              ? () => void runAfterSave(onSave, () => setView("quiz"))
+              : undefined
+          }
+          nextLabel="Save & continue →"
           extra={
             <button
               type="button"
               onClick={() => {
                 if (
-                  window.confirm("Delete this lesson and its quiz questions? Save to apply fully.")
+                  window.confirm("Delete this lesson and its quiz questions?")
                 ) {
                   onLessonsChange(lessons.filter((l) => l.id !== activeLesson.id));
                   onQuestionsChange(quizQuestions.filter((q) => q.lessonId !== activeLesson.id));
@@ -1202,10 +1306,10 @@ export function SubjectContentEditor({
           </div>
 
           {lessonQuestions.length === 0 ? (
-            <div className="kid-card p-8 text-center">
-              <p className="text-5xl">🎯</p>
-              <p className="game-font mt-3 text-2xl font-bold">No quiz questions yet</p>
-              <p className="mt-2 text-sm font-semibold text-[var(--kid-muted)]">
+            <div className="kid-card py-6 text-center sm:py-8">
+              <p className="text-4xl sm:text-5xl">🎯</p>
+              <p className="game-font mt-3 text-lg font-bold sm:text-xl md:text-2xl">No quiz questions yet</p>
+              <p className="mt-2 text-xs font-semibold text-[var(--kid-muted)] sm:text-sm">
                 Add questions with emoji options and a hint — just like the play quiz.
               </p>
             </div>

@@ -14,11 +14,11 @@ interface SubjectSetupStepProps {
   title: string;
   description: string;
   meta: SubjectMeta;
+  lessonCount?: number;
   onTitleChange: (v: string) => void;
   onDescriptionChange: (v: string) => void;
   onMetaChange: (meta: SubjectMeta) => void;
-  onSave: () => void;
-  onNext: () => void;
+  onNext: () => void | Promise<void>;
   saving?: boolean;
 }
 
@@ -41,24 +41,22 @@ export function SubjectSetupStep({
   title,
   description,
   meta,
+  lessonCount = 0,
   onTitleChange,
   onDescriptionChange,
   onMetaChange,
-  onSave,
   onNext,
   saving,
 }: SubjectSetupStepProps) {
   return (
     <SubjectWizardChrome
       title="Set up your subject"
-      subtitle="Same card kids see on Subjects — fill details, save, then go to chapters."
+      subtitle="Same card kids see on Subjects — fill in the details, then click Save & continue."
       footer={
         <WizardStepFooter
-          onSave={onSave}
           saving={saving}
-          saveLabel="Save subject"
           onNext={onNext}
-          nextLabel="Next: Chapters →"
+          nextLabel="Save & continue →"
           nextDisabled={!title.trim()}
         />
       }
@@ -80,7 +78,7 @@ export function SubjectSetupStep({
           </FieldHint>
 
           <FieldHint
-            label="Short description"
+            label="Write About The Subject"
             hint="Grey text under the title on the subject card"
             example="Numbers, data, shapes & more"
           >
@@ -122,7 +120,7 @@ export function SubjectSetupStep({
               />
             </FieldHint>
 
-            <FieldHint label="Card background" hint="Pastel fill behind the subject card">
+            <FieldHint label="Card Color" hint="Pastel fill on the subject card">
               <input
                 type="color"
                 value={meta.color || "#fff7ed"}
@@ -131,7 +129,7 @@ export function SubjectSetupStep({
               />
             </FieldHint>
 
-            <FieldHint label="Accent color" hint="Title & “N chapters →” link color on the card">
+            <FieldHint label="Title Color" hint="Title & “N chapters →” link color on the card">
               <input
                 type="color"
                 value={meta.accent || "#ea580c"}
@@ -161,7 +159,7 @@ export function SubjectSetupStep({
               {plainPreview(description) || "Numbers, data, shapes & more"}
             </p>
             <p className="mt-4 text-sm font-extrabold" style={{ color: meta.accent || "#ea580c" }}>
-              0 chapters →
+              {lessonCount} {lessonCount === 1 ? "chapter" : "chapters"} →
             </p>
           </button>
         </div>

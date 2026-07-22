@@ -35,6 +35,11 @@ export function cloudinaryResourceType(mimeType: string): "image" | "video" | "r
   return "raw";
 }
 
+/** Cloudinary public_id must not include a file extension (or URLs get .ext.ext). */
+export function cloudinaryPublicId(filename: string): string {
+  return filename.replace(/\.[^/.]+$/, "");
+}
+
 export async function uploadToCloudinary(
   buffer: Buffer,
   options: {
@@ -49,13 +54,22 @@ export async function uploadToCloudinary(
 
   const resourceType = cloudinaryResourceType(options.mimeType);
 
+  const uploadOptions: Record<string, unknown> = {
+    resource_type: resourceType,
+    folder: options.folder ?? "ginger-pop",
+    public_id: options.filename ? cloudinaryPublicId(options.filename) : undefined,
+  };
+
+  if (resourceType === "image") {
+    uploadOptions.quality = "auto:good";
+    uploadOptions.fetch_format = "auto";
+  } else if (resourceType === "video") {
+    uploadOptions.quality = "auto:good";
+  }
+
   return new Promise<{ url: string; publicId: string }>((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(
-      {
-        resource_type: resourceType,
-        folder: options.folder ?? "ginger-pop",
-        public_id: options.filename,
-      },
+      uploadOptions,
       (error, result) => {
         if (error || !result) {
           reject(error ?? new Error("Upload failed"));
@@ -92,7 +106,11 @@ export function parseCloudinaryUrl(
     const publicIdWithExt = parts.slice(startIdx).join("/");
     if (!publicIdWithExt) return null;
 
-    const publicId = publicIdWithExt.replace(/\.[^/.]+$/, "");
+    const deduped = publicIdWithExt.replace(
+      /\.(jpe?g|png|gif|webp|avif|webm|mp4|mp3|ogg|wav|m4a)\.\1$/i,
+      ".$1",
+    );
+    const publicId = deduped.replace(/\.[^/.]+$/, "");
     return { publicId, resourceType };
   } catch {
     return null;

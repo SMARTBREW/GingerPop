@@ -1,14 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import type { CSSProperties, ReactNode } from "react";
+import type { ReactNode } from "react";
 import { BrandName } from "@/components/BrandName";
 
 /** Small green frog mark used in the site header (matches the landing page). */
 export function SiteHeaderMascot({ size = 36 }: { size?: number }) {
   return (
-    <div style={{ width: size, height: size, flexShrink: 0, display: "inline-block" }} aria-hidden>
-      <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: "100%", height: "100%" }}>
+    <div className="inline-block flex-shrink-0" style={{ width: size, height: size }} aria-hidden>
+      <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-full w-full">
         <ellipse cx="40" cy="50" rx="26" ry="22" fill="#4ade80" />
         <circle cx="40" cy="32" r="24" fill="#4ade80" />
         <circle cx="32" cy="28" r="8" fill="white" />
@@ -28,27 +28,6 @@ export function SiteHeaderMascot({ size = 36 }: { size?: number }) {
   );
 }
 
-const headerShellStyle: CSSProperties = {
-  position: "sticky",
-  top: 0,
-  zIndex: 50,
-  background: "rgba(255,255,255,0.88)",
-  backdropFilter: "blur(16px)",
-  WebkitBackdropFilter: "blur(16px)",
-  borderBottom: "2px solid rgba(167,139,250,0.2)",
-  boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
-};
-
-const innerStyle: CSSProperties = {
-  maxWidth: 1100,
-  margin: "0 auto",
-  padding: "0.75rem 1.5rem",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: "1rem",
-};
-
 export function SiteHeader({
   brandHref = "/",
   actions,
@@ -60,40 +39,18 @@ export function SiteHeader({
   showMascot?: boolean;
 }) {
   return (
-    <header style={headerShellStyle}>
-      <div style={innerStyle}>
+    <header className="sticky top-0 z-50 border-b-2 border-purple-200/50 bg-white/90 shadow-sm backdrop-blur-2xl">
+      <div className="mx-auto flex max-w-[1100px] items-center justify-between gap-3 px-3 py-2.5 sm:gap-4 sm:px-4 md:px-6">
         <Link
           href={brandHref}
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: "0.6rem",
-            textDecoration: "none",
-            color: "inherit",
-          }}
+          className="inline-flex flex-shrink-0 items-center gap-2 no-underline sm:gap-2.5"
         >
-          {showMascot && <SiteHeaderMascot size={36} />}
-          <span
-            style={{
-              fontFamily: "var(--font-game), Fredoka, system-ui, sans-serif",
-              fontSize: "1.375rem",
-              fontWeight: 700,
-              color: "#1f2937",
-              letterSpacing: "-0.01em",
-            }}
-          >
+          {showMascot && <SiteHeaderMascot size={32} />}
+          <span className="game-font whitespace-nowrap text-lg font-bold tracking-tight text-gray-800 sm:text-xl md:text-2xl">
             <BrandName />
           </span>
         </Link>
-        <nav
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "0.75rem",
-            flexWrap: "wrap",
-            justifyContent: "flex-end",
-          }}
-        >
+        <nav className="flex flex-shrink-0 items-center gap-2 sm:gap-3">
           {actions === undefined ? <SiteHeaderMarketingActions /> : actions}
         </nav>
       </div>
@@ -106,36 +63,17 @@ export function SiteHeaderMarketingActions() {
     <>
       <Link
         href="/login"
-        style={{
-          fontSize: "0.875rem",
-          fontWeight: 700,
-          color: "#6b7280",
-          textDecoration: "none",
-        }}
+        className="whitespace-nowrap text-xs font-bold text-gray-600 no-underline hover:text-gray-900 sm:text-sm"
       >
         Sign in
       </Link>
       <Link
-        href="/subjects"
-        className="site-header-play-btn"
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: "0.4rem",
-          padding: "0.55rem 1.25rem",
-          borderRadius: 999,
-          border: "2.5px solid #e85d04",
-          background: "linear-gradient(180deg, #ff9f43 0%, #ff6b35 100%)",
-          fontFamily: "var(--font-game), Fredoka, system-ui, sans-serif",
-          fontSize: "1rem",
-          fontWeight: 800,
-          color: "white",
-          textDecoration: "none",
-          textShadow: "0 1px 0 rgba(0,0,0,0.15)",
-          boxShadow: "0 5px 0 #c44d00",
-        }}
+        href="/play"
+        className="site-header-play-btn game-font inline-flex min-h-[44px] items-center gap-1.5 whitespace-nowrap rounded-full border-[2.5px] border-[#e85d04] bg-gradient-to-b from-[#ff9f43] to-[#ff6b35] px-3 py-2 text-xs font-extrabold text-white shadow-[0_5px_0_#c44d00] transition-transform hover:-translate-y-0.5 active:translate-y-1 sm:min-h-[48px] sm:gap-2 sm:px-4 sm:py-2.5 sm:text-sm md:text-base"
+        style={{ textShadow: "0 1px 0 rgba(0,0,0,0.15)" }}
       >
-        🎮 Play Now
+        🎮 <span className="hidden sm:inline">Play Now</span>
+        <span className="sm:hidden">Play</span>
       </Link>
     </>
   );
@@ -151,12 +89,7 @@ export function SiteHeaderLink({
   return (
     <Link
       href={href}
-      style={{
-        fontSize: "0.875rem",
-        fontWeight: 700,
-        color: "#6b7280",
-        textDecoration: "none",
-      }}
+      className="whitespace-nowrap text-xs font-bold text-gray-600 no-underline hover:text-gray-900 sm:text-sm"
     >
       {children}
     </Link>

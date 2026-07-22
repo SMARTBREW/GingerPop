@@ -5,9 +5,10 @@ import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
 
 import { createSpeechRecognition, isSpeechRecognitionSupported, type SpeechRecognitionEvent } from "@/lib/speech-recognition";
+import { compressImageFile, formatFileSize } from "@/lib/compress-media";
 
 type MediaType = "audio" | "video" | "image";
-type Step = "idle" | "recording" | "preview" | "uploading";
+type Step = "idle" | "recording" | "preview" | "uploading" | "compressing";
 
 interface MediaUploaderProps {
   type: MediaType;
@@ -130,15 +131,20 @@ export function MediaUploader({ type, value, onChange, label, onTranscript }: Me
       const constraints: MediaStreamConstraints =
         type === "audio"
           ? { audio: true }
-          : { audio: true, video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } } };
+          : { audio: true, video: { facingMode: "user", width: { ideal: 854, max: 854 }, height: { ideal: 480, max: 480 }, frameRate: { ideal: 24, max: 30 } } };
 
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       streamRef.current = stream;
       setLiveStream(stream);
 
       const mimeType = pickMimeType(type);
+      const recorderOptions: MediaRecorderOptions = { mimeType: mimeType || undefined };
+      if (mimeType) {
+        recorderOptions.audioBitsPerSecond = 96_000;
+        if (type === "video") recorderOptions.videoBitsPerSecond = 1_000_000;
+      }
       const recorder = mimeType
-        ? new MediaRecorder(stream, { mimeType })
+        ? new MediaRecorder(stream, recorderOptions)
         : new MediaRecorder(stream);
 
       chunksRef.current = [];
@@ -204,7 +210,11 @@ export function MediaUploader({ type, value, onChange, label, onTranscript }: Me
     formData.append("file", blob, filename);
     formData.append("mediaType", type);
 
-    const res = await fetch("/api/upload", { method: "POST", body: formData });
+    const res = await fetch("/api/upload", {
+      method: "POST",
+      body: formData,
+      credentials: "include",
+    });
     const data = await res.json();
 
     if (!res.ok) {
@@ -218,10 +228,43 @@ export function MediaUploader({ type, value, onChange, label, onTranscript }: Me
     setStep("idle");
   };
 
+  const buildUploadFilename = (name: string, ext: string) => {
+    const base = name.replace(/\.[^/.]+$/, "") || name;
+    return `${base}.${ext}`;
+  };
+
+  const prepareAndUpload = async (file: Blob, filename: string) => {
+    if (type === "image" && file instanceof File) {
+      setStep("compressing");
+      try {
+        const compressed = await compressImageFile(file);
+        const ext = compressed.type === "image/jpeg" ? "jpg" : filename.split(".").pop() || "jpg";
+        await uploadBlob(compressed, buildUploadFilename(filename, ext));
+      } catch {
+        await uploadBlob(file, filename);
+      }
+      return;
+    }
+
+    if (type === "video" && file.size > 25 * 1024 * 1024) {
+      setError(`Large video (${formatFileSize(file.size)}). Try a shorter clip or lower resolution for faster upload.`);
+      setStep("preview");
+      return;
+    }
+
+    if (type === "audio" && file.size > 8 * 1024 * 1024) {
+      setError(`Large audio file (${formatFileSize(file.size)}). Try a shorter recording.`);
+      setStep("preview");
+      return;
+    }
+
+    await uploadBlob(file, filename);
+  };
+
   const uploadPreview = () => {
     if (!previewBlob) return;
     const ext = type === "audio" ? "webm" : "webm";
-    uploadBlob(previewBlob, `recording-${Date.now()}.${ext}`);
+    void prepareAndUpload(previewBlob, `recording-${Date.now()}.${ext}`);
   };
 
   const handleFilePick = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -233,7 +276,7 @@ export function MediaUploader({ type, value, onChange, label, onTranscript }: Me
     cleanupPreview();
 
     if (type === "image") {
-      void uploadBlob(file, file.name);
+      void prepareAndUpload(file, file.name);
       return;
     }
 
@@ -394,6 +437,13 @@ export function MediaUploader({ type, value, onChange, label, onTranscript }: Me
             </div>
           )}
 
+          {step === "compressing" && (
+            <div className="flex flex-col items-center py-8">
+              <div className="spinner mb-3" />
+              <p className="text-sm text-gray-600">Optimizing image…</p>
+            </div>
+          )}
+
           {step === "idle" && (
             <div className="mt-4 border-t border-gray-100 pt-4 text-center">
               <input
@@ -425,10 +475,12 @@ export function MediaUploader({ type, value, onChange, label, onTranscript }: Me
             className="hidden"
             onChange={handleFilePick}
           />
-          {step === "uploading" ? (
+          {step === "uploading" || step === "compressing" ? (
             <div className="py-6">
               <div className="spinner mx-auto mb-3" />
-              <p className="text-sm text-gray-600">Uploading…</p>
+              <p className="text-sm text-gray-600">
+                {step === "compressing" ? "Optimizing image…" : "Uploading…"}
+              </p>
             </div>
           ) : (
             <>

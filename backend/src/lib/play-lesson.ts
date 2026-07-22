@@ -85,8 +85,8 @@ export function toPlayLesson(
           title: p.title || lesson.title,
           content: p.content || "",
           imageUrl: p.imageUrl || lesson.imageUrl || lesson.mediaUrl,
-          videoUrl: p.videoUrl || lesson.videoUrl,
-          audioUrl: p.audioUrl || lesson.audioUrl,
+          videoUrl: p.videoUrl,
+          audioUrl: p.audioUrl,
           audioText: p.audioText || p.content || lesson.audioText,
         }))
       : [

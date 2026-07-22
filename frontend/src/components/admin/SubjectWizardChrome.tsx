@@ -70,10 +70,8 @@ export function SubjectWizardChrome({
 interface WizardStepFooterProps {
   onBack?: () => void;
   backLabel?: string;
-  onSave?: () => void;
   saving?: boolean;
-  saveLabel?: string;
-  onNext?: () => void;
+  onNext?: () => void | Promise<void>;
   nextLabel?: string;
   nextDisabled?: boolean;
   extra?: ReactNode;
@@ -82,11 +80,9 @@ interface WizardStepFooterProps {
 export function WizardStepFooter({
   onBack,
   backLabel = "← Back",
-  onSave,
   saving,
-  saveLabel = "Save",
   onNext,
-  nextLabel = "Next →",
+  nextLabel = "Save & continue →",
   nextDisabled,
   extra,
 }: WizardStepFooterProps) {
@@ -94,31 +90,26 @@ export function WizardStepFooter({
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div className="flex flex-wrap gap-2">
         {onBack && (
-          <button type="button" onClick={onBack} className="kid-btn-secondary !px-5 !py-2.5 !text-sm">
+          <button
+            type="button"
+            onClick={onBack}
+            disabled={saving}
+            className="kid-btn-secondary !px-5 !py-2.5 !text-sm disabled:opacity-50"
+          >
             {backLabel}
           </button>
         )}
         {extra}
       </div>
       <div className="flex flex-wrap gap-2">
-        {onSave && (
-          <button
-            type="button"
-            onClick={onSave}
-            disabled={saving}
-            className="kid-btn-secondary !px-5 !py-2.5 !text-sm disabled:opacity-50"
-          >
-            {saving ? "Saving…" : saveLabel}
-          </button>
-        )}
         {onNext && (
           <button
             type="button"
-            onClick={onNext}
+            onClick={() => void onNext()}
             disabled={nextDisabled || saving}
             className="kid-btn-primary !px-5 !py-2.5 !text-sm disabled:opacity-50"
           >
-            {nextLabel}
+            {saving ? "Saving…" : nextLabel}
           </button>
         )}
       </div>

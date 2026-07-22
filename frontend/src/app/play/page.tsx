@@ -1,20 +1,13 @@
 "use client";
 
 import { Suspense } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { MascotQuizPlayer } from "@/components/MascotQuizPlayer";
 
 function PlayPageInner() {
   const searchParams = useSearchParams();
-  const router = useRouter();
   const lessonId = searchParams.get("lesson") ?? undefined;
-
-  useEffect(() => {
-    if (!lessonId) router.replace("/subjects");
-  }, [lessonId, router]);
-
-  if (!lessonId) return null;
+  // No lesson param → built-in demo lessons (ALL_MATH_LESSONS) for practice.
   return <MascotQuizPlayer initialLessonId={lessonId} />;
 }
 

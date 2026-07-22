@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useDynamicParam } from "@/lib/use-dynamic-param";
 import { AdminShell, useAdminSession } from "@/components/layout/AdminShell";
@@ -15,6 +15,8 @@ import { Spinner } from "@/components/ui/Spinner";
 import { SubjectContentEditor } from "@/components/admin/SubjectContentEditor";
 import { SubjectSetupStep } from "@/components/admin/SubjectSetupStep";
 import { canPublishCourse } from "@/lib/course-rules";
+import { validateCourseContent } from "@/lib/content-limits";
+import { buildCourseSnapshot, snapshotFromApiCourse } from "@/lib/course-snapshot";
 import { usePagination } from "@/lib/use-pagination";
 import {
   CourseQuizQuestion,
@@ -68,12 +70,8 @@ export default function CourseEditorPage() {
   const [inviting, setInviting] = useState(false);
   const [reinvitingEmail, setReinvitingEmail] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
-  const [draftRestored, setDraftRestored] = useState(false);
-  const [editorReady, setEditorReady] = useState(false);
+  const [savedSnapshot, setSavedSnapshot] = useState<string | null>(null);
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
-  const serverFingerprintRef = React.useRef<string>("");
-
-  const draftKey = `gingerpop-subject-draft:${id}`;
 
   const applyCoursePayload = useCallback(
     (course: {
@@ -114,11 +112,33 @@ export default function CourseEditorPage() {
           optionEmojis: q.optionEmojis ?? ["🐊", "🐊", "🐊", "😐"],
         })),
       );
-      // Keep fingerprint in sync whenever server data is applied
-      serverFingerprintRef.current = course.lessons.map((l) => l.id).sort().join(",");
     },
     [],
   );
+
+  const captureCurrentSnapshot = useCallback(
+    (
+      overrides?: Partial<{
+        title: string;
+        description: string;
+        published: boolean;
+        subjectMeta: typeof subjectMeta;
+        lessons: LessonRow[];
+        quizQuestions: QuestionRow[];
+      }>,
+    ) =>
+      buildCourseSnapshot({
+        title: overrides?.title ?? title,
+        description: overrides?.description ?? description,
+        published: overrides?.published ?? published,
+        subjectMeta: overrides?.subjectMeta ?? subjectMeta,
+        lessons: overrides?.lessons ?? lessons,
+        quizQuestions: overrides?.quizQuestions ?? quizQuestions,
+      }),
+    [title, description, published, subjectMeta, lessons, quizQuestions],
+  );
+
+  const isDirty = savedSnapshot !== null && captureCurrentSnapshot() !== savedSnapshot;
 
   const loadCourse = useCallback(() => {
     return fetch(`/api/courses/${id}`)
@@ -129,66 +149,13 @@ export default function CourseEditorPage() {
           return;
         }
 
-        // Fingerprint = sorted server lesson IDs. If the draft was saved against
-        // a different set of lessons, the server has changed and the draft is stale.
-        const serverFingerprint = (data.course.lessons as { id: string }[])
-          .map((l) => l.id)
-          .sort()
-          .join(",");
-        serverFingerprintRef.current = serverFingerprint;
-
-        let restoredDraft = false;
-        try {
-          const raw = sessionStorage.getItem(draftKey) ?? localStorage.getItem(draftKey);
-          if (raw) {
-            const draft = JSON.parse(raw) as {
-              title: string;
-              description: string;
-              published: boolean;
-              subjectMeta: typeof subjectMeta;
-              lessons: LessonRow[];
-              quizQuestions: QuestionRow[];
-              serverFingerprint?: string;
-            };
-            const draftFingerprint = draft.serverFingerprint ?? "";
-            if (draftFingerprint && draftFingerprint !== serverFingerprint) {
-              // Server lessons changed since draft was saved → stale, discard silently
-              sessionStorage.removeItem(draftKey);
-              localStorage.removeItem(draftKey);
-              applyCoursePayload(data.course);
-            } else {
-              setTitle(draft.title ?? data.course.title);
-              setDescription(draft.description ?? data.course.description ?? "");
-              setPublished(draft.published ?? data.course.published);
-              setSubjectMeta(draft.subjectMeta ?? {
-                emoji: data.course.emoji || "📚",
-                color: data.course.color || "#fff7ed",
-                accent: data.course.accent || "#ea580c",
-                slug: data.course.slug || "",
-              });
-              setLessons(draft.lessons ?? []);
-              setQuizQuestions(draft.quizQuestions ?? []);
-              restoredDraft = true;
-              setDraftRestored(true);
-            }
-          } else {
-            applyCoursePayload(data.course);
-          }
-        } catch {
-          applyCoursePayload(data.course);
-        }
+        applyCoursePayload(data.course);
+        setSavedSnapshot(snapshotFromApiCourse(data.course));
 
         setInvitations(data.invitations ?? []);
         setLoading(false);
-        setEditorReady(true);
-        if (restoredDraft) {
-          setMessage({
-            type: "success",
-            text: "You have unsaved local changes. Click Save to keep them, or Discard to reload from server.",
-          });
-        }
       });
-  }, [id, router, draftKey, applyCoursePayload]);
+  }, [id, router, applyCoursePayload]);
 
   useEffect(() => {
     loadCourse();
@@ -205,6 +172,12 @@ export default function CourseEditorPage() {
     const structureCheck = canPublishCourse(nextLessons, nextQuestions);
     if (nextPublished && !structureCheck.valid) {
       setMessage({ type: "error", text: structureCheck.error ?? "Invalid course structure." });
+      return false;
+    }
+
+    const limitCheck = validateCourseContent(nextLessons, nextQuestions);
+    if (!limitCheck.valid) {
+      setMessage({ type: "error", text: limitCheck.error });
       return false;
     }
 
@@ -237,8 +210,8 @@ export default function CourseEditorPage() {
           mascotSpeech: l.mascotSpeech,
           ctaText: l.ctaText,
           imageUrl: l.imageUrl || l.mediaUrl,
-          videoUrl: l.videoUrl,
-          audioUrl: l.audioUrl,
+          videoUrl: l.pages?.length ? "" : l.videoUrl,
+          audioUrl: l.pages?.length ? "" : l.audioUrl,
           audioText: l.audioText,
           pages: l.pages,
         })),
@@ -271,14 +244,16 @@ export default function CourseEditorPage() {
     setSaving(false);
 
     if (res.ok) {
-      sessionStorage.removeItem(draftKey);
-      setDraftRestored(false);
       setLastSavedAt(new Date().toLocaleTimeString());
-      // Reload from server without re-applying stale drafts
       const fresh = await fetch(`/api/courses/${id}`).then((r) => r.json());
       if (!fresh.error) {
         applyCoursePayload(fresh.course);
+        setSavedSnapshot(snapshotFromApiCourse(fresh.course));
         setInvitations(fresh.invitations ?? []);
+      } else {
+        setSavedSnapshot(
+          captureCurrentSnapshot({ lessons: nextLessons, quizQuestions: nextQuestions }),
+        );
       }
       return true;
     }
@@ -286,37 +261,37 @@ export default function CourseEditorPage() {
     return false;
   };
 
-  // Keep a local draft so refresh does not wipe typing
-  useEffect(() => {
-    if (!editorReady || loading) return;
-    const payload = {
-      title,
-      description,
-      published,
-      subjectMeta,
-      lessons,
-      quizQuestions,
-      savedAt: Date.now(),
-      serverFingerprint: serverFingerprintRef.current,
-    };
-    sessionStorage.setItem(draftKey, JSON.stringify(payload));
-  }, [
-    editorReady,
-    loading,
-    title,
-    description,
-    published,
-    subjectMeta,
-    lessons,
-    quizQuestions,
-    draftKey,
-  ]);
-
-  const handleSave = async () => {
+  const handleSave = async (): Promise<boolean> => {
+    if (!isDirty) return true;
     const ok = await persistCourse(lessons, quizQuestions);
     if (ok) {
-      setMessage({ type: "success", text: "Changes saved successfully." });
+      setMessage({ type: "success", text: "Saved to server." });
     }
+    return ok;
+  };
+
+  useEffect(() => {
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!isDirty) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [isDirty]);
+
+  const goToStep = async (step: SetupPhase | "invites") => {
+    if (isDirty) {
+      const ok = await handleSave();
+      if (!ok) return;
+    }
+    if (step === "invites") {
+      setTab("invites");
+      setSetupPhase("invites");
+      return;
+    }
+    setTab("content");
+    setSetupPhase(step);
   };
 
   const handlePublishToggle = (checked: boolean) => {
@@ -431,7 +406,7 @@ export default function CourseEditorPage() {
   return (
     <AdminShell flush>
       <div className="sticky top-14 z-20 border-b border-gray-200 bg-white/95 px-4 py-3 backdrop-blur-sm sm:px-6 lg:top-0 lg:px-8">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <PageHeader
             breadcrumbs={[
               { label: "Subjects", href: "/teacher/dashboard" },
@@ -439,18 +414,31 @@ export default function CourseEditorPage() {
             ]}
             title=""
           />
-          <div className="flex flex-wrap items-center gap-3">
-            <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-600">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            {saving ? (
+              <span className="rounded-full bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-600 sm:text-sm">
+                Saving…
+              </span>
+            ) : isDirty ? (
+              <span className="rounded-full bg-amber-100 px-3 py-1.5 text-xs font-semibold text-amber-900 sm:text-sm">
+                Unsaved changes
+              </span>
+            ) : (
+              <span className="rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-semibold text-emerald-900 sm:text-sm">
+                All saved{lastSavedAt ? ` · ${lastSavedAt}` : ""}
+              </span>
+            )}
+            <label className="flex cursor-pointer items-center gap-2 text-xs text-gray-600 sm:text-sm">
               <input
                 type="checkbox"
                 checked={published}
                 onChange={(e) => handlePublishToggle(e.target.checked)}
-                className="rounded border-gray-300 text-[var(--primary)] focus:ring-[var(--primary)]"
+                className="h-4 w-4 rounded border-gray-300 text-[var(--primary)] focus:ring-[var(--primary)]"
               />
               Published
             </label>
-            <Button onClick={handleSave} disabled={saving}>
-              {saving ? "Saving..." : "Save changes"}
+            <Button onClick={() => void handleSave()} disabled={saving || !isDirty} className="min-h-[44px] !text-sm">
+              {saving ? "Saving..." : "Save now"}
             </Button>
           </div>
         </div>
@@ -458,31 +446,24 @@ export default function CourseEditorPage() {
         <div className="mt-3 flex flex-wrap items-center gap-2">
           {(
             [
-              { id: "subject" as const, label: "1. Subject" },
-              { id: "build" as const, label: "2. Chapters → Lessons → Lesson quiz" },
-              { id: "invites" as const, label: `3. Learners (${invitations.length})` },
+              { id: "subject" as const, label: "1. Subject", shortLabel: "Subject" },
+              { id: "build" as const, label: "2. Chapters → Lessons → Quiz", shortLabel: "Content" },
+              { id: "invites" as const, label: `3. Learners (${invitations.length})`, shortLabel: "Learners" },
             ] as const
           ).map((step, index) => (
             <div key={step.id} className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => {
-                  if (step.id === "invites") {
-                    setTab("invites");
-                    setSetupPhase("invites");
-                  } else {
-                    setTab("content");
-                    setSetupPhase(step.id);
-                  }
-                }}
-                className={`rounded-full px-3 py-1.5 text-sm font-bold transition ${
+                onClick={() => void goToStep(step.id === "invites" ? "invites" : step.id)}
+                className={`min-h-[44px] rounded-full px-3 py-2 text-xs font-bold transition sm:px-4 sm:text-sm ${
                   (step.id === "invites" && tab === "invites") ||
                   (step.id !== "invites" && tab === "content" && setupPhase === step.id)
                     ? "bg-[#ffedd5] text-[#c2410c] ring-2 ring-[#fdba74]"
                     : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                 }`}
               >
-                {step.label}
+                <span className="hidden sm:inline">{step.label}</span>
+                <span className="sm:hidden">{step.shortLabel}</span>
               </button>
               {index < 2 && (
                 <span className="font-extrabold text-[#ea580c]" aria-hidden>
@@ -494,34 +475,20 @@ export default function CourseEditorPage() {
         </div>
 
         <p className="mt-2 text-xs font-semibold text-gray-500">
-          Follow the arrows: set up the subject → add chapters, lessons and lesson quizzes → invite learners
-          {lastSavedAt ? ` · last saved ${lastSavedAt}` : ""}
+          Your work is stored on the server when you click Save now or Save &amp; continue. Leaving this page with unsaved changes will show a warning.
         </p>
       </div>
 
       <div className="px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
         {message && (
           <div
-            className={`mb-6 flex items-center justify-between gap-4 rounded-md border px-4 py-3 text-base ${
+            className={`mb-6 rounded-md border px-4 py-3 text-base ${
               message.type === "success"
                 ? "border-emerald-200 bg-emerald-50 text-emerald-800"
                 : "border-red-200 bg-red-50 text-red-800"
             }`}
           >
-            <span>{message.text}</span>
-            {draftRestored && (
-              <button
-                onClick={() => {
-                  sessionStorage.removeItem(draftKey);
-                  setDraftRestored(false);
-                  setMessage(null);
-                  loadCourse();
-                }}
-                className="shrink-0 rounded border border-emerald-400 bg-white px-3 py-1 text-sm font-medium text-emerald-700 hover:bg-emerald-50"
-              >
-                Discard draft
-              </button>
-            )}
+            {message.text}
           </div>
         )}
 
@@ -556,12 +523,15 @@ export default function CourseEditorPage() {
             title={title}
             description={description}
             meta={subjectMeta}
+            lessonCount={lessons.length}
             onTitleChange={setTitle}
             onDescriptionChange={setDescription}
             onMetaChange={setSubjectMeta}
-            onSave={handleSave}
             saving={saving}
-            onNext={() => setSetupPhase("build")}
+            onNext={async () => {
+              const ok = await handleSave();
+              if (ok) setSetupPhase("build");
+            }}
           />
         )}
 
@@ -577,7 +547,7 @@ export default function CourseEditorPage() {
             onQuestionsChange={setQuizQuestions}
             onSave={handleSave}
             saving={saving}
-            onBackToSubject={() => setSetupPhase("subject")}
+            onBackToSubject={() => void goToStep("subject")}
           />
         )}
 

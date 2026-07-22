@@ -9,6 +9,11 @@ import {
 } from "@/lib/auth";
 import { getSessionStudent } from "@/lib/permissions";
 import { jsonError, jsonOk, unauthorized } from "@/lib/api";
+import {
+  emailConflictMessage,
+  findEmailConflict,
+  normalizeAccountEmail,
+} from "@/lib/account-email";
 import { Student } from "@/models/Student";
 
 const router = Router();
@@ -46,10 +51,10 @@ router.post("/register", async (req: Request, res: Response) => {
 
     await connectDB();
 
-    const normalized = email.toLowerCase().trim();
-    const existing = await Student.findOne({ email: normalized });
-    if (existing) {
-      return jsonError(res, "An account with this email already exists", 409);
+    const normalized = normalizeAccountEmail(email);
+    const conflict = await findEmailConflict(normalized);
+    if (conflict) {
+      return jsonError(res, emailConflictMessage(conflict), 409);
     }
 
     const student = await Student.create({
